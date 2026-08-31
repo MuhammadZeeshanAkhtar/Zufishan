@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /messages/
+Disallow: /trial/
+Disallow: /enrol/
+Disallow: /settings/
+Disallow: /onboarding/
+Disallow: /login
+Disallow: /signup
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Sitemap: /sitemap.xml
