@@ -1,5 +1,6 @@
 /* Quiet Geometry: asymmetric editorial layouts, warm ivory surfaces, deep emerald anchors, restrained geometric motifs. */
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import MarketplaceFilters, { emptyFilters, type MarketplaceFilterState } from "./components/MarketplaceFilters";
 import DashboardChrome from "./components/DashboardChrome";
 import { Link, Route, Switch, useLocation } from "wouter";
 import { ArrowRight, Bell, BookOpen, CalendarDays, Check, ChevronDown, CircleHelp, Clock3, Compass, Filter, Globe2, GraduationCap, LayoutDashboard, Menu, MessageCircle, Search, ShieldCheck, Sparkles, Star, Users, X } from "lucide-react";
@@ -148,13 +149,112 @@ function CourseDetail({ slug }: { slug: string }) {
 
 function TeachersPage({ initialSubject = "" }: { initialSubject?: string }) {
   const { t } = useLocale();
-  const [query, setQuery] = useState("");
-  const instructorsQuery = trpc.schedulingPublic.instructors.useQuery(undefined, { retry: false });
-  type PublicInstructorRow = { public_slug: string; teaching_languages: string[] | null; subjects: Array<{ name?: string }> | null; public_profile_status: string; verification_status: string };
-  const instructorPage = instructorsQuery.data?.ok ? instructorsQuery.data.data as { instructors: PublicInstructorRow[]; total: number } : null;
-  const liveInstructors: PublicInstructorRow[] = instructorPage?.instructors ?? [];
-  const filtered = liveInstructors.filter((instructor) => `${instructor.public_slug} ${(instructor.teaching_languages ?? []).join(" ")} ${(instructor.subjects ?? []).map((subject) => subject.name ?? "").join(" ")}`.toLowerCase().includes(query.toLowerCase()) && (!initialSubject || (instructor.subjects ?? []).some((subject) => (subject.name ?? "").toLowerCase() === initialSubject.toLowerCase())));
-  return <><Header/><PageIntro eyebrow={t("teachers.eyebrow")} title={t("teachers.title")} copy={t("teachers.copy")}/><main className="mx-auto max-w-7xl px-5 py-12 lg:px-8 lg:py-16"><Filters onChange={setQuery} placeholder={t("teachers.search")}/>{instructorsQuery.isLoading && <p className="mt-8 rounded-2xl bg-[var(--ni-sage-soft)] p-5 text-sm text-[var(--ni-muted)]">{t("catalogue.loadingApprovedInstructors")}</p>}{instructorsQuery.isError && <p className="mt-8 rounded-2xl bg-[var(--ni-clay-soft)] p-5 text-sm text-[var(--ni-clay)]" role="alert">{t("catalogue.instructorDiscoveryUnavailable")}</p>}{!instructorsQuery.isLoading && !instructorsQuery.isError && <><div className="mb-7 mt-10 flex items-center justify-between"><p className="text-sm font-semibold text-[var(--ni-muted)]">{t("catalogue.approvedInstructors")} · {filtered.length}</p><span className="text-xs text-[var(--ni-muted-soft)]">{t("catalogue.publishedApprovedOnly")}</span></div>{filtered.length ? <div className="grid gap-5 lg:grid-cols-2">{filtered.map((instructor, index) => <Link key={instructor.public_slug} href={`/teachers/${instructor.public_slug}`} className="group rounded-[1.35rem] border border-[var(--ni-sage)] bg-[var(--ni-paper)] p-5 shadow-[0_14px_40px_rgba(37,77,60,.05)] hover:-translate-y-1"><div className="flex items-start gap-4"><div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-[var(--ni-sage-soft)]"><img src={tutorVisuals[index % tutorVisuals.length]} alt="" className="h-full w-full object-cover"/></div><div><h3 className="font-display text-xl text-[var(--ni-ink)]">{instructor.public_slug}</h3><p className="mt-1 text-xs text-[var(--ni-muted)]">Published · approved</p></div></div><div className="mt-5 flex flex-wrap gap-2">{(instructor.subjects ?? []).map((subject) => <Pill key={subject.name}>{subject.name ?? "Subject"}</Pill>)}</div><p className="mt-4 text-sm leading-6 text-[var(--ni-muted)]">{(instructor.teaching_languages ?? []).join(" · ")}</p></Link>)}</div> : <EmptyState title={t("catalogue.noneTitle")} copy={t("catalogue.noneCopy")}/>}</>}</main><Footer/></>;
+  const [filters, setFilters] = useState<MarketplaceFilterState>({ ...emptyFilters, subjects: initialSubject ? [initialSubject] : [] });
+  const [page, setPage] = useState(0);
+  const pageSize = 12;
+
+  // Every filter is sent to the server; the browser never narrows the list itself.
+  const instructorsQuery = trpc.schedulingPublic.instructors.useQuery({
+    query: filters.query || undefined,
+    subjects: filters.subjects.length ? filters.subjects : undefined,
+    languages: filters.languages.length ? filters.languages : undefined,
+    levels: filters.levels.length ? filters.levels : undefined,
+    minRateMinor: filters.minRateMinor,
+    maxRateMinor: filters.maxRateMinor,
+    minYearsExperience: filters.minYearsExperience,
+    sort: filters.sort as "relevance" | "rate_asc" | "rate_desc" | "experience_desc",
+    limit: pageSize,
+    offset: page * pageSize,
+  }, { retry: false });
+  const facetsQuery = trpc.schedulingPublic.instructorFacets.useQuery(undefined, { retry: false });
+
+  type PublicInstructorRow = {
+    user_id?: string; public_slug: string; subjects: string[] | null; teaching_levels: string[] | null;
+    teaching_languages: string[] | null; years_experience: number | null; teaching_approach: string | null;
+    hourly_rate_minor: number | null; currency: string | null; availability_summary: string | null;
+    public_profile_status: string; verification_status: string;
+  };
+  const result = instructorsQuery.data?.ok ? instructorsQuery.data.data as { instructors: PublicInstructorRow[]; total: number } : null;
+  const instructors = result?.instructors ?? [];
+  const total = result?.total ?? 0;
+  const facets = facetsQuery.data?.ok ? facetsQuery.data.data as { subjects: string[]; languages: string[]; levels: string[] } : { subjects: [], languages: [], levels: [] };
+
+  const updateFilters = (nextFilters: MarketplaceFilterState) => { setFilters(nextFilters); setPage(0); };
+  const rate = (minor: number | null, currency: string | null) =>
+    typeof minor === "number" ? (minor / 100).toFixed(2) + " " + (currency || "USD") : t("marketplace.rateOnRequest");
+
+  return <><Header/><PageIntro eyebrow={t("teachers.eyebrow")} title={t("teachers.title")} copy={t("teachers.copy")}/>
+    <main className="mx-auto max-w-7xl px-5 py-12 lg:px-8 lg:py-16">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <label className="flex-1">
+          <span className="sr-only">{t("teachers.search")}</span>
+          <input
+            type="search" value={filters.query} placeholder={t("teachers.search")}
+            onChange={(event) => updateFilters({ ...filters, query: event.target.value })}
+            className="w-full rounded-full border border-[var(--ni-sage-line)] bg-[var(--ni-field)] px-5 py-3 text-sm text-[var(--ni-ink)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]"
+          />
+        </label>
+        <MarketplaceFilters variant="trigger" value={filters} onChange={updateFilters} facets={facets} resultCount={total} showRate showExperience sortOptions={[
+            { value: "relevance", label: t("marketplace.sortRelevance") },
+            { value: "rate_asc", label: t("marketplace.sortRateAsc") },
+            { value: "rate_desc", label: t("marketplace.sortRateDesc") },
+            { value: "experience_desc", label: t("marketplace.sortExperience") },
+          ]}/>
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-[16rem_1fr]">
+        <MarketplaceFilters variant="sidebar" value={filters} onChange={updateFilters} facets={facets} resultCount={total} showRate showExperience sortOptions={[
+            { value: "relevance", label: t("marketplace.sortRelevance") },
+            { value: "rate_asc", label: t("marketplace.sortRateAsc") },
+            { value: "rate_desc", label: t("marketplace.sortRateDesc") },
+            { value: "experience_desc", label: t("marketplace.sortExperience") },
+          ]}/>
+
+        <div className="min-w-0">
+          {instructorsQuery.isLoading && <p className="rounded-2xl bg-[var(--ni-sage-soft)] p-5 text-sm text-[var(--ni-muted)]" aria-live="polite">{t("catalogue.loadingApprovedInstructors")}</p>}
+          {instructorsQuery.isError && <p role="alert" className="rounded-2xl bg-[var(--ni-clay-soft)] p-5 text-sm text-[var(--ni-clay)]">{t("catalogue.instructorDiscoveryUnavailable")}</p>}
+          {!instructorsQuery.isLoading && !instructorsQuery.isError && <>
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-[var(--ni-muted)]">{t("catalogue.approvedInstructors")} · <span className="tabular">{total}</span></p>
+              <span className="text-xs text-[var(--ni-muted-soft)]">{t("catalogue.publishedApprovedOnly")}</span>
+            </div>
+            {instructors.length ? <>
+              <div className="stagger grid gap-5 xl:grid-cols-2">
+                {instructors.map((instructor) => <Link key={instructor.public_slug} href={"/teachers/" + instructor.public_slug}
+                  className="lift group block rounded-[1.35rem] border border-[var(--ni-sage)] bg-[var(--ni-paper)] p-5 outline-none focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-display text-xl text-[var(--ni-ink)]">{instructor.public_slug}</p>
+                      <p className="mt-1 text-xs font-bold uppercase tracking-[.12em] text-[var(--ni-gold-ink)]">
+                        {typeof instructor.years_experience === "number" ? t("marketplace.yearsExperience", { years: String(instructor.years_experience) }) : t("marketplace.experienceNotStated")}
+                      </p>
+                    </div>
+                    <span className="status-pill shrink-0 rounded-full bg-[var(--ni-sage-soft)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.1em] text-[var(--ni-moss-deep)]">{t("marketplace.verified")}</span>
+                  </div>
+                  {instructor.teaching_approach && <p className="mt-3 text-sm leading-6 text-[var(--ni-muted)]">{instructor.teaching_approach}</p>}
+                  <dl className="mt-4 grid grid-cols-2 gap-3 text-xs">
+                    <div><dt className="text-[var(--ni-muted-soft)]">{t("marketplace.subject")}</dt><dd className="mt-0.5 truncate font-semibold text-[var(--ni-ink)]">{(instructor.subjects ?? []).join(", ") || "—"}</dd></div>
+                    <div><dt className="text-[var(--ni-muted-soft)]">{t("marketplace.language")}</dt><dd className="mt-0.5 truncate font-semibold text-[var(--ni-ink)]">{(instructor.teaching_languages ?? []).join(", ") || "—"}</dd></div>
+                    <div><dt className="text-[var(--ni-muted-soft)]">{t("marketplace.level")}</dt><dd className="mt-0.5 truncate font-semibold text-[var(--ni-ink)]">{(instructor.teaching_levels ?? []).join(", ") || "—"}</dd></div>
+                    <div><dt className="text-[var(--ni-muted-soft)]">{t("marketplace.hourlyRate")}</dt><dd className="mt-0.5 truncate font-semibold text-[var(--ni-moss)] tabular ltr-embed">{rate(instructor.hourly_rate_minor, instructor.currency)}</dd></div>
+                  </dl>
+                  {instructor.availability_summary && <p className="mt-3 truncate text-xs text-[var(--ni-muted-soft)]">{instructor.availability_summary}</p>}
+                </Link>)}
+              </div>
+              {total > pageSize && <nav className="mt-8 flex items-center justify-between gap-3" aria-label={t("marketplace.pagination")}>
+                <Button type="button" variant="outline" disabled={page === 0} onClick={() => setPage((value) => Math.max(0, value - 1))}>{t("marketplace.previous")}</Button>
+                <p className="text-xs text-[var(--ni-muted)] tabular">{t("marketplace.pageOf", { page: String(page + 1), pages: String(Math.max(1, Math.ceil(total / pageSize))) })}</p>
+                <Button type="button" variant="outline" disabled={(page + 1) * pageSize >= total} onClick={() => setPage((value) => value + 1)}>{t("marketplace.next")}</Button>
+              </nav>}
+            </> : <div className="rounded-[1.35rem] border border-dashed border-[var(--ni-sage-mid)] bg-[var(--ni-sage-soft)] px-6 py-12 text-center">
+              <h3 className="font-display text-2xl text-[var(--ni-ink)]">{t("marketplace.noMatches")}</h3>
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--ni-muted)]">{t("marketplace.noMatchesCopy")}</p>
+              <button type="button" onClick={() => updateFilters({ ...emptyFilters })} className="mt-5 rounded-full bg-[var(--ni-moss)] px-5 py-2.5 text-sm font-semibold text-white">{t("marketplace.clearFilters")}</button>
+            </div>}
+          </>}
+        </div>
+      </div>
+    </main><Footer/></>;
 }
 
 function TutorDetail({ slug }: { slug: string }) { return <PublicInstructorProfile slug={slug}/>; }
