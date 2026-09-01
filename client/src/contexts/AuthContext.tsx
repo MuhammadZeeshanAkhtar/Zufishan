@@ -76,6 +76,9 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   const [authError, setAuthError] = useState<string | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
   const profilesQuery = trpc.supabaseCore.profiles.useQuery(undefined, { enabled: Boolean(supabaseClient && supabaseSession), retry: false });
+  // The signup trigger only ever grants "learner". This asks the server to honour a signup that
+  // requested instructor, reading that request from auth metadata server-side — never from here.
+  const claimRoleMutation = trpc.supabaseCore.claimPublicRole.useMutation();
   const bootstrappedProfiles = profilesQuery.data?.ok ? coreProfiles(profilesQuery.data.data) : null;
   const roles = roleFromRoles(bootstrappedProfiles?.roles);
   const resolvedRole = publicRole(roles);
@@ -118,8 +121,13 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     if (error) return { ok: false, error: friendlyAuthError(error) };
     if (!data.session) return { ok: true, needsVerification: true };
     setSupabaseSession(data.session);
-    return { ok: true, next: "/onboarding/" + role };
-  }, []);
+    await claimRoleMutation.mutateAsync().catch(() => undefined);
+    const signUpProfiles = await profilesQuery.refetch();
+    const granted = signUpProfiles.data?.ok ? coreProfiles(signUpProfiles.data.data) : null;
+    // Route by the role the server actually granted, not the one the form asked for.
+    const grantedRole = publicRole(roleFromRoles(granted?.roles));
+    return { ok: true, next: "/onboarding/" + grantedRole };
+  }, [claimRoleMutation, profilesQuery]);
 
   const signIn = useCallback(async (email: string, password: string): Promise<AuthResult> => {
     const normalizedEmail = normalizeEmail(email);
@@ -129,12 +137,14 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     if (error) return { ok: false, error: friendlyAuthError(error) };
     if (!data.session) return { ok: false, error: "Your account needs email verification before it can sign in." };
     setSupabaseSession(data.session);
+    // Idempotent, and it also repairs accounts created before the role claim existed.
+    await claimRoleMutation.mutateAsync().catch(() => undefined);
     const refreshedResult = await profilesQuery.refetch();
     const refreshed = refreshedResult.data?.ok ? coreProfiles(refreshedResult.data.data) : null;
     const nextRole = publicRole(roleFromRoles(refreshed?.roles));
     const done = Boolean(refreshed?.profile?.onboarding_completed);
     return { ok: true, next: done ? `/dashboard/${nextRole}` : `/onboarding/${nextRole}` };
-  }, [profilesQuery]);
+  }, [claimRoleMutation, profilesQuery]);
 
   const signOut = useCallback(async () => {
     if (supabaseClient) await supabaseClient.auth.signOut();

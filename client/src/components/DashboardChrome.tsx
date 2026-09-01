@@ -10,10 +10,12 @@
  */
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Bell, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "../contexts/LocaleContextState";
 import DashboardSidebar, { SidebarToggle, useSidebarState, type DashboardRole } from "./DashboardSidebar";
+import NotificationBell from "./NotificationBell";
+import { LocaleSelector } from "./LocaleSelector";
 
 const CHROME_ROLES: DashboardRole[] = ["learner", "instructor", "admin"];
 
@@ -83,13 +85,9 @@ export default function DashboardChrome({ children }: { children: ReactNode }) {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Link
-                href={`/dashboard/${role}/notifications`}
-                aria-label={t("dashboard.notifications")}
-                className="rounded-full bg-[var(--ni-sage-soft)] p-2 text-[var(--ni-sage-ink)] outline-none transition-colors hover:bg-[var(--ni-sage)] focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]"
-              >
-                <Bell size={18} />
-              </Link>
+              {/* Language is the shared, persisted LocaleContext selector, so both dashboards stay in sync. */}
+              <LocaleSelector compact />
+              <NotificationBell role={role} />
               <div className="relative">
                 <button
                   type="button"

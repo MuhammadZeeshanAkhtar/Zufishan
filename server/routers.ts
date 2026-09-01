@@ -1,4 +1,5 @@
 import { COOKIE_NAME } from "@shared/const";
+import { claimRequestedPublicRole } from "./supabase-auth";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router, supabaseOnlyProcedure } from "./_core/trpc";
@@ -21,6 +22,7 @@ export const appRouter = router({
     publicCourseById: publicProcedure.input(z.object({ courseId: z.string().uuid() })).query(({ input }) => getPublicPublishedCourseById(input.courseId)),
     publicLessonMetadata: publicProcedure.input(z.object({ slug: z.string().min(1).max(160), lessonId: z.string().uuid() })).query(({ input }) => getPublicPublishedLessonMetadata(input.slug, input.lessonId)),
     profiles: supabaseOnlyProcedure.query(({ ctx }) => getOwnCoreProfiles(ctx.supabaseIdentity)),
+    claimPublicRole: supabaseOnlyProcedure.mutation(({ ctx }) => claimRequestedPublicRole(ctx.supabaseIdentity)),
     updateProfile: supabaseOnlyProcedure.input(z.object({ fullName: z.string().min(1).max(160), displayName: z.string().min(1).max(120), preferredLanguage: z.string().min(2).max(40), preferredLocale: z.enum(["en", "ur", "ar"]).optional() })).mutation(({ ctx, input }) => updateOwnProfile(ctx.supabaseIdentity, input)),
     updateLocale: supabaseOnlyProcedure.input(z.object({ preferredLocale: z.enum(["en", "ur", "ar"]) })).mutation(({ ctx, input }) => updateOwnLocale(ctx.supabaseIdentity, input.preferredLocale)),
     updateInstructorProfile: supabaseOnlyProcedure.input(z.object({ publicDisplayName: z.string().min(1).max(160), publicSlug: z.string().regex(/^[a-z0-9-]+$/).max(120), subjects: z.array(z.string().min(1).max(120)).max(20), levels: z.array(z.string().min(1).max(80)).max(12), teachingLanguages: z.array(z.string().min(1).max(80)).max(12), yearsExperience: z.number().int().min(0).max(100).optional(), teachingApproach: z.string().max(10000).optional(), hourlyRateMinor: z.number().int().nonnegative().optional(), currency: z.string().length(3).optional(), availabilitySummary: z.string().max(1000).optional(), profileVisibility: z.enum(["public", "private"]), preferredLanguage: z.string().min(2).max(80) })).mutation(({ ctx, input }) => updateOwnInstructorProfile(ctx.supabaseIdentity, input)),

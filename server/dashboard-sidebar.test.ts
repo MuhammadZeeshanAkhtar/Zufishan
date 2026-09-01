@@ -69,14 +69,15 @@ describe("dashboard sidebar", () => {
     expect(new Set(learnerIcons).size).toBeGreaterThanOrEqual(routeGroups.learner.length - 1);
   });
 
-  it("carries the account modules the brief requires on both dashboards", () => {
+  it("carries the account modules on both dashboards", () => {
     for (const role of ["learner", "instructor"] as const) {
-      for (const item of ["Notifications", "Reviews", "Settings"]) {
+      for (const item of ["Reviews", "Settings", "Wallet"]) {
         expect(routeGroups[role]).toContain(item);
       }
+      // Notifications deliberately left the sidebar: it is a header bell popover now, so a
+      // sidebar entry would be a second, competing entry point to the same content.
+      expect(routeGroups[role]).not.toContain("Notifications");
     }
-    expect(routeGroups.learner).toContain("Wallet");
-    expect(routeGroups.instructor).toContain("Wallet");
   });
 
   it("collapses, persists the preference, and keeps links working when collapsed", () => {
