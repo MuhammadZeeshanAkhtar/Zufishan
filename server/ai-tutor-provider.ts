@@ -11,17 +11,27 @@ export type TutorProviderResult =
   | { ok: true; text: string; model: string }
   | { ok: false; status: "unavailable" | "failed"; message: string };
 
-const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash";
 const MAX_OUTPUT_TOKENS = 900;
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_ATTEMPTS = 2;
 
+/**
+ * Both variables are required. The model is deliberately NOT defaulted: silently falling back to
+ * some built-in model name would send traffic to a model the operator never chose, and would hide
+ * a missing configuration behind an answer that looks real.
+ */
 export function geminiProviderStatus(env: NodeJS.ProcessEnv = process.env): TutorProviderStatus {
-  return env.GEMINI_API_KEY?.trim() ? "configured" : "setup-needed";
+  return env.GEMINI_API_KEY?.trim() && env.GEMINI_MODEL?.trim() ? "configured" : "setup-needed";
 }
 
+/** Names the variables that still need a value. Never returns or logs any value. */
+export function missingGeminiEnv(env: NodeJS.ProcessEnv = process.env): string[] {
+  return (["GEMINI_API_KEY", "GEMINI_MODEL"] as const).filter((name) => !env[name]?.trim());
+}
+
+/** The operator-chosen model, or empty when unset. Callers must treat empty as setup-needed. */
 export function configuredGeminiModel(env: NodeJS.ProcessEnv = process.env): string {
-  return env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL;
+  return env.GEMINI_MODEL?.trim() || "";
 }
 
 function boundedText(value: unknown, max: number): string {
@@ -35,7 +45,17 @@ function isRetryable(status: number): boolean {
 export async function generateGeminiTutorReply(request: TutorProviderRequest, env: NodeJS.ProcessEnv = process.env): Promise<TutorProviderResult> {
   const key = env.GEMINI_API_KEY?.trim();
   const model = request.model?.trim() || configuredGeminiModel(env);
-  if (!key) return { ok: false, status: "unavailable", message: "AI Tutor provider setup is required before real answers can be generated." };
+  // Report which variable is missing by NAME only — never a value, never a partial value.
+  const missing = missingGeminiEnv(env);
+  if (!key || !model) {
+    return {
+      ok: false,
+      status: "unavailable",
+      message: missing.length
+        ? `AI Tutor provider setup is required. Set ${missing.join(" and ")} in the server environment before real answers can be generated.`
+        : "AI Tutor provider setup is required before real answers can be generated.",
+    };
+  }
 
   const contents = [
     ...request.history.slice(-12).map(message => ({ role: message.role, parts: [{ text: boundedText(message.text, 4000) }] })),
