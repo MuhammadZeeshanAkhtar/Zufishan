@@ -69,15 +69,32 @@ describe("dashboard sidebar", () => {
     expect(new Set(learnerIcons).size).toBeGreaterThanOrEqual(routeGroups.learner.length - 1);
   });
 
-  it("carries the account modules on both dashboards", () => {
+  it("keeps the learner account modules and the Settings entry on both dashboards", () => {
+    // Learner keeps its full account group.
+    for (const item of ["Reviews", "Settings", "Wallet"]) {
+      expect(routeGroups.learner).toContain(item);
+    }
+    // The tutor desk was trimmed to the modules a tutor actually uses; Settings stays.
+    expect(routeGroups.instructor).toContain("Settings");
     for (const role of ["learner", "instructor"] as const) {
-      for (const item of ["Reviews", "Settings", "Wallet"]) {
-        expect(routeGroups[role]).toContain(item);
-      }
-      // Notifications deliberately left the sidebar: it is a header bell popover now, so a
-      // sidebar entry would be a second, competing entry point to the same content.
+      // Notifications is a header bell popover, so a sidebar entry would be a competing
+      // second entry point to the same content.
       expect(routeGroups[role]).not.toContain("Notifications");
     }
+  });
+
+  it("trims the tutor desk without removing anything the learner needs", () => {
+    const removedFromTutor = ["Verification", "Invites", "Bookings", "Students", "Sessions", "Availability", "Reports", "Reviews", "Wallet"];
+    for (const item of removedFromTutor) expect(routeGroups.instructor).not.toContain(item);
+    // Every one of those that the learner uses is still on the learner desk.
+    for (const item of ["Bookings", "Sessions", "Reports", "Reviews", "Wallet"]) {
+      expect(routeGroups.learner).toContain(item);
+    }
+    // Noor Ilm's own modules survive the trim.
+    expect(routeGroups.instructor).toContain("AI Tutor");
+    expect(routeGroups.instructor).toContain("Courses");
+    expect(routeGroups.instructor).toContain("Find Students");
+    expect(routeGroups.instructor.length).toBeLessThan(routeGroups.learner.length + 3);
   });
 
   it("collapses, persists the preference, and keeps links working when collapsed", () => {

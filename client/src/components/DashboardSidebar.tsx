@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   BadgeCheck, Banknote, Bell, BookMarked, BookOpen, CalendarCheck, CalendarClock, CalendarDays,
-  ClipboardCheck, CreditCard, FileBarChart, GraduationCap, LayoutDashboard, MessageSquare,
+  ClipboardCheck, CreditCard, FileBarChart, GraduationCap, LayoutDashboard, MessageSquare, UserSearch,
   MonitorPlay, PanelLeft, ScrollText, Settings, Sparkles, Star, TrendingUp, User, UserPlus, Users,
   Video, Wallet, X, type LucideIcon,
 } from "lucide-react";
@@ -32,7 +32,7 @@ const MODULE_ICONS: Record<string, LucideIcon> = {
   // learner
   tutors: GraduationCap, progress: TrendingUp,
   // instructor
-  training: BookMarked, verification: BadgeCheck, invites: UserPlus, students: Users,
+  "find students": UserSearch, training: BookMarked, verification: BadgeCheck, invites: UserPlus, students: Users,
   availability: CalendarClock, "classroom demo": Video, billing: CreditCard, withdrawals: Banknote,
   // admin
   users: Users, instructors: GraduationCap, classrooms: Video, "audit logs": ScrollText,

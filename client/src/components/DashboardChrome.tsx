@@ -37,6 +37,7 @@ export function hrefForModule(role: DashboardRole, item: string) {
     billing: `/dashboard/${role}/billing`,
     withdrawals: `/dashboard/${role}/withdrawals`,
     wallet: `/dashboard/${role}/wallet`,
+    "find-students": `/dashboard/${role}/requirements`,
     "classroom-demo": `/dashboard/${role}/classroom-demo`,
     "ai-tutor": role === "admin" ? "/admin/ai-tutor" : `/dashboard/${role}/ai-tutor`,
   };
