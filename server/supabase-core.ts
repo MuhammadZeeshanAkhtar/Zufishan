@@ -43,6 +43,41 @@ export async function updateOwnInstructorProfile(identity: SupabaseIdentity, inp
   return safe(() => Promise.all([profileUpdate, instructorUpdate]).then(([profile, instructor]) => ({ data: { profile: profile.data, instructorProfile: instructor.data }, error: profile.error ?? instructor.error })));
 }
 
+/**
+ * Learner-side profile edit: the subjects a learner wants to study, plus the location and language
+ * fields the profile form exposes. `learner_profiles` was read-only until now — nothing wrote it.
+ *
+ * Both writes are scoped to the caller's own id from the verified identity, so a learner can only
+ * ever edit their own row. Subjects are bounded and trimmed rather than trusted as sent.
+ */
+export async function updateOwnLearnerProfile(identity: SupabaseIdentity, input: {
+  fullName: string; displayName: string; learningSubjects: string[]; receiveTutorMessages?: boolean;
+  country?: string; city?: string; timezone?: string; supportedLanguages?: string[];
+}) {
+  const db = client(identity); if (!db) return failure("Supabase persistence unavailable.");
+  const subjects = Array.from(new Set(input.learningSubjects.map((s) => s.trim()).filter(Boolean))).slice(0, 12);
+  const languages = Array.from(new Set((input.supportedLanguages ?? []).map((s) => s.trim()).filter(Boolean))).slice(0, 12);
+
+  const profileUpdate = db.from("profiles").update({
+    full_name: input.fullName.trim(),
+    display_name: input.displayName.trim(),
+    country: input.country?.trim() || null,
+    city: input.city?.trim() || null,
+    timezone: input.timezone?.trim() || null,
+    supported_languages: languages,
+  }).eq("id", identity.id);
+
+  const learnerUpdate = db.from("learner_profiles").upsert(
+    { user_id: identity.id, learning_subjects: subjects },
+    { onConflict: "user_id" },
+  );
+
+  return safe(() => Promise.all([profileUpdate, learnerUpdate]).then(([profile, learner]) => ({
+    data: { profile: profile.data, learnerProfile: learner.data },
+    error: profile.error ?? learner.error,
+  })));
+}
+
 export async function updateOwnLocale(identity: SupabaseIdentity, preferredLocale: "en" | "ur" | "ar") {
   const db = client(identity); if (!db) return failure("Supabase persistence unavailable.");
   return safe(() => db.from("profiles").update({ preferred_locale: preferredLocale }).eq("id", identity.id).select("preferred_locale").single());
