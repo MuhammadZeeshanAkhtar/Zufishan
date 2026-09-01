@@ -51,12 +51,18 @@ export async function updateOwnInstructorProfile(identity: SupabaseIdentity, inp
  * ever edit their own row. Subjects are bounded and trimmed rather than trusted as sent.
  */
 export async function updateOwnLearnerProfile(identity: SupabaseIdentity, input: {
-  fullName: string; displayName: string; learningSubjects: string[]; receiveTutorMessages?: boolean;
+  fullName: string; displayName: string; learningSubjects: string[];
   country?: string; city?: string; timezone?: string; supportedLanguages?: string[];
+  preferredLanguage?: string; preferredLocale?: "en" | "ur" | "ar"; bio?: string;
+  profileVisibility?: "public" | "private"; completeOnboarding?: boolean;
+  learningLevel?: string; learningGoal?: string; preferredClassFormat?: string;
+  preferredDaysTimes?: string; budgetRange?: string;
 }) {
   const db = client(identity); if (!db) return failure("Supabase persistence unavailable.");
   const subjects = Array.from(new Set(input.learningSubjects.map((s) => s.trim()).filter(Boolean))).slice(0, 12);
   const languages = Array.from(new Set((input.supportedLanguages ?? []).map((s) => s.trim()).filter(Boolean))).slice(0, 12);
+  // Only send a column when the caller supplied it, so a partial edit never blanks a stored value.
+  const optional = <T,>(value: T | undefined, mapped: () => unknown) => (value === undefined ? {} : { ...(mapped() as object) });
 
   const profileUpdate = db.from("profiles").update({
     full_name: input.fullName.trim(),
@@ -65,12 +71,23 @@ export async function updateOwnLearnerProfile(identity: SupabaseIdentity, input:
     city: input.city?.trim() || null,
     timezone: input.timezone?.trim() || null,
     supported_languages: languages,
+    ...optional(input.preferredLanguage, () => ({ preferred_language: input.preferredLanguage!.trim() })),
+    ...optional(input.preferredLocale, () => ({ preferred_locale: input.preferredLocale })),
+    ...optional(input.bio, () => ({ bio: input.bio!.trim() || null })),
+    ...optional(input.profileVisibility, () => ({ profile_visibility: input.profileVisibility })),
+    // Onboarding completion is a profile flag, not a separate record.
+    ...(input.completeOnboarding ? { onboarding_completed: true } : {}),
   }).eq("id", identity.id);
 
-  const learnerUpdate = db.from("learner_profiles").upsert(
-    { user_id: identity.id, learning_subjects: subjects },
-    { onConflict: "user_id" },
-  );
+  const learnerUpdate = db.from("learner_profiles").upsert({
+    user_id: identity.id,
+    learning_subjects: subjects,
+    ...optional(input.learningLevel, () => ({ learning_level: input.learningLevel!.trim() || null })),
+    ...optional(input.learningGoal, () => ({ learning_goal: input.learningGoal!.trim() || null })),
+    ...optional(input.preferredClassFormat, () => ({ preferred_class_format: input.preferredClassFormat!.trim() || null })),
+    ...optional(input.preferredDaysTimes, () => ({ preferred_days_times: input.preferredDaysTimes!.trim() || null })),
+    ...optional(input.budgetRange, () => ({ budget_range: input.budgetRange!.trim() || null })),
+  }, { onConflict: "user_id" });
 
   return safe(() => Promise.all([profileUpdate, learnerUpdate]).then(([profile, learner]) => ({
     data: { profile: profile.data, learnerProfile: learner.data },
