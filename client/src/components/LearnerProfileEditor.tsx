@@ -13,8 +13,11 @@ import { Check } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { trpc } from "@/lib/trpc";
 import { useLocale } from "../contexts/LocaleContextState";
+import { SearchableMultiSelect, SearchableSelect } from "./SearchableSelect";
+import { countryOptions, languageOptions, subjectOptions, timezoneOptions } from "../lib/reference-data";
 
-const SUBJECT_OPTIONS = ["Recitation", "Hifz", "Arabic", "Tajweed", "Noorani Qaida"] as const;
+// Subjects come from the list Noor Ilm already recommends (categories in lms-data).
+const SUBJECT_OPTIONS = subjectOptions;
 
 type CoreProfiles = {
   profile: Record<string, unknown> | null;
@@ -57,7 +60,7 @@ export default function LearnerProfileEditor() {
   const [country, setCountry] = useState("");
   const [city, setCity] = useState("");
   const [timezone, setTimezone] = useState("");
-  const [languages, setLanguages] = useState("");
+  const [languages, setLanguages] = useState<string[]>([]);
   const [subjects, setSubjects] = useState<string[]>([]);
   const [profileError, setProfileError] = useState("");
   const [profileSaved, setProfileSaved] = useState(false);
@@ -78,7 +81,7 @@ export default function LearnerProfileEditor() {
     setCountry(String(p.country ?? ""));
     setCity(String(p.city ?? ""));
     setTimezone(String(p.timezone ?? ""));
-    setLanguages(((p.supported_languages as string[] | null) ?? []).join(", "));
+    setLanguages(((p.supported_languages as string[] | null) ?? []));
     setSubjects(((core.learnerProfile?.learning_subjects as string[] | null) ?? []));
   }, [core]);
 
@@ -93,7 +96,7 @@ export default function LearnerProfileEditor() {
         country: country || undefined,
         city: city || undefined,
         timezone: timezone || undefined,
-        supportedLanguages: languages.split(",").map((value) => value.trim()).filter(Boolean),
+        supportedLanguages: languages,
       });
       if (!result.ok) { setProfileError(result.error || t("common.error")); return; }
       setProfileSaved(true);
@@ -160,7 +163,7 @@ export default function LearnerProfileEditor() {
               <input id="email" type="email" value={user?.email ?? ""} disabled readOnly className={`${fieldClass} ltr-embed`}/>
             </Row>
             <Row label={t("learnerProfile.languages")} htmlFor="languages" hint={t("learnerProfile.languagesHint")}>
-              <input id="languages" value={languages} onChange={(e) => setLanguages(e.target.value)} placeholder={t("learnerProfile.languagesPlaceholder")} className={fieldClass}/>
+              <SearchableMultiSelect id="languages" options={languageOptions()} values={languages} onChange={setLanguages} placeholder={t("learnerProfile.languagesPlaceholder")}/>
             </Row>
           </Section>
 
@@ -186,10 +189,10 @@ export default function LearnerProfileEditor() {
 
           <Section title={t("learnerProfile.location")}>
             <Row label={t("learnerProfile.country")} htmlFor="country">
-              <input id="country" value={country} onChange={(e) => setCountry(e.target.value)} className={fieldClass}/>
+              <SearchableSelect id="country" options={countryOptions()} value={country} onChange={setCountry}/>
             </Row>
             <Row label={t("learnerProfile.timezone")} htmlFor="timezone" hint={t("learnerProfile.timezoneHint")}>
-              <input id="timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)} placeholder="Asia/Karachi" className={`${fieldClass} ltr-embed`}/>
+              <SearchableSelect id="timezone" options={timezoneOptions()} value={timezone} onChange={setTimezone} placeholder="Asia/Karachi"/>
             </Row>
             <Row label={t("learnerProfile.city")} htmlFor="city">
               <input id="city" value={city} onChange={(e) => setCity(e.target.value)} className={fieldClass}/>
@@ -200,7 +203,7 @@ export default function LearnerProfileEditor() {
           {profileSaved && <p className="mt-6 rounded-xl bg-[var(--ni-sage-soft)] px-4 py-2.5 text-sm text-[var(--ni-moss-deep)]"><Check size={14} className="me-1 inline"/>{t("learnerProfile.profileSaved")}</p>}
 
           <div className="mt-7 flex justify-end gap-3">
-            <button type="button" onClick={() => { if (core?.profile) { const p = core.profile; setFullName(String(p.full_name ?? "")); setDisplayName(String(p.display_name ?? "")); setCountry(String(p.country ?? "")); setCity(String(p.city ?? "")); setTimezone(String(p.timezone ?? "")); setLanguages(((p.supported_languages as string[] | null) ?? []).join(", ")); setSubjects(((core.learnerProfile?.learning_subjects as string[] | null) ?? [])); setProfileError(""); setProfileSaved(false); } }}
+            <button type="button" onClick={() => { if (core?.profile) { const p = core.profile; setFullName(String(p.full_name ?? "")); setDisplayName(String(p.display_name ?? "")); setCountry(String(p.country ?? "")); setCity(String(p.city ?? "")); setTimezone(String(p.timezone ?? "")); setLanguages(((p.supported_languages as string[] | null) ?? [])); setSubjects(((core.learnerProfile?.learning_subjects as string[] | null) ?? [])); setProfileError(""); setProfileSaved(false); } }}
               className="rounded-full border border-[var(--ni-sage-mid)] px-6 py-2.5 text-sm font-semibold text-[var(--ni-muted)] outline-none hover:bg-[var(--ni-sage-soft)] focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]">
               {t("onboarding.back")}
             </button>
