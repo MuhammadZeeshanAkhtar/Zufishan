@@ -11,8 +11,14 @@ export type TutorProviderResult =
   | { ok: true; text: string; model: string }
   | { ok: false; status: "unavailable" | "failed"; message: string };
 
-const MAX_OUTPUT_TOKENS = 900;
-const REQUEST_TIMEOUT_MS = 15_000;
+// Current flash models spend part of the output budget on reasoning before emitting an answer.
+// Measured on a short language-learning prompt: 437 reasoning tokens + 216 answer tokens against
+// the old 900 cap, leaving almost no margin — a slightly longer reasoning pass exhausted the
+// budget and returned empty text, which the caller could only report as "unavailable".
+const MAX_OUTPUT_TOKENS = 2_400;
+// Those same models are slow: a short Urdu prompt took 41.6s end to end and English ~21s, so the
+// previous 15s budget aborted valid answers and made a working provider look unavailable.
+const REQUEST_TIMEOUT_MS = 55_000;
 const MAX_ATTEMPTS = 2;
 
 /**
@@ -80,7 +86,11 @@ export async function generateGeminiTutorReply(request: TutorProviderRequest, en
       const text = boundedText(payload.candidates?.[0]?.content?.parts?.map(part => part.text || "").join("\n"), 12_000);
       if (!text) return { ok: false, status: "unavailable", message: "The AI Tutor provider returned no answer." };
       return { ok: true, text, model };
-    } catch {
+    } catch (cause) {
+      // A timeout means the model was still working, not that the request was lost. Retrying just
+      // doubles the learner's wait, so only genuine transport errors get a second attempt.
+      const abortedByTimeout = cause instanceof Error && cause.name === "AbortError";
+      if (abortedByTimeout) return { ok: false, status: "unavailable", message: "The AI Tutor provider did not answer in time." };
       if (attempt < MAX_ATTEMPTS) continue;
       return { ok: false, status: "unavailable", message: "The AI Tutor provider is temporarily unavailable." };
     } finally {

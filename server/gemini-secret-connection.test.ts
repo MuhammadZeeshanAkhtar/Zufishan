@@ -10,5 +10,5 @@ describe("configured Gemini secret boundary", () => {
       headers: { "x-goog-api-key": key || "" },
     });
     expect(response.ok, `Gemini model endpoint returned HTTP ${response.status}`).toBe(true);
-  }, 20_000);
+  }, 60_000);
 });

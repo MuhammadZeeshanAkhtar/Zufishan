@@ -59,7 +59,7 @@ describe("Gemini AI Tutor provider boundary", () => {
     expect(configuredGeminiModel({ GEMINI_MODEL: "approved-model" })).toBe("approved-model");
     const adapter = readFileSync(new URL("./ai-tutor-provider.ts", import.meta.url), "utf8");
     expect(adapter).not.toMatch(/gemini-[0-9]/);
-    expect(AI_TUTOR_PROVIDER_LIMITS).toEqual({ requestTimeoutMs: 15_000, maxAttempts: 2, maxOutputTokens: 900 });
+    expect(AI_TUTOR_PROVIDER_LIMITS).toEqual({ requestTimeoutMs: 55_000, maxAttempts: 2, maxOutputTokens: 2_400 });
     const clientSource = readFileSync(new URL("../client/src/components/AITutorExperience.tsx", import.meta.url), "utf8");
     expect(clientSource).not.toMatch(/GEMINI_API_KEY|x-goog-api-key|generativelanguage\.googleapis\.com/);
   });

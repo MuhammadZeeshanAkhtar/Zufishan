@@ -31,5 +31,5 @@ describe("redacted Gemini permission diagnostic", () => {
     console.info(`GEMINI_PERMISSION_DIAGNOSTIC status=${response.status} category=${category}`);
     expect(response.status).toBeGreaterThanOrEqual(100);
     expect(category).toMatch(/^[A-Z0-9_]+$/);
-  }, 20_000);
+  }, 60_000);
 });

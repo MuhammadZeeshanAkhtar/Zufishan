@@ -20,6 +20,6 @@ describe.skipIf(process.env.RUN_GEMINI_SMOKE !== "true")( "real Gemini AI Tutor 
       console.info(`GEMINI_SMOKE locale=${sample.locale} status=${result.ok ? "success" : result.status} model=${result.ok ? result.model : "unavailable"} latencyMs=${latencyMs}`);
       expect(result.ok).toBe(true);
       if (result.ok) expect(result.text.length).toBeGreaterThan(0);
-    }, 25_000);
+    }, 90_000);
   }
 });

@@ -14,6 +14,9 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Several suites make real network calls (Supabase pooler, Gemini). The 5s default
+    // aborts healthy requests under parallel load and reports them as failures.
+    testTimeout: 20_000,
     include: ["server/**/*.test.ts", "server/**/*.spec.ts"],
   },
 });

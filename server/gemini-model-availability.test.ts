@@ -17,5 +17,5 @@ describe("configured Gemini text-generation model availability", () => {
     console.info(`GEMINI_AVAILABLE_GENERATION_MODELS count=${models.length} identifiers=${models.join(",")}`);
     expect(response.ok).toBe(true);
     expect(models.length).toBeGreaterThan(0);
-  }, 20_000);
+  }, 60_000);
 });
