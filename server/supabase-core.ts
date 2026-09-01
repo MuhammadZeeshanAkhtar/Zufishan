@@ -140,9 +140,58 @@ export async function listPublishedCourses(identity?: SupabaseIdentity) {
   return safe(() => db.from("courses").select("*").eq("status", "published").order("created_at", { ascending: false }));
 }
 
-export async function listPublicPublishedCourses() {
+/**
+ * Filters for public course discovery. Like instructor discovery, each field narrows the query
+ * itself; the published gate is applied first and cannot be overridden by caller input.
+ */
+export type PublicCourseFilters = {
+  query?: string;
+  subjects?: string[];
+  levels?: string[];
+  languages?: string[];
+  sort?: "newest" | "title_asc";
+  limit?: number;
+  offset?: number;
+};
+
+export async function listPublicPublishedCourses(filters: PublicCourseFilters = {}) {
   const db = getSupabasePublicClient(); if (!db) return failure("Supabase persistence unavailable.");
-  return safe(() => db.from("courses").select("id, slug, title, description, subject, level, language, status, created_at").eq("status", "published").order("created_at", { ascending: false }));
+  const limit = Math.min(Math.max(filters.limit ?? 24, 1), 48);
+  const offset = Math.max(filters.offset ?? 0, 0);
+
+  let request = db
+    .from("courses")
+    .select("id, slug, title, description, subject, level, language, status, created_at", { count: "exact" })
+    .eq("status", "published");
+
+  if (filters.subjects?.length) request = request.in("subject", filters.subjects);
+  if (filters.levels?.length) request = request.in("level", filters.levels);
+  if (filters.languages?.length) request = request.in("language", filters.languages);
+
+  const term = filters.query?.trim();
+  if (term) {
+    const escaped = term.replace(/[%,()]/g, " ").trim();
+    if (escaped) request = request.or(`title.ilike.%${escaped}%,description.ilike.%${escaped}%,subject.ilike.%${escaped}%`);
+  }
+
+  request = filters.sort === "title_asc"
+    ? request.order("title", { ascending: true })
+    : request.order("created_at", { ascending: false });
+
+  const { data, error, count } = await request.range(offset, offset + limit - 1);
+  if (error) return failure("Supabase operation failed.");
+  return { ok: true as const, data: { courses: data ?? [], total: count ?? 0, limit, offset } };
+}
+
+/** Distinct subject/level/language values across published courses, for real filter options. */
+export async function listCourseFilterFacets() {
+  const db = getSupabasePublicClient(); if (!db) return failure("Supabase persistence unavailable.");
+  const { data, error } = await db.from("courses").select("subject, level, language").eq("status", "published");
+  if (error) return failure("Supabase operation failed.");
+  const rows = data ?? [];
+  const distinct = (key: "subject" | "level" | "language") =>
+    Array.from(new Set(rows.map((row) => row[key] as string | null).filter(Boolean))).sort() as string[];
+  return { ok: true as const, data: { subjects: distinct("subject"), levels: distinct("level"), languages: distinct("language") } };
 }
 
 export async function getPublicPublishedCourse(slug: string) {

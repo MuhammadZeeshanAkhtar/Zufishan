@@ -234,10 +234,95 @@ export async function listSchedulingNotifications(identity: SupabaseIdentity) {
   return error ? fail("Notifications could not be loaded.") : { ok: true as const, data };
 }
 
-export async function listPublicInstructors() {
+/**
+ * Filters for public instructor discovery.
+ *
+ * Every field narrows the database query, so results reflect the filter rather than the UI merely
+ * hiding rows it already fetched. The published/approved gate is applied unconditionally and is not
+ * expressible through this input, so discovery can never surface an unpublished or unverified
+ * profile no matter what a caller sends.
+ */
+export type PublicInstructorFilters = {
+  query?: string;
+  subjects?: string[];
+  languages?: string[];
+  levels?: string[];
+  minRateMinor?: number;
+  maxRateMinor?: number;
+  minYearsExperience?: number;
+  currency?: string;
+  sort?: "relevance" | "rate_asc" | "rate_desc" | "experience_desc";
+  limit?: number;
+  offset?: number;
+};
+
+const MAX_DISCOVERY_PAGE = 48;
+
+export async function listPublicInstructors(filters: PublicInstructorFilters = {}) {
   const client = getSupabasePublicClient(); if (!client) return fail("Scheduling persistence is not configured.", "SETUP_NEEDED");
-  const { data, error } = await client.from("instructor_profiles").select("public_slug,teaching_languages,subjects,public_profile_status,verification_status").eq("public_profile_status", "published").eq("verification_status", "approved").order("public_slug");
-  return error ? fail("Instructor discovery could not be loaded.") : { ok: true as const, data: data ?? [] };
+
+  const limit = Math.min(Math.max(filters.limit ?? 24, 1), MAX_DISCOVERY_PAGE);
+  const offset = Math.max(filters.offset ?? 0, 0);
+
+  let request = client
+    .from("instructor_profiles")
+    .select("user_id,public_slug,subjects,teaching_levels,teaching_languages,years_experience,teaching_approach,hourly_rate_minor,currency,availability_summary,public_profile_status,verification_status", { count: "exact" })
+    // Not negotiable, and deliberately applied before any caller-supplied filter.
+    .eq("public_profile_status", "published")
+    .eq("verification_status", "approved");
+
+  // Array columns: "overlaps" means "teaches any of the selected subjects".
+  if (filters.subjects?.length) request = request.overlaps("subjects", filters.subjects);
+  if (filters.languages?.length) request = request.overlaps("teaching_languages", filters.languages);
+  if (filters.levels?.length) request = request.overlaps("teaching_levels", filters.levels);
+
+  if (typeof filters.minRateMinor === "number") request = request.gte("hourly_rate_minor", filters.minRateMinor);
+  if (typeof filters.maxRateMinor === "number") request = request.lte("hourly_rate_minor", filters.maxRateMinor);
+  if (typeof filters.minYearsExperience === "number") request = request.gte("years_experience", filters.minYearsExperience);
+  if (filters.currency) request = request.eq("currency", filters.currency);
+
+  // Free-text search stays on public profile fields only — never on private profile data.
+  const term = filters.query?.trim();
+  if (term) {
+    const escaped = term.replace(/[%,()]/g, " ").trim();
+    if (escaped) request = request.or(`public_slug.ilike.%${escaped}%,teaching_approach.ilike.%${escaped}%,availability_summary.ilike.%${escaped}%`);
+  }
+
+  switch (filters.sort) {
+    case "rate_asc": request = request.order("hourly_rate_minor", { ascending: true, nullsFirst: false }); break;
+    case "rate_desc": request = request.order("hourly_rate_minor", { ascending: false, nullsFirst: false }); break;
+    case "experience_desc": request = request.order("years_experience", { ascending: false, nullsFirst: false }); break;
+    default: request = request.order("public_slug", { ascending: true });
+  }
+
+  const { data, error, count } = await request.range(offset, offset + limit - 1);
+  if (error) return fail("Instructor discovery could not be loaded.");
+  return { ok: true as const, data: { instructors: data ?? [], total: count ?? 0, limit, offset } };
+}
+
+/** Distinct values actually present on published profiles, so the UI never offers a dead filter. */
+export async function listInstructorFilterFacets() {
+  const client = getSupabasePublicClient(); if (!client) return fail("Scheduling persistence is not configured.", "SETUP_NEEDED");
+  const { data, error } = await client
+    .from("instructor_profiles")
+    .select("subjects,teaching_languages,teaching_levels,hourly_rate_minor,currency")
+    .eq("public_profile_status", "published")
+    .eq("verification_status", "approved");
+  if (error) return fail("Discovery filters could not be loaded.");
+  const rows = data ?? [];
+  const collect = (key: "subjects" | "teaching_languages" | "teaching_levels") =>
+    Array.from(new Set(rows.flatMap((row) => (row[key] as string[] | null) ?? []))).filter(Boolean).sort();
+  const rates = rows.map((row) => row.hourly_rate_minor as number | null).filter((value): value is number => typeof value === "number");
+  return {
+    ok: true as const,
+    data: {
+      subjects: collect("subjects"),
+      languages: collect("teaching_languages"),
+      levels: collect("teaching_levels"),
+      currencies: Array.from(new Set(rows.map((row) => row.currency as string | null).filter(Boolean))).sort() as string[],
+      rateRangeMinor: rates.length ? { min: Math.min(...rates), max: Math.max(...rates) } : null,
+    },
+  };
 }
 
 export async function getPublicInstructorBySlug(slug: string) {

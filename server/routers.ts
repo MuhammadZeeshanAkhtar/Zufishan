@@ -4,11 +4,11 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router, supabaseOnlyProcedure } from "./_core/trpc";
 import { z } from "zod";
-import { createCourse, createCredential, deleteOwnCredential, createEnrolment, createHifzPlan, createHifzReview, createRequirement, createRequirementResponse, createCourseLesson, createCourseModule, deleteCourseLesson, deleteCourseModule, getLearnerWorkspace, getOwnCourseStructure, getOwnCoreProfiles, getPublicPublishedCourse, getPublicPublishedCourseById, getPublicPublishedLessonMetadata, getPublicPublishedRequirement, listPublicPublishedRequirements, listPublishedRequirements, listPublicPublishedCourses, updateOwnRequirementGoal, updateOwnRequirementResponseStatus, listCourseLessons, listCourseModules, listHifzPlans, submitOwnCourseForReview, updateCourseLesson, updateCourseModule, updateOwnCourse, listHifzReviews, listOwnAvailability, listOwnCredentials, listOwnCourses, listOwnEnrolments, listOwnProgress, listOwnRequirements, listOwnRequirementResponses, updateOwnInstructorProfile, updateOwnLocale, updateOwnProfile, upsertLessonProgress, listOwnConversations, listConversationMessages, createConversationMessage, createAdvancedHifzPlan, updateAdvancedHifzPlan, listAdvancedHifzPlans, createHifzRecord, listOwnHifzRecords, updateOwnDraftHifzRecord, submitHifzRecordForReview, listAssignedLearnerHifzRecords, listAssignedHifzReviews, reviewHifzRecord, calculateHifzProgress, createHifzReminder, listHifzReminders } from "./supabase-core";
+import { createCourse, createCredential, deleteOwnCredential, createEnrolment, createHifzPlan, createHifzReview, createRequirement, createRequirementResponse, createCourseLesson, createCourseModule, deleteCourseLesson, deleteCourseModule, getLearnerWorkspace, getOwnCourseStructure, getOwnCoreProfiles, getPublicPublishedCourse, getPublicPublishedCourseById, getPublicPublishedLessonMetadata, getPublicPublishedRequirement, listPublicPublishedRequirements, listPublishedRequirements, listPublicPublishedCourses, listCourseFilterFacets, updateOwnRequirementGoal, updateOwnRequirementResponseStatus, listCourseLessons, listCourseModules, listHifzPlans, submitOwnCourseForReview, updateCourseLesson, updateCourseModule, updateOwnCourse, listHifzReviews, listOwnAvailability, listOwnCredentials, listOwnCourses, listOwnEnrolments, listOwnProgress, listOwnRequirements, listOwnRequirementResponses, updateOwnInstructorProfile, updateOwnLocale, updateOwnProfile, upsertLessonProgress, listOwnConversations, listConversationMessages, createConversationMessage, createAdvancedHifzPlan, updateAdvancedHifzPlan, listAdvancedHifzPlans, createHifzRecord, listOwnHifzRecords, updateOwnDraftHifzRecord, submitHifzRecordForReview, listAssignedLearnerHifzRecords, listAssignedHifzReviews, reviewHifzRecord, calculateHifzProgress, createHifzReminder, listHifzReminders } from "./supabase-core";
 import { createSignedDownloadUrl, deletePrivateObject, requestUploadPermission, PRIVATE_BUCKETS, type PrivateBucket } from "./supabase-storage";
 import { getSupabaseHealth } from "./supabase-connection";
 import { getProductionConfigReport } from "./production-config";
-import { acceptTrialRequest, cancelTrialOrBooking, confirmProposedTime, createAvailabilityInterval, createTrialRequest, declineTrialRequest, deleteAvailabilityInterval, getAvailableSlots, getOwnTrialRequest, getPublicInstructorBySlug, listPublicInstructors, listBookings, listClassSessions, listInstructorAvailability, listSchedulingNotifications, listTrialRequests, proposeNewTrialTime, updateAvailabilityInterval } from "./scheduling";
+import { acceptTrialRequest, cancelTrialOrBooking, confirmProposedTime, createAvailabilityInterval, createTrialRequest, declineTrialRequest, deleteAvailabilityInterval, getAvailableSlots, getOwnTrialRequest, getPublicInstructorBySlug, listPublicInstructors, listInstructorFilterFacets, listBookings, listClassSessions, listInstructorAvailability, listSchedulingNotifications, listTrialRequests, proposeNewTrialTime, updateAvailabilityInterval } from "./scheduling";
 import { AI_TUTOR_CORRECTION_STYLES, AI_TUTOR_GOALS, AI_TUTOR_LEVELS, AI_TUTOR_MODES, deleteTutorHistory, getTutorConversation, getTutorPreferences, listTutorConversations, listTutorMessages, listTutorProgress, listTutorSavedItems, reportTutorConversation, saveTutorItem, sendTutorMessage, createTutorConversation, upsertTutorPreferences } from "./ai-tutor";
 
 export const appRouter = router({
@@ -94,10 +94,32 @@ export const appRouter = router({
 
   schedulingPublic: router({
     instructorBySlug: publicProcedure.input(z.object({ slug: z.string().min(1).max(120) })).query(({ input }) => getPublicInstructorBySlug(input.slug)),
-    instructors: publicProcedure.query(() => listPublicInstructors()),
+    instructors: publicProcedure.input(z.object({
+      query: z.string().max(120).optional(),
+      subjects: z.array(z.string().max(80)).max(12).optional(),
+      languages: z.array(z.string().max(80)).max(12).optional(),
+      levels: z.array(z.string().max(80)).max(12).optional(),
+      minRateMinor: z.number().int().min(0).optional(),
+      maxRateMinor: z.number().int().min(0).optional(),
+      minYearsExperience: z.number().int().min(0).max(80).optional(),
+      currency: z.string().length(3).optional(),
+      sort: z.enum(["relevance", "rate_asc", "rate_desc", "experience_desc"]).optional(),
+      limit: z.number().int().min(1).max(48).optional(),
+      offset: z.number().int().min(0).optional(),
+    }).optional()).query(({ input }) => listPublicInstructors(input ?? {})),
+    instructorFacets: publicProcedure.query(() => listInstructorFilterFacets()),
     publishedRequirements: publicProcedure.query(() => listPublicPublishedRequirements()),
     publishedRequirementById: publicProcedure.input(z.object({ id: z.string().uuid() })).query(({ input }) => getPublicPublishedRequirement(input.id)),
-    publishedCourses: publicProcedure.query(() => listPublicPublishedCourses()),
+    publishedCourses: publicProcedure.input(z.object({
+      query: z.string().max(120).optional(),
+      subjects: z.array(z.string().max(80)).max(12).optional(),
+      levels: z.array(z.string().max(80)).max(12).optional(),
+      languages: z.array(z.string().max(80)).max(12).optional(),
+      sort: z.enum(["newest", "title_asc"]).optional(),
+      limit: z.number().int().min(1).max(48).optional(),
+      offset: z.number().int().min(0).optional(),
+    }).optional()).query(({ input }) => listPublicPublishedCourses(input ?? {})),
+    courseFacets: publicProcedure.query(() => listCourseFilterFacets()),
     courseBySlug: publicProcedure.input(z.object({ slug: z.string().min(1).max(160) })).query(({ input }) => getPublicPublishedCourse(input.slug)),
   }),
 
