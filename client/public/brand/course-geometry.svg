@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-label="Stacked lesson pages inside a geometric Noor Ilm frame">
+  <title>Noor Ilm course</title>
+  <rect width="640" height="400" fill="#EAF1E9"/>
+  <g fill="none" stroke="#0F665A" opacity=".2">
+    <rect x="150" y="70" width="150" height="150" transform="rotate(45 225 145)" stroke-width="1.4"/>
+    <rect x="150" y="70" width="150" height="150" stroke-width="1.4"/>
+  </g>
+  <g transform="translate(320 214)">
+    <rect x="-150" y="-96" width="300" height="180" rx="14" fill="#FDFBF4" stroke="#DCE8E0" stroke-width="2"/>
+    <rect x="-150" y="-96" width="300" height="34" rx="14" fill="#0F665A" opacity=".1"/>
+    <g stroke="#0F665A" stroke-width="6" stroke-linecap="round" opacity=".26">
+      <path d="M-116-34h180M-116-4h232M-116 26h150"/>
+    </g>
+    <rect x="-116" y="50" width="86" height="10" rx="5" fill="#EFB84C"/>
+  </g>
+  <circle cx="516" cy="92" r="30" fill="none" stroke="#EFB84C" stroke-width="2" opacity=".7"/>
+</svg>

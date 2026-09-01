@@ -7,6 +7,9 @@ import type { Session } from "@supabase/supabase-js";
 import { trpc } from "../lib/trpc";
 
 type AuthSession = { email: string; role: PublicRole; onboardingCompleted: boolean; userId: string; expiresAt?: number };
+// Onboarding completion resolves the destination from the server-owned role and the persisted
+// onboarding flag, so the caller never has to guess a redirect from client-held state.
+export type OnboardingResult = { ok: true; next: string; role: PublicRole } | { ok: false; error: string };
 type AuthResult = { ok: boolean; error?: string; next?: string; needsVerification?: boolean };
 type AuthContextValue = {
   currentUser: { email: string; id: string; name?: string } | null;
@@ -26,7 +29,7 @@ type AuthContextValue = {
   signOut: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<AuthResult>;
   updatePassword: (password: string) => Promise<AuthResult>;
-  completeOnboarding: (profile: OnboardingProfile) => Promise<void>;
+  completeOnboarding: (profile: OnboardingProfile) => Promise<OnboardingResult>;
   refreshProfile: () => Promise<void>;
   hasRole: (role: AccountRole) => boolean;
   hasPermission: (permission: string) => boolean;
@@ -149,10 +152,17 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabaseClient.auth.updateUser({ password });
     return error ? { ok: false, error: friendlyAuthError(error) } : { ok: true };
   }, []);
-  const completeOnboarding = useCallback(async (nextProfile: OnboardingProfile) => {
-    if (!supabaseClient || !supabaseSession) return;
+  const completeOnboarding = useCallback(async (nextProfile: OnboardingProfile): Promise<OnboardingResult> => {
+    if (!supabaseClient || !supabaseSession) return { ok: false, error: demoAuthNotice() };
     saveOnboardingDraft(nextProfile);
-    await profilesQuery.refetch();
+    const refreshedResult = await profilesQuery.refetch();
+    const refreshed = refreshedResult.data?.ok ? coreProfiles(refreshedResult.data.data) : null;
+    if (!refreshed) return { ok: false, error: "Your saved profile could not be reloaded. Please try again." };
+    // The dashboard guard reads onboarding_completed, so confirm the server recorded it before
+    // navigating — otherwise the guard would bounce straight back to onboarding.
+    if (!refreshed.profile?.onboarding_completed) return { ok: false, error: "Onboarding was not recorded on your profile. Please try again." };
+    const nextRole = publicRole(roleFromRoles(refreshed.roles));
+    return { ok: true, next: `/dashboard/${nextRole}`, role: nextRole };
   }, [profilesQuery, supabaseSession]);
   const refreshProfile = useCallback(async () => { await profilesQuery.refetch(); }, [profilesQuery]);
   const value = useMemo<AuthContextValue>(() => ({

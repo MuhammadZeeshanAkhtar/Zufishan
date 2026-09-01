@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 620" role="img" aria-label="An open book beneath an eight-point star, drawn in Noor Ilm geometry">
+  <title>Noor Ilm learning composition</title>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0B3433"/><stop offset="1" stop-color="#14544A"/>
+    </linearGradient>
+    <linearGradient id="leaf" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FDFBF4"/><stop offset="1" stop-color="#DCE8E0"/>
+    </linearGradient>
+    <pattern id="weave" width="34" height="34" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <path d="M0 17h34M17 0v34" stroke="#EFB84C" stroke-width="1" opacity=".13"/>
+    </pattern>
+  </defs>
+  <rect width="800" height="620" fill="url(#sky)"/>
+  <rect width="800" height="620" fill="url(#weave)"/>
+  <!-- Eight-point star haloing the page -->
+  <g transform="translate(400 214)" fill="none" stroke="#EFB84C" opacity=".5">
+    <rect x="-86" y="-86" width="172" height="172" stroke-width="1.6"/>
+    <rect x="-86" y="-86" width="172" height="172" stroke-width="1.6" transform="rotate(45)"/>
+    <circle r="122" stroke-width="1" opacity=".55"/>
+    <circle r="150" stroke-width="1" opacity=".3"/>
+  </g>
+  <circle cx="400" cy="214" r="34" fill="#EFB84C" opacity=".92"/>
+  <!-- Open book -->
+  <g transform="translate(400 430)">
+    <path d="M0 44C-40 8-96-10-160-10v-150c64 0 120 18 160 54z" fill="url(#leaf)"/>
+    <path d="M0 44C40 8 96-10 160-10v-150c-64 0-120 18-160 54z" fill="#EAF1E9"/>
+    <path d="M0-106V44" stroke="#0B3433" stroke-width="3" stroke-linecap="round" opacity=".65"/>
+    <g stroke="#0F665A" stroke-width="3.4" stroke-linecap="round" opacity=".33">
+      <path d="M-128-64h84M-128-40h96M-128-16h72"/>
+      <path d="M128-64h-84M128-40h-96M128-16h-72"/>
+    </g>
+  </g>
+  <!-- Quiet dotted learning path -->
+  <path d="M96 560c120-42 236-42 304 0s188 42 304-14" fill="none" stroke="#EFB84C" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="2 16" opacity=".55"/>
+</svg>

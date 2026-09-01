@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-label="Two study places facing each other across a geometric Noor Ilm table">
+  <title>Noor Ilm tutoring</title>
+  <rect width="640" height="400" fill="#0B3433"/>
+  <g fill="none" stroke="#EFB84C" opacity=".16">
+    <rect x="245" y="45" width="150" height="150" stroke-width="1.4"/>
+    <rect x="245" y="45" width="150" height="150" stroke-width="1.4" transform="rotate(45 320 120)"/>
+  </g>
+  <circle cx="320" cy="120" r="24" fill="#EFB84C" opacity=".9"/>
+  <g transform="translate(320 268)">
+    <rect x="-190" y="-30" width="380" height="14" rx="7" fill="#14544A"/>
+    <g fill="#EAF1E9" opacity=".92">
+      <rect x="-160" y="-84" width="120" height="54" rx="10"/>
+      <rect x="40" y="-84" width="120" height="54" rx="10"/>
+    </g>
+    <g stroke="#0F665A" stroke-width="5" stroke-linecap="round" opacity=".45">
+      <path d="M-140-64h80M-140-48h56M60-64h80M60-48h56"/>
+    </g>
+    <path d="M-40-57h80" stroke="#EFB84C" stroke-width="2.4" stroke-dasharray="2 10" stroke-linecap="round"/>
+  </g>
+</svg>

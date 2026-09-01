@@ -8,14 +8,46 @@
   --color-background: var(--background); --color-foreground: var(--foreground); --color-card: var(--card); --color-card-foreground: var(--card-foreground); --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground); --color-secondary: var(--secondary); --color-secondary-foreground: var(--secondary-foreground); --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground); --color-accent: var(--accent); --color-accent-foreground: var(--accent-foreground); --color-border: var(--border); --color-input: var(--input); --color-ring: var(--ring);
 }
 :root { --radius: 0.85rem; --background: oklch(0.975 0.012 84); --foreground: oklch(0.235 0.025 165); --card: oklch(0.995 0.006 84); --card-foreground: oklch(0.235 0.025 165); --primary: oklch(0.36 0.085 166); --primary-foreground: oklch(0.98 0.01 84); --secondary: oklch(0.93 0.035 156); --secondary-foreground: oklch(0.32 0.07 166); --muted: oklch(0.945 0.018 84); --muted-foreground: oklch(0.48 0.035 164); --accent: oklch(0.79 0.105 82); --accent-foreground: oklch(0.25 0.035 82); --border: oklch(0.88 0.025 156); --input: oklch(0.88 0.025 156); --ring: oklch(0.55 0.09 166); }
+
+/* ---------------------------------------------------------------------------
+   Noor Ilm palette tokens. Every surface colour in the app resolves through
+   these, so the identity is changed here rather than in per-page classes.
+   Roles: teal = navigation/hero, moss = primary action, ivory/sage = learning
+   surfaces, saffron = highlight & progress only, clay = status communication.
+   --------------------------------------------------------------------------- */
+:root {
+  --ni-teal: #0B3433;          /* deep ink teal - nav, hero panels */
+  --ni-teal-soft: #144944;     /* raised surface on teal */
+  --ni-moss: #0F665A;          /* forest/moss - primary actions */
+  --ni-moss-deep: #14544A;     /* labels, strong headings on light */
+  --ni-ink: #19312F;           /* charcoal ink - display headings */
+  --ni-paper: #FDFBF4;         /* card paper */
+  --ni-bg: #F7F4EA;            /* warm ivory page ground */
+  --ni-field: #FBF8EF;         /* input ground */
+  --ni-sage: #DCE8E0;          /* pale sage - borders, dividers */
+  --ni-sage-soft: #EAF1E9;     /* quiet surfaces, secondary buttons */
+  --ni-sage-line: #CBDCD0;     /* input borders */
+  --ni-sage-mid: #B6D0BD;      /* decorative rules */
+  --ni-sage-ink: #4F6A62;      /* sage-toned secondary text */
+  --ni-muted: #56706A;         /* muted body copy */
+  --ni-muted-soft: #7A9088;    /* placeholder, tertiary */
+  --ni-gold: #EFB84C;          /* saffron highlight, progress */
+  --ni-gold-ink: #7E6118;      /* readable gold text on light */
+  --ni-gold-mid: #C79A38;      /* gold rules and icons */
+  --ni-gold-soft: #FBF0D3;     /* gold surface wash */
+  --ni-gold-tint: #FDF7E4;     /* faintest gold wash */
+  --ni-clay: #8F4232;          /* clay - error/attention status */
+  --ni-clay-ink: #A34734;      /* clay text */
+  --ni-clay-soft: #FBEDE7;     /* clay surface wash */
+}
 * { border-color: var(--border); }
 html { scroll-behavior: smooth; overflow-x: hidden; }
 body { margin: 0; background: var(--background); color: var(--foreground); font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif; overflow-x: hidden; }
 #root { min-width: 0; overflow-x: hidden; }
 button, a, input, select, textarea { transition: transform 160ms cubic-bezier(.23,1,.32,1), background-color 180ms ease, border-color 180ms ease, color 180ms ease, box-shadow 180ms ease; }
-.input { width: 100%; margin-top: 0.5rem; border: 1px solid #c8dccd; border-radius: 0.75rem; background: #fbfaf4; padding: 0.75rem 1rem; color: #17483f; outline: none; }
-.input:focus { border-color: #0e5a4f; box-shadow: 0 0 0 3px rgba(14, 90, 79, 0.12); }
-.input::placeholder { color: #8a9b91; }
+.input { width: 100%; margin-top: 0.5rem; border: 1px solid var(--ni-sage-line); border-radius: 0.75rem; background: var(--ni-field); padding: 0.75rem 1rem; color: var(--ni-ink); outline: none; }
+.input:focus { border-color: var(--ni-moss); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ni-moss) 18%, transparent); }
+.input::placeholder { color: var(--ni-muted-soft); }
 button:active, a[role="button"]:active { transform: scale(.975); }
 :focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 75%, white); outline-offset: 3px; }
 .font-display { font-family: "Fraunces", Georgia, serif; }
@@ -36,13 +68,13 @@ button:active, a[role="button"]:active { transform: scale(.975); }
 [dir="rtl"] .text-end { text-align: end; }
 
 /* Noor Ilm visual refinement: presentation-only layer over the existing contracts. */
-::selection { background: #d7b65f; color: #123f38; }
+::selection { background: var(--ni-gold); color: var(--ni-teal); }
 body { background: radial-gradient(circle at 12% 0%, rgba(226, 238, 226, .72), transparent 32rem), var(--background); letter-spacing: -0.005em; }
 body::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: -1; opacity: .38; background-image: linear-gradient(135deg, transparent 0 49.5%, rgba(165, 127, 47, .045) 49.8% 50.2%, transparent 50.5%), linear-gradient(45deg, transparent 0 49.5%, rgba(14, 90, 79, .035) 49.8% 50.2%, transparent 50.5%); background-size: 42px 42px; mask-image: linear-gradient(to bottom, black, transparent 75%); }
 .site-header { box-shadow: 0 8px 28px rgba(18, 63, 56, .055); }
 .site-header > div:first-child { min-height: 4.5rem; }
 .site-header a, .site-footer a { transition: color 180ms ease, transform 180ms cubic-bezier(.23,1,.32,1); }
-.site-header a:hover, .site-footer a:hover { color: #b58e38; }
+.site-header a:hover, .site-footer a:hover { color: var(--ni-gold-ink); }
 .brand-button { min-height: 2.9rem; letter-spacing: -0.01em; box-shadow: 0 10px 24px rgba(14, 90, 79, .12); }
 .brand-button:hover { box-shadow: 0 14px 30px rgba(14, 90, 79, .18); }
 .status-pill { line-height: 1.2; box-shadow: inset 0 0 0 1px rgba(255,255,255,.28); }
@@ -68,15 +100,15 @@ main .group:hover img { filter: saturate(1.06) contrast(1.02); }
   main > section:first-child img { max-height: 29rem; }
 }
 
-.dashboard-shell { background: radial-gradient(circle at 90% 0%, rgba(221, 235, 222, .72), transparent 28rem), #f5f7f1; }
+.dashboard-shell { background: radial-gradient(circle at 90% 0%, rgba(221, 235, 222, .72), transparent 28rem), var(--ni-bg); }
 .dashboard-sidebar { box-shadow: 12px 0 32px rgba(18, 63, 56, .035); }
 .dashboard-sidebar > a { display: inline-flex; align-items: center; gap: .6rem; }
-.dashboard-sidebar > a::before { content: "✦"; color: #b58e38; font-size: .75rem; }
+.dashboard-sidebar > a::before { content: "✦"; color: var(--ni-gold-ink); font-size: .75rem; }
 .dashboard-sidebar nav a { border-inline-start: 2px solid transparent; transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease, padding 180ms ease; }
-.dashboard-sidebar nav a:hover { border-inline-start-color: #b58e38; padding-inline-start: 1rem; }
+.dashboard-sidebar nav a:hover { border-inline-start-color: var(--ni-gold-ink); padding-inline-start: 1rem; }
 .dashboard-header { box-shadow: 0 8px 24px rgba(18, 63, 56, .035); }
 .dashboard-hero { box-shadow: 0 20px 44px rgba(18, 63, 56, .14); }
-.dashboard-hero::after { content: ""; position: absolute; inset-inline-end: 2rem; bottom: 1.75rem; width: 5rem; height: 1px; background: #d4b96a; opacity: .7; }
+.dashboard-hero::after { content: ""; position: absolute; inset-inline-end: 2rem; bottom: 1.75rem; width: 5rem; height: 1px; background: var(--ni-gold-mid); opacity: .7; }
 .dashboard-metric, .dashboard-panel, .dashboard-empty { transition: transform 220ms cubic-bezier(.23,1,.32,1), box-shadow 220ms ease, border-color 220ms ease; }
 .dashboard-metric:hover, .dashboard-panel:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgba(37, 77, 60, .08); border-color: rgba(165, 127, 47, .3); }
 .dashboard-empty { position: relative; overflow: hidden; }
@@ -88,7 +120,7 @@ main .group:hover img { filter: saturate(1.06) contrast(1.02); }
   .dashboard-hero h2 { font-size: 2rem; }
 }
 
-.hifz-shell { background: radial-gradient(circle at 88% 4%, rgba(221, 235, 222, .8), transparent 24rem), #f5f7f1; }
+.hifz-shell { background: radial-gradient(circle at 88% 4%, rgba(221, 235, 222, .8), transparent 24rem), var(--ni-bg); }
 .hifz-shell > div > a { border-bottom: 1px solid rgba(165,127,47,.4); padding-bottom: .45rem; }
 .hifz-panel { position: relative; overflow: hidden; box-shadow: 0 12px 30px rgba(37, 77, 60, .055); transition: transform 220ms cubic-bezier(.23,1,.32,1), box-shadow 220ms ease, border-color 220ms ease; }
 .hifz-panel::before { content: ""; position: absolute; inset-inline-end: -2rem; top: -2rem; width: 7rem; height: 7rem; border: 1px solid rgba(165,127,47,.18); transform: rotate(45deg); pointer-events: none; }
@@ -104,3 +136,39 @@ main .group:hover img { filter: saturate(1.06) contrast(1.02); }
 .ai-tutor-panel:hover { border-color: rgba(165,127,47,.28); box-shadow: 0 18px 42px rgba(37,77,60,.085); }
 .ai-tutor-notice { box-shadow: 0 8px 18px rgba(37,77,60,.035); }
 @media (max-width: 640px) { .ai-tutor-shell { padding-top: 1.5rem; } .ai-tutor-shell h1 { font-size: 2.55rem; } .ai-tutor-shell form > textarea { min-width: 0; } .ai-tutor-shell form { flex-direction: column; } .ai-tutor-shell form button { align-self: stretch; } }
+
+/* ---------------------------------------------------------------------------
+   Locale-aware typography. Arabic uses Noto Sans Arabic throughout; Urdu uses
+   Nastaliq for editorial text but falls back to Noto Sans Arabic for compact
+   controls, where Nastaliq's tall line box clips inside buttons and inputs.
+   --------------------------------------------------------------------------- */
+:root[lang="ar"] body, [dir="rtl"][lang="ar"] { font-family: "Noto Sans Arabic", "DM Sans", ui-sans-serif, system-ui, sans-serif; }
+:root[lang="ar"] .font-display { font-family: "Noto Sans Arabic", "Fraunces", Georgia, serif; font-weight: 600; }
+:root[lang="ur"] body { font-family: "Noto Sans Arabic", "DM Sans", ui-sans-serif, system-ui, sans-serif; }
+:root[lang="ur"] .font-display,
+:root[lang="ur"] h1, :root[lang="ur"] h2 { font-family: "Noto Nastaliq Urdu", "Noto Sans Arabic", serif; line-height: 2.1; }
+/* Nastaliq needs vertical room; keep it out of compact controls so nothing clips. */
+:root[lang="ur"] button, :root[lang="ur"] input, :root[lang="ur"] select,
+:root[lang="ur"] textarea, :root[lang="ur"] .status-pill, :root[lang="ur"] label
+  { font-family: "Noto Sans Arabic", "DM Sans", ui-sans-serif, sans-serif; line-height: 1.7; }
+
+/* Mixed-direction safety: emails, URLs, times, numbers and currency codes stay LTR inside RTL copy. */
+[dir="rtl"] .ltr-embed, [dir="rtl"] time, [dir="rtl"] code, [dir="rtl"] .tabular
+  { direction: ltr; unicode-bidi: isolate; }
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Motion: purposeful, transform/opacity only, and fully disabled under reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .stagger > * { animation: rise 460ms cubic-bezier(.23,1,.32,1) both; }
+  .stagger > *:nth-child(1){animation-delay:0ms}   .stagger > *:nth-child(2){animation-delay:45ms}
+  .stagger > *:nth-child(3){animation-delay:90ms}  .stagger > *:nth-child(4){animation-delay:135ms}
+  .stagger > *:nth-child(5){animation-delay:180ms} .stagger > *:nth-child(6){animation-delay:225ms}
+  .lift { transition: transform 180ms cubic-bezier(.23,1,.32,1), box-shadow 180ms ease; }
+  .lift:hover { transform: translateY(-3px); box-shadow: 0 16px 34px color-mix(in srgb, var(--ni-teal) 12%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) { .stagger > *, .reveal { animation: none !important; } .lift:hover { transform: none; } }
+
+/* Skip link for keyboard users. */
+.skip-link { position: absolute; inset-inline-start: 0.75rem; top: -3rem; z-index: 60; border-radius: 0.75rem;
+  background: var(--ni-teal); color: var(--ni-bg); padding: 0.65rem 1rem; font-weight: 600; font-size: 0.875rem; }
+.skip-link:focus { top: 0.75rem; }

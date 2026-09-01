@@ -105,7 +105,7 @@ export type AssignmentPlaceholder = {
   demo: true;
 };
 
-const thumbnail = "/manus-storage/noor-ilm-course-illustration_cd3756f8.jpg";
+const thumbnail = "/brand/course-geometry.svg";
 const now = "2026-08-23T00:00:00.000Z";
 
 const tajweedModules: CourseModule[] = [

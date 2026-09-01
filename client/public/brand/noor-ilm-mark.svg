@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Noor Ilm">
+  <title>Noor Ilm</title>
+  <!-- Eight-point star: two squares rotated 45deg, the Noor Ilm compass motif. -->
+  <g fill="none" stroke="#0F665A" stroke-width="2.4" stroke-linejoin="round">
+    <rect x="14" y="14" width="36" height="36" rx="3"/>
+    <rect x="14" y="14" width="36" height="36" rx="3" transform="rotate(45 32 32)"/>
+  </g>
+  <!-- Open book: two leaves meeting at a central spine. -->
+  <g transform="translate(0,2)">
+    <path d="M32 40.5c-3.6-3-8-4.4-12.6-4.4V23.2c4.6 0 9 1.4 12.6 4.4z" fill="#0B3433"/>
+    <path d="M32 40.5c3.6-3 8-4.4 12.6-4.4V23.2c-4.6 0-9 1.4-12.6 4.4z" fill="#14544A"/>
+    <path d="M32 27.6v12.9" stroke="#F7F4EA" stroke-width="1.6" stroke-linecap="round"/>
+  </g>
+  <!-- Rising light above the spine. -->
+  <circle cx="32" cy="18.5" r="3.4" fill="#EFB84C"/>
+</svg>
