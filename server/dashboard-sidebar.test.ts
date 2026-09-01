@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 
 const sidebar = readFileSync(new URL("../client/src/components/DashboardSidebar.tsx", import.meta.url), "utf8");
 const overview = readFileSync(new URL("../client/src/components/DashboardOverview.tsx", import.meta.url), "utf8");
+const chrome = readFileSync(new URL("../client/src/components/DashboardChrome.tsx", import.meta.url), "utf8");
+const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const lmsData = readFileSync(new URL("../client/src/lib/lms-data.ts", import.meta.url), "utf8");
 
 const routeGroups = (() => {
@@ -12,11 +14,32 @@ const routeGroups = (() => {
 
 describe("dashboard sidebar", () => {
   it("is shared by every role rather than duplicated per dashboard", () => {
-    expect(overview).toContain("import DashboardSidebar, { SidebarToggle, useSidebarState }");
-    expect(overview).toContain("<DashboardSidebar role={role}");
-    // The old per-dashboard aside and mobile grid must be gone.
+    expect(chrome).toContain("import DashboardSidebar, { SidebarToggle, useSidebarState");
+    expect(chrome).toContain("<DashboardSidebar");
+    // No page may render its own sidebar or shell any more.
+    expect(overview).not.toContain("<DashboardSidebar");
     expect(overview).not.toContain('<aside className="dashboard-sidebar');
+    expect(overview).not.toContain("dashboard-header");
     expect(overview).not.toContain("setMenuOpen");
+  });
+
+  it("mounts the chrome ABOVE the router so navigation never unmounts the sidebar", () => {
+    // The sidebar is a sibling of <Switch>, not a child of any routed page.
+    expect(app).toContain("<DashboardChrome><Switch>");
+    expect(app).toContain("</Switch></DashboardChrome>");
+    // Chrome decides from the path, so every /dashboard/:role route keeps it.
+    expect(chrome).toContain("function roleForPath");
+    expect(chrome).toContain("dashboard\\/(learner|instructor|admin)");
+    expect(chrome).toContain("if (!role || !CHROME_ROLES.includes(role)) return <>{children}</>");
+  });
+
+  it("closes the drawer on navigation without touching the desktop collapsed state", () => {
+    expect(chrome).toContain("useEffect(() => { setMobileOpen(false); }, [location, setMobileOpen]);");
+    // Effects that run on a route change must only touch the drawer, never the persisted
+    // desktop preference — that is what made the sidebar reset while navigating.
+    const routeEffects = chrome.split("\n").filter((line) => line.includes("useEffect") && line.includes("[location"));
+    expect(routeEffects.length).toBeGreaterThan(0);
+    for (const effect of routeEffects) expect(effect).not.toContain("Collapsed");
   });
 
   it("keeps navigation role-specific and does not merge learner and instructor items", () => {
@@ -78,7 +101,8 @@ describe("dashboard sidebar", () => {
     expect(sidebar).toContain("aria-expanded={mobileOpen}");
     expect(sidebar).toContain('aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}');
     // Exactly one SidebarToggle is mounted by the dashboard shell.
-    expect(overview.split("<SidebarToggle").length - 1).toBe(1);
+    expect(chrome.split("<SidebarToggle").length - 1).toBe(1);
+    expect(overview).not.toContain("<SidebarToggle");
   });
 
   it("marks the active route and provides a visible focus state", () => {
