@@ -35,7 +35,7 @@ describe("reference data", () => {
 
   it("stores the standard IANA identifier, not a prettified label", () => {
     // label is prettified for display; value stays the raw identifier.
-    expect(ref).toContain('zones.map((zone) => ({ value: zone, label: zone.replace(/_/g, " ") }))');
+    expect(ref).toContain('unique.map((zone) => ({ value: zone, label: zone.replace(/_/g, " ") }))');
   });
 
   it("reuses the project's own subject list instead of inventing one", () => {
@@ -53,6 +53,76 @@ describe("reference data", () => {
     for (const code of ["ar", "ur", "en", "hi", "bn", "fa", "tr", "fr", "es", "de", "zh", "ja", "ko", "ru", "pt", "it", "ms", "id", "pa", "ps"]) {
       expect(ref).toContain(`"${code}"`);
     }
+  });
+});
+
+describe("country drives timezone", () => {
+  // Mirrors the runtime logic so the mapping itself is exercised, not just the source text.
+  const codes = countryCodes;
+  const modern = Object.fromEntries(
+    [...ref.matchAll(/"([A-Za-z_/]+)":\s*"([A-Za-z_/]+)"/g)].filter((m) => m[1].includes("/")).map((m) => [m[1], m[2]]),
+  );
+  const canon = (z: string) => modern[z] ?? z;
+  const nameOf = (c: string) => new Intl.DisplayNames(["en"], { type: "region" }).of(c) ?? c;
+  const byName = new Map(codes.filter((c) => c !== "IL").map((c) => [nameOf(c), c]));
+  const zonesFor = (name: string) => {
+    const code = byName.get(name);
+    if (!code) return [];
+    const locale = new Intl.Locale(`und-${code}`) as Intl.Locale & { getTimeZones?: () => string[] };
+    const zones = typeof locale.getTimeZones === "function" ? locale.getTimeZones() ?? [] : [];
+    return [...new Set(zones.map(canon))].sort();
+  };
+
+  it("returns only that country's zones, for the cases in the brief", () => {
+    expect(zonesFor("Pakistan")).toEqual(["Asia/Karachi"]);
+    expect(zonesFor("United Arab Emirates")).toEqual(["Asia/Dubai"]);
+    expect(zonesFor("United Kingdom")).toEqual(["Europe/London"]);
+    expect(zonesFor("Saudi Arabia")).toEqual(["Asia/Riyadh"]);
+  });
+
+  it("normalises deprecated identifiers to the current IANA name", () => {
+    // Some ICU builds still report Asia/Calcutta as canonical.
+    expect(zonesFor("India")).toEqual(["Asia/Kolkata"]);
+    expect(ref).toContain('"Asia/Calcutta": "Asia/Kolkata"');
+    expect(ref).toContain("export function canonicalZone");
+  });
+
+  it("keeps multi-zone countries multi-zone rather than collapsing them", () => {
+    const us = zonesFor("United States");
+    expect(us.length).toBeGreaterThan(5);
+    for (const zone of ["America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles"]) {
+      expect(us).toContain(zone);
+    }
+    expect(zonesFor("Indonesia")).toContain("Asia/Jakarta");
+    expect(zonesFor("Indonesia").length).toBeGreaterThan(1);
+  });
+
+  it("never offers the whole world once a country is chosen", () => {
+    const all = Intl.supportedValuesOf("timeZone").length;
+    for (const country of ["Pakistan", "India", "United Kingdom", "United States", "Indonesia"]) {
+      expect(zonesFor(country).length).toBeLessThan(all);
+    }
+  });
+
+  it("auto-selects when there is one zone, and clears a stale zone when there are many", () => {
+    expect(ref).toContain("export function nextTimezoneForCountry");
+    expect(ref).toContain("if (zones.length === 1) return zones[0].value;");
+    expect(ref).toContain("return zones.some((zone) => zone.value === currentTimezone) ? currentTimezone : \"\";");
+    // Unknown country must not wipe a value the user already had.
+    expect(ref).toContain("if (!zones.length) return currentTimezone;");
+  });
+
+  it("falls back to the full list when no country is chosen or the country has no data", () => {
+    expect(ref).toContain("export function timezoneOptionsForCountry");
+    expect(ref).toContain("return scoped.length ? scoped : timezoneOptions();");
+  });
+
+  it("is wired into both profile forms", () => {
+    expect(tutor).toContain("timezoneOptionsForCountry(profile.countryRegion)");
+    expect(tutor).toContain("const updateCountry");
+    expect(tutor).toContain("timezone: nextTimezoneForCountry(value, current.timezone)");
+    expect(learner).toContain("timezoneOptionsForCountry(country)");
+    expect(learner).toContain("setTimezone((current) => nextTimezoneForCountry(value, current))");
   });
 });
 
@@ -85,7 +155,7 @@ describe("profile forms use the shared lists", () => {
   it("wires the tutor onboarding fields", () => {
     expect(tutor).toContain('from "../lib/reference-data"');
     expect(tutor).toContain("options={countryOptions()}");
-    expect(tutor).toContain("options={timezoneOptions()}");
+    expect(tutor).toContain("options={timezoneOptionsForCountry(profile.countryRegion)}");
     expect(tutor).toContain("options={languageOptions()}");
     expect(tutor).toContain("subjectOptions.map((subject) => ({ value: subject, label: subject }))");
     // The old free-text comma inputs for these fields are gone.
@@ -96,7 +166,7 @@ describe("profile forms use the shared lists", () => {
   it("wires the learner profile fields and keeps them relevant to students", () => {
     expect(learner).toContain('from "../lib/reference-data"');
     expect(learner).toContain("options={countryOptions()}");
-    expect(learner).toContain("options={timezoneOptions()}");
+    expect(learner).toContain("options={timezoneOptionsForCountry(country)}");
     expect(learner).toContain("options={languageOptions()}");
     expect(learner).toContain("const SUBJECT_OPTIONS = subjectOptions;");
     // Tutor-only fields must not have been copied across.

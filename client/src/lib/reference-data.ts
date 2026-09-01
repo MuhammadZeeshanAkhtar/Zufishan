@@ -71,6 +71,88 @@ export function countryOptions(locale = "en"): Option[] {
 }
 
 /**
+ * Deprecated IANA names some ICU builds still report as canonical, mapped to the current names.
+ * Both forms resolve to the same offset at runtime; storing the modern name keeps the value stable
+ * regardless of which ICU version produced it. Applying this to an already-modern name is a no-op,
+ * so it is safe on engines that already return the new names.
+ */
+const MODERN_ZONE_NAMES: Record<string, string> = {
+  "Asia/Calcutta": "Asia/Kolkata",
+  "Asia/Katmandu": "Asia/Kathmandu",
+  "Asia/Rangoon": "Asia/Yangon",
+  "Asia/Saigon": "Asia/Ho_Chi_Minh",
+  "Asia/Thimbu": "Asia/Thimphu",
+  "Europe/Kiev": "Europe/Kyiv",
+  "Europe/Uzhgorod": "Europe/Kyiv",
+  "Europe/Zaporozhye": "Europe/Kyiv",
+  "Atlantic/Faeroe": "Atlantic/Faroe",
+  "America/Buenos_Aires": "America/Argentina/Buenos_Aires",
+  "America/Godthab": "America/Nuuk",
+  "Pacific/Ponape": "Pacific/Pohnpei",
+  "Pacific/Truk": "Pacific/Chuuk",
+};
+
+/** Normalises a zone identifier to its current IANA name. */
+export function canonicalZone(zone: string): string {
+  return MODERN_ZONE_NAMES[zone] ?? zone;
+}
+
+/** Country name -> ISO alpha-2, built from the same source the selector uses. */
+function countryCodeByName(locale = "en"): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const code of COUNTRY_CODES) {
+    if (EXCLUDED_COUNTRY_CODES.has(code)) continue;
+    const name = displayName(code, "region", locale);
+    if (name && name !== code) map.set(name, code);
+  }
+  return map;
+}
+
+/**
+ * Timezones for one country, from the runtime's own CLDR data via `Intl.Locale.getTimeZones()`.
+ *
+ * Returns an empty array when the country is unknown, has no zone data (a couple of uninhabited
+ * territories) or the engine lacks the API — callers treat empty as "fall back to the full list"
+ * rather than showing the user an empty dropdown.
+ */
+export function timezonesForCountry(countryName: string, locale = "en"): Option[] {
+  const code = countryCodeByName(locale).get(countryName.trim());
+  if (!code) return [];
+  let zones: string[] = [];
+  try {
+    const withTimeZones = new Intl.Locale(`und-${code}`) as Intl.Locale & { getTimeZones?: () => string[] };
+    zones = typeof withTimeZones.getTimeZones === "function" ? withTimeZones.getTimeZones() ?? [] : [];
+  } catch { zones = []; }
+  const unique = Array.from(new Set(zones.map(canonicalZone)));
+  return unique
+    .map((zone) => ({ value: zone, label: zone.replace(/_/g, " ") }))
+    .sort((a, b) => a.value.localeCompare(b.value));
+}
+
+/**
+ * The timezone options to offer for a country: its own zones, or the full list when the country is
+ * empty or has no zone data. Keeps both profile forms behaving identically.
+ */
+export function timezoneOptionsForCountry(countryName: string, locale = "en"): Option[] {
+  const scoped = countryName.trim() ? timezonesForCountry(countryName, locale) : [];
+  return scoped.length ? scoped : timezoneOptions();
+}
+
+/**
+ * The timezone to hold after a country change.
+ *  - one zone  -> select it automatically
+ *  - many      -> keep the current value if it belongs to the new country, otherwise clear it so
+ *                 the user picks rather than silently keeping a zone from the previous country
+ *  - unknown   -> leave the current value alone; the full list is still on offer
+ */
+export function nextTimezoneForCountry(countryName: string, currentTimezone: string, locale = "en"): string {
+  const zones = timezonesForCountry(countryName, locale);
+  if (!zones.length) return currentTimezone;
+  if (zones.length === 1) return zones[0].value;
+  return zones.some((zone) => zone.value === currentTimezone) ? currentTimezone : "";
+}
+
+/**
  * Every IANA zone the runtime knows about. `Intl.supportedValuesOf` avoids shipping and ageing a
  * hand-maintained list; the short fallback only applies on engines that lack it.
  */
@@ -87,7 +169,8 @@ export function timezoneOptions(): Option[] {
       "Asia/Riyadh", "Australia/Sydney", "Europe/Berlin", "Europe/London", "Europe/Paris", "UTC",
     ];
   }
-  return zones.map((zone) => ({ value: zone, label: zone.replace(/_/g, " ") })).sort((a, b) => a.value.localeCompare(b.value));
+  const unique = Array.from(new Set(zones.map(canonicalZone)));
+  return unique.map((zone) => ({ value: zone, label: zone.replace(/_/g, " ") })).sort((a, b) => a.value.localeCompare(b.value));
 }
 
 // ISO 639-1 for languages commonly taught or spoken across the platform's audience.

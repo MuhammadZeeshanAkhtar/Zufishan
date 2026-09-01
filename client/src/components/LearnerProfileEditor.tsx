@@ -14,7 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { trpc } from "@/lib/trpc";
 import { useLocale } from "../contexts/LocaleContextState";
 import { SearchableMultiSelect, SearchableSelect } from "./SearchableSelect";
-import { countryOptions, languageOptions, subjectOptions, timezoneOptions } from "../lib/reference-data";
+import { countryOptions, languageOptions, nextTimezoneForCountry, subjectOptions, timezoneOptionsForCountry } from "../lib/reference-data";
 
 // Subjects come from the list Noor Ilm already recommends (categories in lms-data).
 const SUBJECT_OPTIONS = subjectOptions;
@@ -189,10 +189,10 @@ export default function LearnerProfileEditor() {
 
           <Section title={t("learnerProfile.location")}>
             <Row label={t("learnerProfile.country")} htmlFor="country">
-              <SearchableSelect id="country" options={countryOptions()} value={country} onChange={setCountry}/>
+              <SearchableSelect id="country" options={countryOptions()} value={country} onChange={(value) => { setCountry(value); setTimezone((current) => nextTimezoneForCountry(value, current)); }}/>
             </Row>
             <Row label={t("learnerProfile.timezone")} htmlFor="timezone" hint={t("learnerProfile.timezoneHint")}>
-              <SearchableSelect id="timezone" options={timezoneOptions()} value={timezone} onChange={setTimezone} placeholder="Asia/Karachi"/>
+              <SearchableSelect id="timezone" options={timezoneOptionsForCountry(country)} value={timezone} onChange={setTimezone} placeholder="Asia/Karachi"/>
             </Row>
             <Row label={t("learnerProfile.city")} htmlFor="city">
               <input id="city" value={city} onChange={(e) => setCity(e.target.value)} className={fieldClass}/>
