@@ -251,12 +251,47 @@ export type PublicInstructorFilters = {
   maxRateMinor?: number;
   minYearsExperience?: number;
   currency?: string;
+  gender?: "male" | "female";
+  country?: string;
+  timezone?: string;
+  sect?: string;
+  hasIjazah?: boolean;
   sort?: "relevance" | "rate_asc" | "rate_desc" | "experience_desc";
   limit?: number;
   offset?: number;
 };
 
+/**
+ * Gender lives on `profiles`, whose RLS policy is own-row-only — the anonymous client used for
+ * discovery cannot read it, and loosening that policy would expose every other profile column too.
+ *
+ * So the lookup runs on the admin client, narrowed to instructors who have already published an
+ * approved profile, and returns nothing but their ids. Discovery then filters on those ids through
+ * the anonymous client, which keeps RLS as the authority on who is visible at all. Gender is used
+ * to select rows and is never returned to the caller.
+ */
+async function publishedInstructorIdsByProfile(match: { gender?: string; country?: string; timezone?: string }): Promise<string[] | null> {
+  const admin = getSupabaseAdminClient();
+  if (!admin) return null;
+  let request = admin
+    .from("instructor_profiles")
+    .select("user_id,profiles!inner(gender,country,timezone)")
+    .eq("public_profile_status", "published")
+    .eq("verification_status", "approved");
+  // One lookup covers every profile-side filter, so a learner combining gender and country still
+  // costs a single query rather than one per attribute.
+  if (match.gender) request = request.eq("profiles.gender", match.gender);
+  if (match.country) request = request.eq("profiles.country", match.country);
+  if (match.timezone) request = request.eq("profiles.timezone", match.timezone);
+  const { data, error } = await request.limit(GENDER_MATCH_CAP);
+  if (error) return null;
+  return (data ?? []).map((row) => String((row as { user_id: string }).user_id));
+}
+
 const MAX_DISCOVERY_PAGE = 48;
+// Upper bound on the id set handed to the gender filter. Well above the current published roster;
+// if the marketplace ever outgrows it, the id lookup should become a database view instead.
+const GENDER_MATCH_CAP = 2_000;
 
 export async function listPublicInstructors(filters: PublicInstructorFilters = {}) {
   const client = getSupabasePublicClient(); if (!client) return fail("Scheduling persistence is not configured.", "SETUP_NEEDED");
@@ -266,10 +301,23 @@ export async function listPublicInstructors(filters: PublicInstructorFilters = {
 
   let request = client
     .from("instructor_profiles")
-    .select("user_id,public_slug,subjects,teaching_levels,teaching_languages,years_experience,teaching_approach,hourly_rate_minor,currency,availability_summary,public_profile_status,verification_status", { count: "exact" })
+    .select("user_id,public_slug,subjects,teaching_levels,teaching_languages,years_experience,teaching_approach,hourly_rate_minor,currency,availability_summary,public_profile_status,verification_status,sect,has_ijazah", { count: "exact" })
     // Not negotiable, and deliberately applied before any caller-supplied filter.
     .eq("public_profile_status", "published")
     .eq("verification_status", "approved");
+
+  // Gender, country and timezone live on `profiles`, which this anonymous client cannot read, so
+  // they are resolved to ids through the admin client first — see publishedInstructorIdsByProfile.
+  if (filters.gender || filters.country || filters.timezone) {
+    const ids = await publishedInstructorIdsByProfile({ gender: filters.gender, country: filters.country, timezone: filters.timezone });
+    if (ids === null) return fail("Instructor discovery could not be loaded.");
+    if (!ids.length) return { ok: true as const, data: { instructors: [], total: 0, limit, offset } };
+    request = request.in("user_id", ids);
+  }
+
+  // Sect and ijazah are on the listing itself, so they filter directly under the published policy.
+  if (filters.sect) request = request.eq("sect", filters.sect);
+  if (filters.hasIjazah) request = request.eq("has_ijazah", true);
 
   // Array columns: "overlaps" means "teaches any of the selected subjects".
   if (filters.subjects?.length) request = request.overlaps("subjects", filters.subjects);

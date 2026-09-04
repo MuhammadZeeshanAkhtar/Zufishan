@@ -11,12 +11,25 @@ function client(identity: SupabaseIdentity) {
 
 function failure<T>(error: CoreError): CoreResult<T> { return { ok: false, error }; }
 
-async function safe<T>(operation: () => PromiseLike<{ data: T | null; error: { message: string } | null }>): Promise<CoreResult<T>> {
+/**
+ * The caller only ever sees a generic message — a raw Postgres error names columns, constraints and
+ * policies, and that is not something to hand to a browser. But discarding it entirely left every
+ * failure undiagnosable from either side, so the real error is logged on the server, where it is
+ * safe to read, with enough detail to identify the column or constraint that actually rejected.
+ */
+async function safe<T>(operation: () => PromiseLike<{ data: T | null; error: { message: string } | null }>, context?: string): Promise<CoreResult<T>> {
   try {
     const result = await operation();
-    if (result.error) return failure("Supabase operation failed.");
+    if (result.error) {
+      const detail = result.error as { message: string; code?: string; details?: string; hint?: string };
+      console.error(`[supabase] ${context ?? "operation"} failed:`, {
+        code: detail.code, message: detail.message, details: detail.details, hint: detail.hint,
+      });
+      return failure("Supabase operation failed.");
+    }
     return { ok: true, data: result.data as T };
-  } catch {
+  } catch (cause) {
+    console.error(`[supabase] ${context ?? "operation"} threw:`, cause instanceof Error ? cause.message : cause);
     return failure("Supabase persistence unavailable.");
   }
 }
@@ -36,11 +49,15 @@ export async function updateOwnProfile(identity: SupabaseIdentity, input: { full
   return safe(() => db.from("profiles").update({ full_name: input.fullName.trim(), display_name: input.displayName.trim(), preferred_language: input.preferredLanguage, onboarding_completed: true, ...(input.preferredLocale ? { preferred_locale: input.preferredLocale } : {}) }).eq("id", identity.id).select("*").single());
 }
 
-export async function updateOwnInstructorProfile(identity: SupabaseIdentity, input: { publicDisplayName: string; publicSlug: string; subjects: string[]; levels: string[]; teachingLanguages: string[]; yearsExperience?: number; teachingApproach?: string; hourlyRateMinor?: number; currency?: string; availabilitySummary?: string; profileVisibility: "public" | "private"; preferredLanguage: string }) {
+export async function updateOwnInstructorProfile(identity: SupabaseIdentity, input: { publicDisplayName: string; publicSlug: string; subjects: string[]; levels: string[]; teachingLanguages: string[]; yearsExperience?: number; teachingApproach?: string; hourlyRateMinor?: number; currency?: string; availabilitySummary?: string; profileVisibility: "public" | "private"; preferredLanguage: string; fullName?: string; country?: string; city?: string; timezone?: string; bio?: string; gender?: string; sect?: string; hasIjazah?: boolean }) {
   const db = client(identity); if (!db) return failure("Supabase persistence unavailable.");
-  const profileUpdate = db.from("profiles").update({ display_name: input.publicDisplayName.trim(), preferred_language: input.preferredLanguage.trim() }).eq("id", identity.id);
-  const instructorUpdate = db.from("instructor_profiles").upsert({ user_id: identity.id, public_slug: input.publicSlug.trim(), subjects: input.subjects, teaching_levels: input.levels, teaching_languages: input.teachingLanguages, years_experience: input.yearsExperience ?? null, teaching_approach: input.teachingApproach?.trim() || null, hourly_rate_minor: input.hourlyRateMinor ?? null, currency: input.currency?.trim() || null, availability_summary: input.availabilitySummary?.trim() || null, public_profile_status: input.profileVisibility === "public" ? "published" : "draft" }, { onConflict: "user_id" });
-  return safe(() => Promise.all([profileUpdate, instructorUpdate]).then(([profile, instructor]) => ({ data: { profile: profile.data, instructorProfile: instructor.data }, error: profile.error ?? instructor.error })));
+  // country / timezone / bio live on `profiles` and were previously collected by the tutor form but
+  // never written, so a tutor's location could not be stored at all. Optional columns are only sent
+  // when the caller supplied them, so a partial edit never blanks a stored value.
+  const optional = <T,>(value: T | undefined, mapped: () => unknown) => (value === undefined ? {} : { ...(mapped() as object) });
+  const profileUpdate = db.from("profiles").update({ display_name: input.publicDisplayName.trim(), preferred_language: input.preferredLanguage.trim(), ...optional(input.fullName, () => ({ full_name: input.fullName!.trim() })), ...optional(input.country, () => ({ country: input.country!.trim() || null })), ...optional(input.city, () => ({ city: input.city!.trim() || null })), ...optional(input.timezone, () => ({ timezone: input.timezone!.trim() || null })), ...optional(input.bio, () => ({ bio: input.bio!.trim() || null })), ...optional(input.gender, () => ({ gender: input.gender!.trim() || null })) }).eq("id", identity.id);
+  const instructorUpdate = db.from("instructor_profiles").upsert({ user_id: identity.id, public_slug: input.publicSlug.trim(), subjects: input.subjects, teaching_levels: input.levels, teaching_languages: input.teachingLanguages, years_experience: input.yearsExperience ?? null, teaching_approach: input.teachingApproach?.trim() || null, hourly_rate_minor: input.hourlyRateMinor ?? null, currency: input.currency?.trim() || null, availability_summary: input.availabilitySummary?.trim() || null, ...optional(input.sect, () => ({ sect: input.sect!.trim() || null })), ...optional(input.hasIjazah, () => ({ has_ijazah: input.hasIjazah })), public_profile_status: input.profileVisibility === "public" ? "published" : "draft" }, { onConflict: "user_id" });
+  return safe(() => Promise.all([profileUpdate, instructorUpdate]).then(([profile, instructor]) => ({ data: { profile: profile.data, instructorProfile: instructor.data }, error: profile.error ?? instructor.error })), "updateOwnInstructorProfile");
 }
 
 /**
@@ -53,7 +70,7 @@ export async function updateOwnInstructorProfile(identity: SupabaseIdentity, inp
 export async function updateOwnLearnerProfile(identity: SupabaseIdentity, input: {
   fullName: string; displayName: string; learningSubjects: string[];
   country?: string; city?: string; timezone?: string; supportedLanguages?: string[];
-  preferredLanguage?: string; preferredLocale?: "en" | "ur" | "ar"; bio?: string;
+  preferredLanguage?: string; preferredLocale?: "en" | "ur" | "ar"; bio?: string; gender?: string;
   profileVisibility?: "public" | "private"; completeOnboarding?: boolean;
   learningLevel?: string; learningGoal?: string; preferredClassFormat?: string;
   preferredDaysTimes?: string; budgetRange?: string;
@@ -74,6 +91,7 @@ export async function updateOwnLearnerProfile(identity: SupabaseIdentity, input:
     ...optional(input.preferredLanguage, () => ({ preferred_language: input.preferredLanguage!.trim() })),
     ...optional(input.preferredLocale, () => ({ preferred_locale: input.preferredLocale })),
     ...optional(input.bio, () => ({ bio: input.bio!.trim() || null })),
+    ...optional(input.gender, () => ({ gender: input.gender!.trim() || null })),
     ...optional(input.profileVisibility, () => ({ profile_visibility: input.profileVisibility })),
     // Onboarding completion is a profile flag, not a separate record.
     ...(input.completeOnboarding ? { onboarding_completed: true } : {}),
@@ -92,7 +110,7 @@ export async function updateOwnLearnerProfile(identity: SupabaseIdentity, input:
   return safe(() => Promise.all([profileUpdate, learnerUpdate]).then(([profile, learner]) => ({
     data: { profile: profile.data, learnerProfile: learner.data },
     error: profile.error ?? learner.error,
-  })));
+  })), "updateOwnLearnerProfile");
 }
 
 export async function updateOwnLocale(identity: SupabaseIdentity, preferredLocale: "en" | "ur" | "ar") {
