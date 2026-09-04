@@ -361,6 +361,30 @@ export const en = {
   "tutorDetail.ijazah": "Ijazah",
 
   "common.yes": "Yes",
+
+  "review.eyebrow": "Reviewer desk",
+  "review.title": "Decisions that make work public",
+  "review.copy": "Approving a tutor and publishing a course are the two gates to public visibility. Every decision is recorded with your name.",
+  "review.instructorQueue": "Tutors awaiting review",
+  "review.courseQueue": "Courses awaiting review",
+  "review.noInstructors": "No tutor is waiting for a decision.",
+  "review.noCourses": "No course has been submitted for review.",
+  "review.forbidden": "This desk is for reviewers. Your account does not hold that role.",
+  "review.setupNeeded": "Administrative access is not configured on the server.",
+  "review.loadFailed": "The queue could not be loaded.",
+  "review.approve": "Approve",
+  "review.reject": "Reject",
+  "review.publish": "Publish",
+  "review.saved": "Decision recorded.",
+
+  "state.loading": "Loading…",
+  "state.empty": "Nothing here yet.",
+  "state.error": "That did not load. You can try again.",
+  "state.forbidden": "You do not have access to this.",
+  "state.setupNeeded": "This part of Noor Ilm is not connected yet.",
+  "state.offline": "You appear to be offline, so this could not load.",
+  "state.offlineBanner": "You are offline. Some things will not load until the connection returns.",
+  "state.retry": "Try again",
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -451,6 +475,30 @@ export const ur: TranslationCatalog = {
 
   "common.yes": "جی ہاں",
 
+  "review.eyebrow": "جائزہ ڈیسک",
+  "review.title": "وہ فیصلے جو کام کو عوامی بناتے ہیں",
+  "review.copy": "استاد کی منظوری اور کورس کی اشاعت عوامی نمائش کے دو دروازے ہیں۔ ہر فیصلہ آپ کے نام کے ساتھ محفوظ ہوتا ہے۔",
+  "review.instructorQueue": "جائزے کے منتظر اساتذہ",
+  "review.courseQueue": "جائزے کے منتظر کورسز",
+  "review.noInstructors": "کوئی استاد فیصلے کا منتظر نہیں۔",
+  "review.noCourses": "جائزے کے لیے کوئی کورس جمع نہیں کرایا گیا۔",
+  "review.forbidden": "یہ ڈیسک جائزہ لینے والوں کے لیے ہے۔ آپ کے اکاؤنٹ کے پاس یہ کردار نہیں۔",
+  "review.setupNeeded": "سرور پر انتظامی رسائی ترتیب نہیں دی گئی۔",
+  "review.loadFailed": "قطار لوڈ نہیں ہو سکی۔",
+  "review.approve": "منظور کریں",
+  "review.reject": "مسترد کریں",
+  "review.publish": "شائع کریں",
+  "review.saved": "فیصلہ محفوظ ہو گیا۔",
+
+  "state.loading": "لوڈ ہو رہا ہے…",
+  "state.empty": "ابھی یہاں کچھ نہیں۔",
+  "state.error": "یہ لوڈ نہیں ہوا۔ آپ دوبارہ کوشش کر سکتے ہیں۔",
+  "state.forbidden": "آپ کو اس تک رسائی نہیں ہے۔",
+  "state.setupNeeded": "نور علم کا یہ حصہ ابھی منسلک نہیں ہے۔",
+  "state.offline": "ایسا لگتا ہے آپ آف لائن ہیں، اس لیے یہ لوڈ نہیں ہو سکا۔",
+  "state.offlineBanner": "آپ آف لائن ہیں۔ کنکشن واپس آنے تک کچھ چیزیں لوڈ نہیں ہوں گی۔",
+  "state.retry": "دوبارہ کوشش کریں",
+
 };
 
 export const ar: TranslationCatalog = {
@@ -537,6 +585,30 @@ export const ar: TranslationCatalog = {
   "tutorDetail.ijazah": "إجازة",
 
   "common.yes": "نعم",
+
+  "review.eyebrow": "مكتب المراجعة",
+  "review.title": "قرارات تجعل العمل علنياً",
+  "review.copy": "اعتماد المعلم ونشر الدورة هما بوابتا الظهور العام. يُسجَّل كل قرار باسمك.",
+  "review.instructorQueue": "معلمون بانتظار المراجعة",
+  "review.courseQueue": "دورات بانتظار المراجعة",
+  "review.noInstructors": "لا يوجد معلم بانتظار قرار.",
+  "review.noCourses": "لم تُقدَّم أي دورة للمراجعة.",
+  "review.forbidden": "هذا المكتب للمراجعين. حسابك لا يملك هذا الدور.",
+  "review.setupNeeded": "لم يتم إعداد الوصول الإداري على الخادم.",
+  "review.loadFailed": "تعذر تحميل قائمة الانتظار.",
+  "review.approve": "اعتماد",
+  "review.reject": "رفض",
+  "review.publish": "نشر",
+  "review.saved": "تم تسجيل القرار.",
+
+  "state.loading": "جارٍ التحميل…",
+  "state.empty": "لا يوجد شيء هنا بعد.",
+  "state.error": "لم يتم التحميل. يمكنك المحاولة مرة أخرى.",
+  "state.forbidden": "ليس لديك حق الوصول إلى هذا.",
+  "state.setupNeeded": "هذا الجزء من نور علم غير متصل بعد.",
+  "state.offline": "يبدو أنك غير متصل، لذا تعذر التحميل.",
+  "state.offlineBanner": "أنت غير متصل. لن يتم تحميل بعض الأشياء حتى تعود الشبكة.",
+  "state.retry": "أعد المحاولة",
 
 };
 

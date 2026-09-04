@@ -14,6 +14,7 @@ import { ChevronDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "../contexts/LocaleContextState";
 import DashboardQuickLinks from "./DashboardQuickLinks";
+import OfflineBanner from "./OfflineBanner";
 import DashboardSidebar, { SidebarToggle, useSidebarState, type DashboardRole } from "./DashboardSidebar";
 import NotificationBell from "./NotificationBell";
 import { LocaleSelector } from "./LocaleSelector";
@@ -78,6 +79,7 @@ export default function DashboardChrome({ children }: { children: ReactNode }) {
           deskLabel={`${role} desk`}
         />
         <div className="dashboard-main flex min-w-0 flex-1 flex-col">
+          <OfflineBanner />
           <header className="dashboard-header sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-[var(--ni-sage)] bg-[var(--ni-field)] px-5 py-3 lg:px-8">
             <div className="flex min-w-0 items-center gap-3">
               <SidebarToggle

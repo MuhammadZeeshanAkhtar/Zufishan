@@ -6,6 +6,13 @@ import { publicProcedure, router, supabaseOnlyProcedure } from "./_core/trpc";
 import { z } from "zod";
 import { createCourse, createCredential, deleteOwnCredential, createEnrolment, createHifzPlan, createHifzReview, createRequirement, createRequirementResponse, createCourseLesson, createCourseModule, deleteCourseLesson, deleteCourseModule, getLearnerWorkspace, getOwnCourseStructure, getOwnCoreProfiles, getPublicPublishedCourse, getPublicPublishedCourseById, getPublicPublishedLessonMetadata, getPublicPublishedRequirement, listPublicPublishedRequirements, listPublishedRequirements, listPublicPublishedCourses, listCourseFilterFacets, updateOwnRequirementGoal, updateOwnRequirementResponseStatus, listCourseLessons, listCourseModules, listHifzPlans, submitOwnCourseForReview, updateCourseLesson, updateCourseModule, updateOwnCourse, listHifzReviews, listOwnAvailability, listOwnCredentials, listOwnCourses, listOwnEnrolments, listOwnProgress, listOwnRequirements, listOwnRequirementResponses, updateOwnInstructorProfile, updateOwnLocale, updateOwnProfile, updateOwnLearnerProfile, upsertLessonProgress, listOwnConversations, listConversationMessages, createConversationMessage, createAdvancedHifzPlan, updateAdvancedHifzPlan, listAdvancedHifzPlans, createHifzRecord, listOwnHifzRecords, updateOwnDraftHifzRecord, submitHifzRecordForReview, listAssignedLearnerHifzRecords, listAssignedHifzReviews, reviewHifzRecord, calculateHifzProgress, createHifzReminder, listHifzReminders } from "./supabase-core";
 import { createSignedDownloadUrl, deletePrivateObject, requestUploadPermission, PRIVATE_BUCKETS, type PrivateBucket } from "./supabase-storage";
+import { listInstructorsForReview, setInstructorVerification, VERIFICATION_STATUSES } from "./instructor-verification";
+import { listCoursesForReview, setCourseReviewDecision, COURSE_REVIEW_DECISIONS } from "./course-review";
+import { startConversation } from "./conversation-start";
+import { rescheduleBooking, cancelBooking, completeBooking, BOOKING_OUTCOMES } from "./booking-lifecycle";
+import { openSessionForBooking, setSessionStatus, recordOwnAttendance, listOwnSessions, SESSION_STATUSES } from "./class-session-lifecycle";
+import { createReview, listOwnReviews, listInstructorReviews } from "./reviews";
+import { listCourseQuizzes, createQuiz, submitQuizAttempt, listCourseAssignments, createAssignment, submitAssignment, gradeSubmission } from "./assessments";
 import { getSupabaseHealth } from "./supabase-connection";
 import { getProductionConfigReport } from "./production-config";
 import { acceptTrialRequest, cancelTrialOrBooking, confirmProposedTime, createAvailabilityInterval, createTrialRequest, declineTrialRequest, deleteAvailabilityInterval, getAvailableSlots, getOwnTrialRequest, getPublicInstructorBySlug, listPublicInstructors, listInstructorFilterFacets, listBookings, listClassSessions, listInstructorAvailability, listSchedulingNotifications, listTrialRequests, proposeNewTrialTime, updateAvailabilityInterval } from "./scheduling";
@@ -76,6 +83,9 @@ export const appRouter = router({
     learnerWorkspace: supabaseOnlyProcedure.query(({ ctx }) => getLearnerWorkspace(ctx.supabaseIdentity)),
     conversations: supabaseOnlyProcedure.query(({ ctx }) => listOwnConversations(ctx.supabaseIdentity)),
     messages: supabaseOnlyProcedure.input(z.object({ conversationId: z.string().uuid() })).query(({ ctx, input }) => listConversationMessages(ctx.supabaseIdentity, input.conversationId)),
+    startConversation: supabaseOnlyProcedure
+      .input(z.object({ counterpartId: z.string().uuid(), subject: z.string().max(200).optional() }))
+      .mutation(({ ctx, input }) => startConversation(ctx.supabaseIdentity, input)),
     createMessage: supabaseOnlyProcedure.input(z.object({ conversationId: z.string().uuid(), body: z.string().min(1).max(12000), attachmentPath: z.string().max(500).optional() })).mutation(({ ctx, input }) => createConversationMessage(ctx.supabaseIdentity, input)),
     hifzPlans: supabaseOnlyProcedure.query(({ ctx }) => listHifzPlans(ctx.supabaseIdentity)),
     createHifzPlan: supabaseOnlyProcedure.input(z.object({ title: z.string().min(1).max(160), dailyTargetAyahs: z.number().int().min(1).max(100) })).mutation(({ ctx, input }) => createHifzPlan(ctx.supabaseIdentity, input)),
@@ -133,6 +143,7 @@ export const appRouter = router({
       offset: z.number().int().min(0).optional(),
     }).optional()).query(({ input }) => listPublicInstructors(input ?? {})),
     instructorFacets: publicProcedure.query(() => listInstructorFilterFacets()),
+    instructorReviews: publicProcedure.input(z.object({ instructorId: z.string().uuid() })).query(({ input }) => listInstructorReviews(input.instructorId)),
     publishedRequirements: publicProcedure.query(() => listPublicPublishedRequirements()),
     publishedRequirementById: publicProcedure.input(z.object({ id: z.string().uuid() })).query(({ input }) => getPublicPublishedRequirement(input.id)),
     publishedCourses: publicProcedure.input(z.object({
@@ -163,6 +174,46 @@ export const appRouter = router({
     proposeTime: supabaseOnlyProcedure.input(z.object({ requestId: z.string().uuid(), startAt: z.string().datetime({ offset: true }), endAt: z.string().datetime({ offset: true }), instructorTimezone: z.string().min(1).max(80) })).mutation(({ ctx, input }) => proposeNewTrialTime(ctx.supabaseIdentity, input.requestId, input)),
     confirmTime: supabaseOnlyProcedure.input(z.object({ requestId: z.string().uuid() })).mutation(({ ctx, input }) => confirmProposedTime(ctx.supabaseIdentity, input.requestId)),
     cancel: supabaseOnlyProcedure.input(z.object({ id: z.string().uuid(), reason: z.string().min(1).max(1000) })).mutation(({ ctx, input }) => cancelTrialOrBooking(ctx.supabaseIdentity, input.id, input.reason)),
+    sessions: supabaseOnlyProcedure.query(({ ctx }) => listOwnSessions(ctx.supabaseIdentity)),
+    myReviews: supabaseOnlyProcedure.query(({ ctx }) => listOwnReviews(ctx.supabaseIdentity)),
+    courseQuizzes: supabaseOnlyProcedure.input(z.object({ courseId: z.string().uuid() })).query(({ ctx, input }) => listCourseQuizzes(ctx.supabaseIdentity, input.courseId)),
+    createQuiz: supabaseOnlyProcedure
+      .input(z.object({ courseId: z.string().uuid(), title: z.string().trim().min(1).max(180), questions: z.array(z.object({ id: z.string().min(1).max(80), prompt: z.string().max(2000).optional(), answer: z.string().max(500).optional() })).min(1).max(100) }))
+      .mutation(({ ctx, input }) => createQuiz(ctx.supabaseIdentity, input)),
+    submitQuizAttempt: supabaseOnlyProcedure
+      .input(z.object({ quizId: z.string().uuid(), answers: z.record(z.string(), z.unknown()) }))
+      .mutation(({ ctx, input }) => submitQuizAttempt(ctx.supabaseIdentity, input)),
+    courseAssignments: supabaseOnlyProcedure.input(z.object({ courseId: z.string().uuid() })).query(({ ctx, input }) => listCourseAssignments(ctx.supabaseIdentity, input.courseId)),
+    createAssignment: supabaseOnlyProcedure
+      .input(z.object({ courseId: z.string().uuid(), title: z.string().trim().min(1).max(180), instructions: z.string().max(10000).optional(), dueOffsetDays: z.number().int().min(0).max(365).optional() }))
+      .mutation(({ ctx, input }) => createAssignment(ctx.supabaseIdentity, input)),
+    submitAssignment: supabaseOnlyProcedure
+      .input(z.object({ assignmentId: z.string().uuid(), body: z.string().max(20000).optional(), objectPath: z.string().max(500).optional() }))
+      .mutation(({ ctx, input }) => submitAssignment(ctx.supabaseIdentity, input)),
+    gradeSubmission: supabaseOnlyProcedure
+      .input(z.object({ submissionId: z.string().uuid(), score: z.number().min(0).max(100), status: z.enum(["graded", "returned"]).optional() }))
+      .mutation(({ ctx, input }) => gradeSubmission(ctx.supabaseIdentity, input)),
+    createReview: supabaseOnlyProcedure
+      .input(z.object({ sessionId: z.string().uuid(), rating: z.number().int().min(1).max(5), body: z.string().trim().min(1).max(5000) }))
+      .mutation(({ ctx, input }) => createReview(ctx.supabaseIdentity, input)),
+    openSession: supabaseOnlyProcedure
+      .input(z.object({ bookingId: z.string().uuid() }))
+      .mutation(({ ctx, input }) => openSessionForBooking(ctx.supabaseIdentity, input)),
+    setSessionStatus: supabaseOnlyProcedure
+      .input(z.object({ sessionId: z.string().uuid(), status: z.enum(SESSION_STATUSES) }))
+      .mutation(({ ctx, input }) => setSessionStatus(ctx.supabaseIdentity, input)),
+    recordAttendance: supabaseOnlyProcedure
+      .input(z.object({ sessionId: z.string().uuid(), action: z.enum(["join", "leave"]) }))
+      .mutation(({ ctx, input }) => recordOwnAttendance(ctx.supabaseIdentity, input)),
+    rescheduleBooking: supabaseOnlyProcedure
+      .input(z.object({ bookingId: z.string().uuid(), startAt: z.string().min(1), endAt: z.string().min(1), reason: z.string().max(1000).optional() }))
+      .mutation(({ ctx, input }) => rescheduleBooking(ctx.supabaseIdentity, input)),
+    cancelBooking: supabaseOnlyProcedure
+      .input(z.object({ bookingId: z.string().uuid(), reason: z.string().trim().min(1).max(1000) }))
+      .mutation(({ ctx, input }) => cancelBooking(ctx.supabaseIdentity, input)),
+    completeBooking: supabaseOnlyProcedure
+      .input(z.object({ bookingId: z.string().uuid(), outcome: z.enum(BOOKING_OUTCOMES) }))
+      .mutation(({ ctx, input }) => completeBooking(ctx.supabaseIdentity, input)),
     learnerBookings: supabaseOnlyProcedure.query(({ ctx }) => listBookings(ctx.supabaseIdentity, "learner")),
     learnerSessions: supabaseOnlyProcedure.query(({ ctx }) => listClassSessions(ctx.supabaseIdentity, "learner")),
     instructorSessions: supabaseOnlyProcedure.query(({ ctx }) => listClassSessions(ctx.supabaseIdentity, "instructor")),
@@ -176,6 +227,18 @@ export const appRouter = router({
     deletePrivateObject: supabaseOnlyProcedure.input(z.object({ bucket: z.enum([PRIVATE_BUCKETS.credentials, PRIVATE_BUCKETS.instructorMedia, PRIVATE_BUCKETS.courseMedia, PRIVATE_BUCKETS.classroomResources]), objectPath: z.string().min(1).max(500) })).mutation(({ ctx, input }) => deletePrivateObject(ctx.supabaseIdentity, input as { bucket: PrivateBucket; objectPath: string })),
   }),
 
+  // Reviewed decisions. Every procedure re-checks the caller role server-side; the router
+  // namespace is organisational only and grants nothing on its own.
+  adminReview: router({
+    instructorQueue: supabaseOnlyProcedure.query(({ ctx }) => listInstructorsForReview(ctx.supabaseIdentity)),
+    courseQueue: supabaseOnlyProcedure.query(({ ctx }) => listCoursesForReview(ctx.supabaseIdentity)),
+    setCourseDecision: supabaseOnlyProcedure
+      .input(z.object({ courseId: z.string().uuid(), decision: z.enum(COURSE_REVIEW_DECISIONS), note: z.string().max(2000).optional() }))
+      .mutation(({ ctx, input }) => setCourseReviewDecision(ctx.supabaseIdentity, input)),
+    setInstructorVerification: supabaseOnlyProcedure
+      .input(z.object({ instructorId: z.string().uuid(), status: z.enum(VERIFICATION_STATUSES), note: z.string().max(2000).optional() }))
+      .mutation(({ ctx, input }) => setInstructorVerification(ctx.supabaseIdentity, input)),
+  }),
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
