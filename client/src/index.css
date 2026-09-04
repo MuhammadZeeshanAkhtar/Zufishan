@@ -16,13 +16,15 @@
    surfaces, saffron = highlight & progress only, clay = status communication.
    --------------------------------------------------------------------------- */
 :root {
-  --ni-teal: #0B3433;          /* deep ink teal - nav, hero panels */
-  --ni-teal-soft: #144944;     /* raised surface on teal */
+  --ni-teal: #0A2E2C;          /* deep ink teal - nav, hero panels */
+  --ni-teal-soft: #123F3A;     /* raised surface on teal */
+  --ni-teal-deep: #06201F;     /* the darkest ground, for immersive panels */
   --ni-moss: #0F665A;          /* forest/moss - primary actions */
   --ni-moss-deep: #14544A;     /* labels, strong headings on light */
+  --ni-moss-lift: #158173;     /* hover state on moss, and thin luminous rules */
   --ni-ink: #19312F;           /* charcoal ink - display headings */
   --ni-paper: #FDFBF4;         /* card paper */
-  --ni-bg: #F7F4EA;            /* warm ivory page ground */
+  --ni-bg: #F6F2E6;            /* warm parchment page ground */
   --ni-field: #FBF8EF;         /* input ground */
   --ni-sage: #DCE8E0;          /* pale sage - borders, dividers */
   --ni-sage-soft: #EAF1E9;     /* quiet surfaces, secondary buttons */
@@ -31,20 +33,33 @@
   --ni-sage-ink: #4F6A62;      /* sage-toned secondary text */
   --ni-muted: #56706A;         /* muted body copy */
   --ni-muted-soft: #7A9088;    /* placeholder, tertiary */
-  --ni-gold: #EFB84C;          /* saffron highlight, progress */
+  --ni-gold: #E0A93B;          /* saffron highlight, progress */
   --ni-gold-ink: #7E6118;      /* readable gold text on light */
   --ni-gold-mid: #C79A38;      /* gold rules and icons */
   --ni-gold-soft: #FBF0D3;     /* gold surface wash */
   --ni-gold-tint: #FDF7E4;     /* faintest gold wash */
+  --ni-gold-glow: #F4CE7A;     /* luminous gold, for light on dark only */
   --ni-clay: #8F4232;          /* clay - error/attention status */
   --ni-clay-ink: #A34734;      /* clay text */
   --ni-clay-soft: #FBEDE7;     /* clay surface wash */
+
+  /* Elevation. One scale, used everywhere, so depth reads as a system rather
+     than as per-component guesswork. Shadows are teal-tinted, never neutral
+     grey — grey shadows on a warm ground are what makes a page look cheap. */
+  --ni-e1: 0 1px 2px rgba(10,46,44,.05), 0 2px 8px -4px rgba(10,46,44,.08);
+  --ni-e2: 0 2px 4px rgba(10,46,44,.05), 0 10px 24px -12px rgba(10,46,44,.14);
+  --ni-e3: 0 4px 8px rgba(10,46,44,.05), 0 20px 44px -16px rgba(10,46,44,.20);
+  --ni-e4: 0 8px 16px rgba(10,46,44,.06), 0 36px 72px -24px rgba(10,46,44,.28);
+  --ni-ring-gold: inset 0 0 0 1px rgba(224,169,59,.22);
+
+  /* One easing for everything that moves. */
+  --ni-ease: cubic-bezier(.23,1,.32,1);
 }
 * { border-color: var(--border); }
 html { scroll-behavior: smooth; overflow-x: hidden; }
 body { margin: 0; background: var(--background); color: var(--foreground); font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif; overflow-x: hidden; }
 #root { min-width: 0; overflow-x: hidden; }
-button, a, input, select, textarea { transition: transform 160ms cubic-bezier(.23,1,.32,1), background-color 180ms ease, border-color 180ms ease, color 180ms ease, box-shadow 180ms ease; }
+button, a, input, select, textarea { transition: transform 160ms var(--ni-ease), background-color 180ms ease, border-color 180ms ease, color 180ms ease, box-shadow 180ms ease; }
 .input { width: 100%; margin-top: 0.5rem; border: 1px solid var(--ni-sage-line); border-radius: 0.75rem; background: var(--ni-field); padding: 0.75rem 1rem; color: var(--ni-ink); outline: none; }
 .input:focus { border-color: var(--ni-moss); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ni-moss) 18%, transparent); }
 .input::placeholder { color: var(--ni-muted-soft); }
@@ -55,8 +70,17 @@ button:active, a[role="button"]:active { transform: scale(.975); }
 .grain { position: relative; }
 .grain::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .16; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E"); mix-blend-mode: multiply; }
 .star-watermark { background-image: radial-gradient(circle at center, transparent 0 42%, color-mix(in srgb, var(--accent) 33%, transparent) 43% 44%, transparent 45%), linear-gradient(45deg, transparent 48%, color-mix(in srgb, var(--primary) 14%, transparent) 49% 51%, transparent 52%), linear-gradient(-45deg, transparent 48%, color-mix(in srgb, var(--primary) 14%, transparent) 49% 51%, transparent 52%); }
-@keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-.reveal { animation: rise 620ms cubic-bezier(.23,1,.32,1) both; }
+/* Transform only. A keyframe that starts at opacity:0 leaves content invisible
+   for as long as the animation does not advance — and CSS animations do not tick
+   in a background tab, which is exactly how sections were rendering blank. The
+   rise reads the same to a reader; it simply cannot strand anything unseen. */
+@keyframes rise { from { transform: translateY(12px); } to { transform: translateY(0); } }
+/* `forwards`, not `both`: with `both` the element is held at the keyframe's
+   opacity:0 start state before the animation runs, so anything that stops it
+   running — a background tab, where CSS animations do not tick — leaves the
+   content permanently invisible. `forwards` keeps the natural visible state
+   until the animation begins and holds the finished state after. */
+.reveal { animation: rise 620ms var(--ni-ease) forwards; }
 .reveal-delay-1 { animation-delay: 70ms; } .reveal-delay-2 { animation-delay: 140ms; } .reveal-delay-3 { animation-delay: 210ms; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
 
@@ -67,28 +91,161 @@ button:active, a[role="button"]:active { transform: scale(.975); }
 [dir="rtl"] .text-start { text-align: start; }
 [dir="rtl"] .text-end { text-align: end; }
 
-/* Noor Ilm visual refinement: presentation-only layer over the existing contracts. */
+/* ---------------------------------------------------------------------------
+   Islamic geometry, built once.
+
+   `--ni-girih` is an eight-point star tessellation — the khatim motif that runs
+   through Islamic tilework — drawn as a tiled SVG rather than the crossed
+   diagonals used before. It reads as ornament at low opacity instead of as
+   graph paper, and because it is a token, any surface can carry it at the
+   density that surface can afford. Ornament stays under the content, never
+   competing with it.
+   --------------------------------------------------------------------------- */
+:root {
+  --ni-girih: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='none' stroke='%230F665A' stroke-width='1'%3E%3Cpath d='M60 8 74 26 98 22 94 46 112 60 94 74 98 98 74 94 60 112 46 94 22 98 26 74 8 60 26 46 22 22 46 26Z'/%3E%3Cpath d='M60 30 76 44 90 60 76 76 60 90 44 76 30 60 44 44Z'/%3E%3C/g%3E%3C/svg%3E");
+  --ni-arch: polygon(0 100%, 0 38%, 8% 20%, 25% 6%, 50% 0, 75% 6%, 92% 20%, 100% 38%, 100% 100%);
+}
+
+/* Ornamental grounds. Opacity, not colour, is what keeps these quiet. */
+.ni-pattern { position: relative; isolation: isolate; }
+.ni-pattern::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background-image: var(--ni-girih); background-size: 120px 120px;
+  opacity: .05;
+  mask-image: radial-gradient(ellipse at 50% 0%, black, transparent 78%);
+}
+.ni-pattern--dense::before { background-size: 76px 76px; opacity: .07; }
+.ni-pattern--edge::before { mask-image: linear-gradient(to bottom, black, transparent 60%); }
+
+/* An Islamic arch, as a shape rather than a picture. Used for hero and feature
+   imagery so photography is framed by the architecture it depicts. */
+.ni-arch { clip-path: var(--ni-arch); }
+.ni-arch-top { border-start-start-radius: 999px; border-start-end-radius: 999px; overflow: hidden; }
+
+/* Light that suggests a window, for dark immersive panels. */
+.ni-glow { position: relative; }
+.ni-glow::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(60% 44% at 50% -6%, color-mix(in srgb, var(--ni-gold-glow) 26%, transparent), transparent 70%),
+    radial-gradient(42% 34% at 88% 8%, color-mix(in srgb, var(--ni-moss-lift) 24%, transparent), transparent 72%);
+}
+.ni-glow > * { position: relative; z-index: 1; }
+
+/* Hairline gold rule — the one flourish allowed to repeat. */
+.ni-rule { height: 1px; border: 0; background: linear-gradient(to right, transparent, var(--ni-gold-mid), transparent); opacity: .55; }
+
+/* ---------------------------------------------------------------------------
+   Surfaces. Three deliberately different card treatments, so a course, a
+   teacher and a statistic do not all arrive as the same rounded rectangle.
+   --------------------------------------------------------------------------- */
+.ni-card { background: var(--ni-paper); border: 1px solid var(--ni-sage); border-radius: 1.1rem; box-shadow: var(--ni-e1); transition: transform 260ms var(--ni-ease), box-shadow 260ms ease, border-color 260ms ease; }
+.ni-card:hover { transform: translateY(-3px); box-shadow: var(--ni-e3); border-color: color-mix(in srgb, var(--ni-gold-mid) 40%, var(--ni-sage)); }
+.ni-card--flat { box-shadow: none; }
+.ni-card--flat:hover { transform: none; box-shadow: var(--ni-e2); }
+
+/* Glass, for chrome that floats over content. */
+.ni-glass { background: color-mix(in srgb, var(--ni-paper) 72%, transparent); backdrop-filter: blur(14px) saturate(1.25); -webkit-backdrop-filter: blur(14px) saturate(1.25); border-color: color-mix(in srgb, var(--ni-sage) 70%, transparent); }
+@supports not (backdrop-filter: blur(1px)) { .ni-glass { background: var(--ni-paper); } }
+
+/* Dark immersive section: the counterweight that stops the page reading flat. */
+.ni-dark { background: linear-gradient(165deg, var(--ni-teal) 0%, var(--ni-teal-deep) 100%); color: var(--ni-bg); }
+.ni-dark h1, .ni-dark h2, .ni-dark h3 { color: var(--ni-paper); }
+.ni-dark .ni-muted, .ni-dark p { color: color-mix(in srgb, var(--ni-bg) 76%, transparent); }
+
+/* Eyebrow label — small, tracked, gold. Consistent across every section. */
+.ni-eyebrow { font-size: .7rem; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--ni-gold-ink); }
+.ni-dark .ni-eyebrow { color: var(--ni-gold-glow); }
+
+/* ---------------------------------------------------------------------------
+   Motion. Scroll reveal is driven by a tiny IntersectionObserver that adds
+   `data-inview`; no animation library is loaded for it. Everything animates on
+   transform and opacity only, and the whole layer collapses under
+   prefers-reduced-motion.
+   --------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: no-preference) {
+  /* Progressive enhancement, deliberately one-way: content is visible by default
+     and only starts hidden once the observer has actually started and stamped
+     `ni-reveal-ready` on <html>. If the script never runs — an error, a blocked
+     bundle, an old browser — the page still shows everything. Hiding content
+     behind an effect that might not fire is how a page ends up blank. */
+  /* Transform only, never opacity. An element that fails to receive its reveal
+     is then merely un-animated rather than invisible, which is the difference
+     between a missed flourish and a blank page. */
+  .ni-reveal-ready [data-reveal] { transform: translateY(20px); transition: transform 700ms var(--ni-ease); will-change: transform; }
+  .ni-reveal-ready [data-reveal][data-inview] { transform: none; }
+  .ni-reveal-ready [data-reveal-stagger] > * { transform: translateY(18px); transition: transform 620ms var(--ni-ease); }
+  .ni-reveal-ready [data-reveal-stagger][data-inview] > * { transform: none; }
+  .ni-reveal-ready [data-reveal-stagger][data-inview] > *:nth-child(1) { transition-delay: 0ms }
+  .ni-reveal-ready [data-reveal-stagger][data-inview] > *:nth-child(2) { transition-delay: 70ms }
+  .ni-reveal-ready [data-reveal-stagger][data-inview] > *:nth-child(3) { transition-delay: 140ms }
+  .ni-reveal-ready [data-reveal-stagger][data-inview] > *:nth-child(4) { transition-delay: 210ms }
+  .ni-reveal-ready [data-reveal-stagger][data-inview] > *:nth-child(5) { transition-delay: 280ms }
+  .ni-reveal-ready [data-reveal-stagger][data-inview] > *:nth-child(6) { transition-delay: 350ms }
+
+  @keyframes ni-float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-10px) } }
+  .ni-float { animation: ni-float 7s ease-in-out infinite; }
+  .ni-float--slow { animation-duration: 11s; }
+
+  .stagger > * { animation: rise 460ms var(--ni-ease) both; }
+  .stagger > *:nth-child(1){animation-delay:0ms}   .stagger > *:nth-child(2){animation-delay:45ms}
+  .stagger > *:nth-child(3){animation-delay:90ms}  .stagger > *:nth-child(4){animation-delay:135ms}
+  .stagger > *:nth-child(5){animation-delay:180ms} .stagger > *:nth-child(6){animation-delay:225ms}
+  .lift { transition: transform 180ms var(--ni-ease), box-shadow 180ms ease; }
+  .lift:hover { transform: translateY(-3px); box-shadow: var(--ni-e3); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stagger > *, .reveal { animation: none !important; }
+  .lift:hover { transform: none; }
+  [data-reveal], [data-reveal-stagger] > * { transform: none !important; }
+  .ni-float { animation: none !important; }
+}
+
+/* ---------------------------------------------------------------------------
+   Presentation layer over the existing contracts. Class names are unchanged so
+   every component keeps working; only their appearance is raised.
+   --------------------------------------------------------------------------- */
 ::selection { background: var(--ni-gold); color: var(--ni-teal); }
-body { background: radial-gradient(circle at 12% 0%, rgba(226, 238, 226, .72), transparent 32rem), var(--background); letter-spacing: -0.005em; }
-body::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: -1; opacity: .38; background-image: linear-gradient(135deg, transparent 0 49.5%, rgba(165, 127, 47, .045) 49.8% 50.2%, transparent 50.5%), linear-gradient(45deg, transparent 0 49.5%, rgba(14, 90, 79, .035) 49.8% 50.2%, transparent 50.5%); background-size: 42px 42px; mask-image: linear-gradient(to bottom, black, transparent 75%); }
-.site-header { box-shadow: 0 8px 28px rgba(18, 63, 56, .055); }
+body {
+  background:
+    radial-gradient(120% 60% at 50% -10%, color-mix(in srgb, var(--ni-sage-soft) 80%, transparent), transparent 60%),
+    radial-gradient(circle at 12% 0%, rgba(226, 238, 226, .55), transparent 32rem),
+    var(--background);
+  letter-spacing: -0.005em;
+}
+body::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: -1;
+  opacity: .045;
+  background-image: var(--ni-girih); background-size: 150px 150px;
+  mask-image: linear-gradient(to bottom, black, transparent 70%);
+}
+
+/* Navigation: glass over the hero, solid once scrolled. */
+.site-header { box-shadow: var(--ni-e1); backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2); background: color-mix(in srgb, var(--ni-field) 82%, transparent); transition: box-shadow 260ms ease, background-color 260ms ease; }
+.site-header[data-scrolled] { box-shadow: var(--ni-e2); background: color-mix(in srgb, var(--ni-field) 96%, transparent); }
 .site-header > div:first-child { min-height: 4.5rem; }
-.site-header a, .site-footer a { transition: color 180ms ease, transform 180ms cubic-bezier(.23,1,.32,1); }
+.site-header a, .site-footer a { transition: color 180ms ease, transform 180ms var(--ni-ease); }
 .site-header a:hover, .site-footer a:hover { color: var(--ni-gold-ink); }
-.brand-button { min-height: 2.9rem; letter-spacing: -0.01em; box-shadow: 0 10px 24px rgba(14, 90, 79, .12); }
-.brand-button:hover { box-shadow: 0 14px 30px rgba(14, 90, 79, .18); }
+/* Underline that grows from the start edge, direction-aware. */
+.site-header nav a { position: relative; }
+.site-header nav a::after { content: ""; position: absolute; inset-inline-start: 0; bottom: -.35rem; height: 1.5px; width: 0; background: var(--ni-gold-mid); border-radius: 1px; transition: width 240ms var(--ni-ease); }
+.site-header nav a:hover::after { width: 100%; }
+
+.brand-button { min-height: 2.9rem; letter-spacing: -0.01em; box-shadow: var(--ni-e2); }
+.brand-button:hover { box-shadow: var(--ni-e3); transform: translateY(-1px); }
 .status-pill { line-height: 1.2; box-shadow: inset 0 0 0 1px rgba(255,255,255,.28); }
+
 .site-footer { position: relative; overflow: hidden; }
 .site-footer::before { content: ""; position: absolute; width: 24rem; height: 24rem; right: -9rem; top: -12rem; border: 1px solid rgba(212,185,106,.18); border-radius: 50%; box-shadow: 0 0 0 22px rgba(212,185,106,.05), 0 0 0 44px rgba(212,185,106,.035); pointer-events: none; }
 img { display: block; }
 main > section { isolation: isolate; }
 main > section:first-child { border-bottom: 1px solid rgba(156, 184, 167, .24); }
-main .group { transition: transform 220ms cubic-bezier(.23,1,.32,1), box-shadow 220ms ease, border-color 220ms ease; }
-main .group:hover { border-color: rgba(165, 127, 47, .34); }
-main .group img { transition: transform 500ms cubic-bezier(.23,1,.32,1), filter 500ms ease; }
-main .group:hover img { filter: saturate(1.06) contrast(1.02); }
-.input, select, textarea { box-shadow: 0 5px 18px rgba(36, 75, 58, .035); }
-.input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 4px rgba(14, 90, 79, .11), 0 8px 22px rgba(36, 75, 58, .06); }
+main .group { transition: transform 260ms var(--ni-ease), box-shadow 260ms ease, border-color 260ms ease; }
+main .group:hover { border-color: color-mix(in srgb, var(--ni-gold-mid) 42%, transparent); box-shadow: var(--ni-e3); transform: translateY(-3px); }
+main .group img { transition: transform 620ms var(--ni-ease), filter 620ms ease; }
+main .group:hover img { transform: scale(1.035); filter: saturate(1.06) contrast(1.02); }
+.input, select, textarea { box-shadow: var(--ni-e1); }
+.input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 4px rgba(14, 90, 79, .11), var(--ni-e2); }
 :disabled { cursor: not-allowed; }
 [dir="rtl"] .brand-button svg, [dir="rtl"] .icon-directional { transform: scaleX(-1); }
 @media (max-width: 640px) {
@@ -96,21 +253,20 @@ main .group:hover img { filter: saturate(1.06) contrast(1.02); }
   .site-header img { width: 2.35rem; height: 2.35rem; }
   .site-header .font-display { font-size: 1.05rem; }
   .site-header .tracking-\[\.24em\] { letter-spacing: .16em; }
-  main > section:first-child h1 { font-size: clamp(3rem, 15vw, 4.5rem); }
+  main > section:first-child h1 { font-size: clamp(2.6rem, 12vw, 4rem); }
   main > section:first-child img { max-height: 29rem; }
 }
 
 .dashboard-shell { background: radial-gradient(circle at 90% 0%, rgba(221, 235, 222, .72), transparent 28rem), var(--ni-bg); }
-.dashboard-sidebar { box-shadow: 12px 0 32px rgba(18, 63, 56, .035); }
+.dashboard-sidebar { box-shadow: 12px 0 32px rgba(10,46,44,.035); }
 .dashboard-sidebar > a { display: inline-flex; align-items: center; gap: .6rem; }
-.dashboard-sidebar > a::before { content: "✦"; color: var(--ni-gold-ink); font-size: .75rem; }
 .dashboard-sidebar nav a { border-inline-start: 2px solid transparent; transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease, padding 180ms ease; }
 .dashboard-sidebar nav a:hover { border-inline-start-color: var(--ni-gold-ink); padding-inline-start: 1rem; }
-.dashboard-header { box-shadow: 0 8px 24px rgba(18, 63, 56, .035); }
-.dashboard-hero { box-shadow: 0 20px 44px rgba(18, 63, 56, .14); }
+.dashboard-header { box-shadow: var(--ni-e1); }
+.dashboard-hero { box-shadow: var(--ni-e3); }
 .dashboard-hero::after { content: ""; position: absolute; inset-inline-end: 2rem; bottom: 1.75rem; width: 5rem; height: 1px; background: var(--ni-gold-mid); opacity: .7; }
-.dashboard-metric, .dashboard-panel, .dashboard-empty { transition: transform 220ms cubic-bezier(.23,1,.32,1), box-shadow 220ms ease, border-color 220ms ease; }
-.dashboard-metric:hover, .dashboard-panel:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgba(37, 77, 60, .08); border-color: rgba(165, 127, 47, .3); }
+.dashboard-metric, .dashboard-panel, .dashboard-empty { transition: transform 260ms var(--ni-ease), box-shadow 260ms ease, border-color 260ms ease; }
+.dashboard-metric:hover, .dashboard-panel:hover { transform: translateY(-3px); box-shadow: var(--ni-e3); border-color: color-mix(in srgb, var(--ni-gold-mid) 38%, transparent); }
 .dashboard-empty { position: relative; overflow: hidden; }
 .dashboard-empty::before { content: ""; position: absolute; inset-inline-end: -2rem; top: -2rem; width: 7rem; height: 7rem; border: 1px solid rgba(165,127,47,.28); transform: rotate(45deg); }
 @media (max-width: 640px) {
@@ -122,20 +278,20 @@ main .group:hover img { filter: saturate(1.06) contrast(1.02); }
 
 .hifz-shell { background: radial-gradient(circle at 88% 4%, rgba(221, 235, 222, .8), transparent 24rem), var(--ni-bg); }
 .hifz-shell > div > a { border-bottom: 1px solid rgba(165,127,47,.4); padding-bottom: .45rem; }
-.hifz-panel { position: relative; overflow: hidden; box-shadow: 0 12px 30px rgba(37, 77, 60, .055); transition: transform 220ms cubic-bezier(.23,1,.32,1), box-shadow 220ms ease, border-color 220ms ease; }
+.hifz-panel { position: relative; overflow: hidden; box-shadow: var(--ni-e2); transition: transform 260ms var(--ni-ease), box-shadow 260ms ease, border-color 260ms ease; }
 .hifz-panel::before { content: ""; position: absolute; inset-inline-end: -2rem; top: -2rem; width: 7rem; height: 7rem; border: 1px solid rgba(165,127,47,.18); transform: rotate(45deg); pointer-events: none; }
-.hifz-panel:hover { transform: translateY(-2px); box-shadow: 0 18px 36px rgba(37, 77, 60, .09); border-color: rgba(165,127,47,.34); }
-.hifz-protected > div { box-shadow: 0 18px 42px rgba(37, 77, 60, .08); }
-@media (max-width: 640px) { .hifz-shell h1, .hifz-protected h1 { font-size: 2.7rem; } .hifz-panel { padding: 1.25rem; } }
+.hifz-panel:hover { transform: translateY(-3px); box-shadow: var(--ni-e3); border-color: rgba(165,127,47,.34); }
+.hifz-protected > div { box-shadow: var(--ni-e3); }
+@media (max-width: 640px) { .hifz-shell h1, .hifz-protected h1 { font-size: 2.4rem; } .hifz-panel { padding: 1.25rem; } }
 
 .ai-tutor-shell { background: radial-gradient(circle at 88% 0%, rgba(221, 235, 222, .58), transparent 25rem); }
 .ai-tutor-shell > nav a { border: 1px solid rgba(156,184,167,.42); }
-.ai-tutor-shell > nav a:hover { border-color: rgba(165,127,47,.46); box-shadow: 0 8px 18px rgba(37,77,60,.06); }
-.ai-tutor-panel { position: relative; overflow: hidden; transition: transform 220ms cubic-bezier(.23,1,.32,1), box-shadow 220ms ease, border-color 220ms ease; }
+.ai-tutor-shell > nav a:hover { border-color: rgba(165,127,47,.46); box-shadow: var(--ni-e1); }
+.ai-tutor-panel { position: relative; overflow: hidden; transition: transform 260ms var(--ni-ease), box-shadow 260ms ease, border-color 260ms ease; }
 .ai-tutor-panel::before { content: ""; position: absolute; inset-inline-end: -2.5rem; top: -2.5rem; width: 8rem; height: 8rem; border: 1px solid rgba(165,127,47,.17); transform: rotate(45deg); pointer-events: none; }
-.ai-tutor-panel:hover { border-color: rgba(165,127,47,.28); box-shadow: 0 18px 42px rgba(37,77,60,.085); }
-.ai-tutor-notice { box-shadow: 0 8px 18px rgba(37,77,60,.035); }
-@media (max-width: 640px) { .ai-tutor-shell { padding-top: 1.5rem; } .ai-tutor-shell h1 { font-size: 2.55rem; } .ai-tutor-shell form > textarea { min-width: 0; } .ai-tutor-shell form { flex-direction: column; } .ai-tutor-shell form button { align-self: stretch; } }
+.ai-tutor-panel:hover { border-color: rgba(165,127,47,.28); box-shadow: var(--ni-e3); }
+.ai-tutor-notice { box-shadow: var(--ni-e1); }
+@media (max-width: 640px) { .ai-tutor-shell { padding-top: 1.5rem; } .ai-tutor-shell h1 { font-size: 2.3rem; } .ai-tutor-shell form > textarea { min-width: 0; } .ai-tutor-shell form { flex-direction: column; } .ai-tutor-shell form button { align-self: stretch; } }
 
 /* ---------------------------------------------------------------------------
    Locale-aware typography. Arabic uses Noto Sans Arabic throughout; Urdu uses
@@ -152,23 +308,54 @@ main .group:hover img { filter: saturate(1.06) contrast(1.02); }
 :root[lang="ur"] textarea, :root[lang="ur"] .status-pill, :root[lang="ur"] label
   { font-family: "Noto Sans Arabic", "DM Sans", ui-sans-serif, sans-serif; line-height: 1.7; }
 
+/* Quran and Arabic scripture: generous line height and a calm measure. Never
+   animated, never decorated — legibility is the whole requirement here. */
+.ni-scripture { font-family: "Noto Sans Arabic", serif; font-size: clamp(1.35rem, 1rem + 1.4vw, 1.9rem); line-height: 2.35; letter-spacing: 0; text-align: start; }
+.ni-scripture, .ni-scripture * { animation: none !important; }
+
 /* Mixed-direction safety: emails, URLs, times, numbers and currency codes stay LTR inside RTL copy. */
 [dir="rtl"] .ltr-embed, [dir="rtl"] time, [dir="rtl"] code, [dir="rtl"] .tabular
   { direction: ltr; unicode-bidi: isolate; }
 .tabular { font-variant-numeric: tabular-nums; }
 
-/* Motion: purposeful, transform/opacity only, and fully disabled under reduced-motion. */
-@media (prefers-reduced-motion: no-preference) {
-  .stagger > * { animation: rise 460ms cubic-bezier(.23,1,.32,1) both; }
-  .stagger > *:nth-child(1){animation-delay:0ms}   .stagger > *:nth-child(2){animation-delay:45ms}
-  .stagger > *:nth-child(3){animation-delay:90ms}  .stagger > *:nth-child(4){animation-delay:135ms}
-  .stagger > *:nth-child(5){animation-delay:180ms} .stagger > *:nth-child(6){animation-delay:225ms}
-  .lift { transition: transform 180ms cubic-bezier(.23,1,.32,1), box-shadow 180ms ease; }
-  .lift:hover { transform: translateY(-3px); box-shadow: 0 16px 34px color-mix(in srgb, var(--ni-teal) 12%, transparent); }
-}
-@media (prefers-reduced-motion: reduce) { .stagger > *, .reveal { animation: none !important; } .lift:hover { transform: none; } }
-
 /* Skip link for keyboard users. */
 .skip-link { position: absolute; inset-inline-start: 0.75rem; top: -3rem; z-index: 60; border-radius: 0.75rem;
   background: var(--ni-teal); color: var(--ni-bg); padding: 0.65rem 1rem; font-weight: 600; font-size: 0.875rem; }
 .skip-link:focus { top: 0.75rem; }
+
+/* ---------------------------------------------------------------------------
+   Per-page composition.
+
+   Each surface gets its own arrangement rather than the same card grid with a
+   different heading. What they share is the language — girih, arch, gold
+   hairline, one elevation scale — not the layout.
+   --------------------------------------------------------------------------- */
+
+/* Authentication: an immersive panel beside the form, not a form on parchment.
+   The arch is drawn rather than illustrated, so it costs nothing to load. */
+.auth-split { overflow: hidden; }
+.auth-aside::before {
+  content: ""; position: absolute; inset-inline-start: 50%; bottom: -14%;
+  width: min(30rem, 88%); aspect-ratio: 1 / 1.35; transform: translateX(-50%);
+  border: 1px solid color-mix(in srgb, var(--ni-gold-glow) 26%, transparent);
+  border-start-start-radius: 999px; border-start-end-radius: 999px;
+  pointer-events: none;
+}
+.auth-aside::after {
+  content: ""; position: absolute; inset-inline-end: 12%; top: 12%;
+  width: 3.25rem; height: 3.25rem; border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--ni-gold-glow) 42%, transparent);
+  box-shadow: 0 0 0 10px color-mix(in srgb, var(--ni-gold-glow) 7%, transparent);
+  pointer-events: none;
+}
+.auth-card {
+  background: var(--ni-paper); border: 1px solid var(--ni-sage);
+  border-radius: 1.35rem; padding: 2rem 1.75rem; box-shadow: var(--ni-e3);
+}
+@media (min-width: 640px) { .auth-card { padding: 2.35rem 2.15rem; } }
+/* On small screens the panel becomes a compact banner instead of a tall hero. */
+@media (max-width: 1023px) {
+  .auth-aside { padding-block: 3.25rem; }
+  .auth-aside::before { bottom: -32%; width: min(22rem, 80%); }
+  .auth-aside::after { inset-inline-end: 8%; top: 8%; width: 2.25rem; height: 2.25rem; }
+}

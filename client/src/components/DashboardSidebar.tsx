@@ -24,13 +24,13 @@ const STORAGE_KEY = "noor-ilm-sidebar-collapsed";
 /** Every module label that can appear in any role's navigation gets its own mark. */
 const MODULE_ICONS: Record<string, LucideIcon> = {
   // shared
-  overview: LayoutDashboard, "lms overview": LayoutDashboard, profile: User,
+  overview: LayoutDashboard, "lms overview": LayoutDashboard, "edit profile": User, profile: User,
   courses: BookOpen, requirements: ClipboardCheck, bookings: CalendarCheck,
   schedule: CalendarDays, sessions: MonitorPlay, "ai tutor": Sparkles,
   messages: MessageSquare, reports: FileBarChart, notifications: Bell,
   reviews: Star, wallet: Wallet, settings: Settings,
   // learner
-  tutors: GraduationCap, progress: TrendingUp,
+  "find quran teacher": GraduationCap, progress: TrendingUp,
   // instructor
   "find students": UserSearch, training: BookMarked, verification: BadgeCheck, invites: UserPlus, students: Users,
   availability: CalendarClock, "classroom demo": Video, billing: CreditCard, withdrawals: Banknote,
@@ -186,7 +186,7 @@ export default function DashboardSidebar({ role, hrefFor, collapsed, mobileOpen,
         className={[
           "dashboard-sidebar hidden shrink-0 flex-col border-e border-[var(--ni-sage)] bg-[var(--ni-field)] py-6 lg:flex",
           "transition-[width] duration-200 ease-out motion-reduce:transition-none",
-          collapsed ? "w-[4.75rem] px-3" : "w-72 px-5",
+          collapsed ? "w-[4.5rem] px-2.5" : "w-64 px-4",
         ].join(" ")}
       >
         <div className={collapsed ? "flex justify-center" : ""}>{brand(collapsed)}</div>

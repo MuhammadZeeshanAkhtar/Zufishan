@@ -47,6 +47,7 @@ const profileToOnboarding = (profile: Record<string, unknown> | null | undefined
   if (!profile) return null;
   return {
     role,
+    gender: String(profile.gender ?? ""),
     fullName: String(profile.full_name ?? ""),
     displayName: String(profile.display_name ?? ""),
     countryCity: "",

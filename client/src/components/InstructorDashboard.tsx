@@ -14,6 +14,7 @@ import { Inbox, MessageSquare, UserSearch, Wallet } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { trpc } from "@/lib/trpc";
 import { useLocale } from "../contexts/LocaleContextState";
+import ProfileCompletionBanner from "./ProfileCompletionBanner";
 
 type RequirementRow = {
   id: string;
@@ -75,7 +76,8 @@ export default function InstructorDashboard() {
   ];
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-6 lg:px-10 lg:py-8">
+    <div className="mx-auto max-w-6xl px-5 py-6 lg:px-6 lg:py-8">
+      <ProfileCompletionBanner role="instructor" />
       {/* Wallet and training strips, as on the reference dashboard. */}
       <div className="space-y-3">
         <Banner tone="wallet">

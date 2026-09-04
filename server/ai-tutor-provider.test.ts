@@ -48,8 +48,84 @@ describe("Gemini AI Tutor provider boundary", () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response("busy", { status: 503 }));
     vi.stubGlobal("fetch", fetchMock);
     const result = await generateGeminiTutorReply({ systemPrompt: "system", history: [], userText: "hello" }, { GEMINI_API_KEY: "server-secret", GEMINI_MODEL: "approved-model" });
-    expect(result).toEqual({ ok: false, status: "unavailable", message: "The AI Tutor provider did not return an answer." });
+    // The message now carries the provider's HTTP status: the old wording was identical for a dead
+    // model, an expired key and a quota stop, which made the real cause unreportable.
+    expect(result.ok).toBe(false);
+    expect(result).toMatchObject({ status: "unavailable" });
+    expect(!result.ok && result.message).toContain("HTTP 503");
+    expect(!result.ok && result.message).not.toContain("server-secret");
     expect(fetchMock).toHaveBeenCalledTimes(AI_TUTOR_PROVIDER_LIMITS.maxAttempts);
+    vi.unstubAllGlobals();
+  });
+
+  it("logs the provider's real error server-side without ever logging the key", async () => {
+    const body = JSON.stringify({ error: { code: 404, message: "models/dead-model is not found", status: "NOT_FOUND" } });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 404 })));
+    const logged: unknown[][] = [];
+    const spy = vi.spyOn(console, "error").mockImplementation((...args) => { logged.push(args); });
+    const result = await generateGeminiTutorReply({ systemPrompt: "s", history: [], userText: "hi" }, { GEMINI_API_KEY: "server-secret", GEMINI_MODEL: "dead-model" });
+    const flat = logged.flat().map(String).join(" ");
+    // The cause is recoverable from the log …
+    expect(flat).toContain("HTTP 404");
+    expect(flat).toContain("models/dead-model is not found");
+    // … and the key is not in it, nor in what the learner is shown.
+    expect(flat).not.toContain("server-secret");
+    expect(!result.ok && result.message).not.toContain("server-secret");
+    spy.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  it("does not spend a second request retrying an exhausted quota", async () => {
+    // 429 means the allowance is gone; retrying immediately cannot succeed and costs another
+    // request, which on a 20-per-day free tier doubles the burn rate of every send.
+    const body = JSON.stringify({ error: { code: 429, status: "RESOURCE_EXHAUSTED", message: "quota. Please retry in 29.28s." } });
+    const fetchMock = vi.fn().mockResolvedValue(new Response(body, { status: 429 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await generateGeminiTutorReply({ systemPrompt: "s", history: [], userText: "hi" }, { GEMINI_API_KEY: "k", GEMINI_MODEL: "m" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // A per-minute burst genuinely clears in seconds, so the wait is quoted. 29.28s rounds up: a
+    // retry hint must never expire before the window it describes.
+    expect(!result.ok && result.message).toContain("busy right now");
+    expect(!result.ok && result.message).toContain("30 seconds");
+    spy.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  it("tells the learner a daily allowance is spent, not to wait 20 seconds", async () => {
+    // Google returns the same short retryDelay for a spent daily quota as for a burst; repeating it
+    // would send the learner back in 20 seconds for a limit that lasts until the daily reset.
+    const body = JSON.stringify({ error: { code: 429, status: "RESOURCE_EXHAUSTED", message: "quota. Please retry in 20s.",
+      details: [{ "@type": "type.googleapis.com/google.rpc.QuotaFailure", violations: [{ quotaId: "GenerateRequestsPerDayPerProjectPerModel-FreeTier", quotaValue: "20" }] }] } });
+    const fetchMock = vi.fn().mockResolvedValue(new Response(body, { status: 429 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await generateGeminiTutorReply({ systemPrompt: "s", history: [], userText: "hi" }, { GEMINI_API_KEY: "k", GEMINI_MODEL: "m" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(!result.ok && result.message).toContain("today");
+    expect(!result.ok && result.message).not.toContain("20 seconds");
+    spy.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  it("still retries a genuinely transient provider outage", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("boom", { status: 503 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    await generateGeminiTutorReply({ systemPrompt: "s", history: [], userText: "hi" }, { GEMINI_API_KEY: "k", GEMINI_MODEL: "m" });
+    expect(fetchMock).toHaveBeenCalledTimes(AI_TUTOR_PROVIDER_LIMITS.maxAttempts);
+    spy.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  it("distinguishes a filtered or truncated answer from a transport failure", async () => {
+    const body = JSON.stringify({ candidates: [{ content: { parts: [] }, finishReason: "MAX_TOKENS" }], usageMetadata: { thoughtsTokenCount: 2400 } });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 200 })));
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await generateGeminiTutorReply({ systemPrompt: "s", history: [], userText: "hi" }, { GEMINI_API_KEY: "k", GEMINI_MODEL: "m" });
+    // A 200 with no text names why, so a spent token budget is not mistaken for an outage.
+    expect(!result.ok && result.message).toContain("MAX_TOKENS");
+    spy.mockRestore();
     vi.unstubAllGlobals();
   });
 

@@ -11,6 +11,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { SlidersHorizontal, X } from "lucide-react";
 import { useLocale } from "../contexts/LocaleContextState";
+import { countryOptions, genderLabelKeys, genderValues, sectValues, timezoneOptionsForCountry } from "../lib/reference-data";
 
 export type MarketplaceFilterState = {
   query: string;
@@ -20,6 +21,11 @@ export type MarketplaceFilterState = {
   minRateMinor?: number;
   maxRateMinor?: number;
   minYearsExperience?: number;
+  gender?: string;
+  country?: string;
+  timezone?: string;
+  sect?: string;
+  hasIjazah?: boolean;
   sort: string;
 };
 
@@ -99,6 +105,75 @@ function PanelBody({ value, onChange, facets, sortOptions, showRate, showExperie
           className="w-full rounded-xl border border-[var(--ni-sage-line)] bg-[var(--ni-field)] px-3 py-2 text-sm text-[var(--ni-ink)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]"
         >
           {sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+      </Group>
+
+      {/* Single-choice, so radios rather than the checkbox lists — and "All" clears the filter. */}
+      <Group title={t("marketplace.gender")}>
+        <ul className="space-y-1.5">
+          {[{ value: "", labelKey: "gender.any" as const }, ...genderValues.map((g) => ({ value: g, labelKey: genderLabelKeys[g] }))].map((option) => (
+            <li key={option.value || "any"}>
+              <label className="flex cursor-pointer items-center gap-2.5 text-sm text-[var(--ni-muted)] hover:text-[var(--ni-ink)]">
+                <input
+                  type="radio"
+                  name="tutor-gender"
+                  checked={(value.gender ?? "") === option.value}
+                  onChange={() => set({ gender: option.value || undefined })}
+                  className="h-4 w-4 accent-[var(--ni-moss)]"
+                />
+                {t(option.labelKey)}
+              </label>
+            </li>
+          ))}
+        </ul>
+      </Group>
+
+      <Group title={t("marketplace.credentials")}>
+        <label className="flex cursor-pointer items-center gap-2.5 text-sm text-[var(--ni-muted)] hover:text-[var(--ni-ink)]">
+          <input
+            type="checkbox"
+            checked={Boolean(value.hasIjazah)}
+            onChange={(event) => set({ hasIjazah: event.target.checked || undefined })}
+            className="h-4 w-4 accent-[var(--ni-moss)]"
+          />
+          {t("marketplace.ijazah")}
+        </label>
+      </Group>
+
+      <Group title={t("marketplace.sect")}>
+        <select
+          value={value.sect ?? ""}
+          onChange={(event) => set({ sect: event.target.value || undefined })}
+          aria-label={t("marketplace.sect")}
+          className="w-full rounded-xl border border-[var(--ni-sage-line)] bg-[var(--ni-field)] px-3 py-2 text-sm"
+        >
+          <option value="">{t("marketplace.anySect")}</option>
+          {sectValues.map((option) => <option key={option} value={option}>{option}</option>)}
+        </select>
+      </Group>
+
+      <Group title={t("marketplace.country")}>
+        <select
+          value={value.country ?? ""}
+          onChange={(event) => set({ country: event.target.value || undefined, timezone: undefined })}
+          aria-label={t("marketplace.country")}
+          className="w-full rounded-xl border border-[var(--ni-sage-line)] bg-[var(--ni-field)] px-3 py-2 text-sm"
+        >
+          <option value="">{t("marketplace.anyCountry")}</option>
+          {countryOptions().map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+      </Group>
+
+      <Group title={t("marketplace.timezone")}>
+        {/* Scoped to the chosen country, the same dependency the profile forms use. */}
+        <select
+          value={value.timezone ?? ""}
+          onChange={(event) => set({ timezone: event.target.value || undefined })}
+          aria-label={t("marketplace.timezone")}
+          className="w-full rounded-xl border border-[var(--ni-sage-line)] bg-[var(--ni-field)] px-3 py-2 text-sm"
+        >
+          <option value="">{t("marketplace.anyTimezone")}</option>
+          {timezoneOptionsForCountry(value.country ?? "").map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
       </Group>
 

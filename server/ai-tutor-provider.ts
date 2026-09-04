@@ -44,8 +44,36 @@ function boundedText(value: unknown, max: number): string {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
+/** Provider errors sometimes echo the request back. The key must never reach a log file. */
+function redactKey(text: string, key: string): string {
+  return key ? text.split(key).join("[REDACTED_KEY]") : text;
+}
+
+/**
+ * 429 is deliberately NOT retryable. It means the quota is spent, so an immediate second attempt
+ * cannot succeed — it just consumes another request from the same exhausted allowance, which on a
+ * 20-per-day free tier means every send costs two. Only genuinely transient statuses retry.
+ */
 function isRetryable(status: number): boolean {
-  return status === 408 || status === 429 || status >= 500;
+  return status === 408 || status >= 500;
+}
+
+/** Google reports how long to wait, either in a RetryInfo detail or in the message text. */
+function retryAfterSeconds(body: string): number | null {
+  const detail = body.match(/"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/);
+  if (detail) return Math.ceil(Number(detail[1]));
+  const inline = body.match(/retry in (\d+(?:\.\d+)?)s/i);
+  return inline ? Math.ceil(Number(inline[1])) : null;
+}
+
+/**
+ * A daily quota and a per-minute burst both arrive as 429 with a short `retryDelay`, but only one
+ * of them clears in seconds. Repeating Google's generic hint for a spent daily allowance tells the
+ * learner to come back in 20 seconds for a limit that lasts until the quota resets, so the two are
+ * separated by the quota id the provider names in the failure detail.
+ */
+function isDailyQuota(body: string): boolean {
+  return /PerDay|per_day|RequestsPerDay/i.test(body);
 }
 
 export async function generateGeminiTutorReply(request: TutorProviderRequest, env: NodeJS.ProcessEnv = process.env): Promise<TutorProviderResult> {
@@ -79,18 +107,49 @@ export async function generateGeminiTutorReply(request: TutorProviderRequest, en
         signal: controller.signal,
       });
       if (!response.ok) {
+        // The provider's own explanation is the only thing that identifies a bad model, an expired
+        // key, a quota stop or a malformed request. It never reaches the learner — it is logged
+        // here, with the key stripped in case the provider echoes it back — and the learner gets
+        // the status code alone, which is enough to tell the two apart when reporting a problem.
+        const body = await response.text().catch(() => "");
+        console.error(`[ai-tutor] provider HTTP ${response.status} ${response.statusText} model=${model}`,
+          redactKey(body, key).slice(0, 1500));
         if (attempt < MAX_ATTEMPTS && isRetryable(response.status)) continue;
-        return { ok: false, status: response.status >= 500 || response.status === 429 ? "unavailable" : "failed", message: "The AI Tutor provider did not return an answer." };
+        // A quota stop is not a fault the learner can act on by retrying, so it says so plainly and
+        // passes on the provider's own wait time instead of a bare status code.
+        if (response.status === 429) {
+          if (isDailyQuota(body)) {
+            return { ok: false, status: "unavailable", message: "The AI Tutor has used up today's question allowance. It becomes available again after the daily limit resets." };
+          }
+          const wait = retryAfterSeconds(body);
+          return { ok: false, status: "unavailable", message: wait
+            ? `The AI Tutor is busy right now. Please try again in about ${wait < 60 ? `${wait} seconds` : `${Math.ceil(wait / 60)} minutes`}.`
+            : "The AI Tutor is busy right now. Please try again shortly." };
+        }
+        return { ok: false, status: response.status >= 500 ? "unavailable" : "failed", message: `The AI Tutor provider rejected the request (HTTP ${response.status}). The server log has the details.` };
       }
-      const payload = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-      const text = boundedText(payload.candidates?.[0]?.content?.parts?.map(part => part.text || "").join("\n"), 12_000);
-      if (!text) return { ok: false, status: "unavailable", message: "The AI Tutor provider returned no answer." };
+      const payload = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> }; finishReason?: string }>; promptFeedback?: { blockReason?: string }; usageMetadata?: Record<string, number> };
+      const candidate = payload.candidates?.[0];
+      const text = boundedText(candidate?.content?.parts?.map(part => part.text || "").join("\n"), 12_000);
+      if (!text) {
+        // A 200 with no text is a real outcome, not a transport failure: the answer was filtered,
+        // or the token budget was spent on reasoning before any output was produced. Both are
+        // worth distinguishing, because only one of them is fixed by raising the budget.
+        const reason = candidate?.finishReason ?? payload.promptFeedback?.blockReason ?? "unknown";
+        console.error(`[ai-tutor] provider returned 200 with no text. finishReason=${reason} model=${model}`, payload.usageMetadata ?? {});
+        return { ok: false, status: "unavailable", message: `The AI Tutor provider returned no answer (${reason}).` };
+      }
       return { ok: true, text, model };
     } catch (cause) {
       // A timeout means the model was still working, not that the request was lost. Retrying just
       // doubles the learner's wait, so only genuine transport errors get a second attempt.
       const abortedByTimeout = cause instanceof Error && cause.name === "AbortError";
-      if (abortedByTimeout) return { ok: false, status: "unavailable", message: "The AI Tutor provider did not answer in time." };
+      if (abortedByTimeout) {
+        console.error(`[ai-tutor] provider timed out after ${REQUEST_TIMEOUT_MS}ms model=${model}`);
+        return { ok: false, status: "unavailable", message: `The AI Tutor provider did not answer within ${Math.round(REQUEST_TIMEOUT_MS / 1000)}s.` };
+      }
+      console.error(`[ai-tutor] provider transport error (attempt ${attempt}/${MAX_ATTEMPTS}) model=${model}:`,
+        cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause));
       if (attempt < MAX_ATTEMPTS) continue;
       return { ok: false, status: "unavailable", message: "The AI Tutor provider is temporarily unavailable." };
     } finally {

@@ -8,6 +8,7 @@ import App from "./App";
 import { supabaseClient } from "./lib/supabase-client";
 import { startLogin } from "./const";
 import "./index.css";
+import { startHeaderScrollState, startRevealOnScroll } from "./lib/reveal-on-scroll";
 
 const queryClient = new QueryClient();
 
@@ -79,6 +80,11 @@ const trpcClient = trpc.createClient({
     }),
   ],
 });
+
+// Presentation only: scroll reveal and the header glass state. Neither touches data,
+// routing or state, and both no-op under prefers-reduced-motion.
+startRevealOnScroll();
+startHeaderScrollState();
 
 createRoot(document.getElementById("root")!).render(
   <trpc.Provider client={trpcClient} queryClient={queryClient}>

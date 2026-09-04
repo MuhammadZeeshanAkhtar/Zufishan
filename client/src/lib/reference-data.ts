@@ -19,6 +19,27 @@ export const subjectOptions: string[] = [...categories];
 /** Learner and teaching levels already used across the project. */
 export const levelOptions = ["Beginner", "Intermediate", "Advanced", "All Levels"] as const;
 
+/**
+ * Gender vocabulary, matching the `profiles_gender_check` constraint. Stored lowercase so the
+ * database value never depends on display language; the label is resolved through the catalog.
+ *
+ * Two values is a short list, so the forms use a plain radio group rather than a searchable
+ * combobox — the country and language selectors exist because those lists run to hundreds.
+ */
+export const genderValues = ["male", "female"] as const;
+export type Gender = (typeof genderValues)[number];
+export const genderLabelKeys = { male: "gender.male", female: "gender.female" } as const;
+export const isGender = (value: unknown): value is Gender =>
+  typeof value === "string" && (genderValues as readonly string[]).includes(value);
+
+/**
+ * School a tutor declares teaching within, matching the `instructor_profiles_sect_check`
+ * constraint. Stored as the displayed word because the values are already plain English nouns and
+ * the column is on the tutor listing, not the shared profile. Null or "" means not stated.
+ */
+export const sectValues = ["Sunni", "Shia", "Other", "Prefer not to say"] as const;
+export type Sect = (typeof sectValues)[number];
+
 // ISO 3166-1 alpha-2. Identifiers only — display names are resolved at runtime.
 const COUNTRY_CODES = [
   "AD","AE","AF","AG","AI","AL","AM","AO","AQ","AR","AS","AT","AU","AW","AX","AZ",

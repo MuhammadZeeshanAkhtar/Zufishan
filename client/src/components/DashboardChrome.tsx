@@ -13,6 +13,7 @@ import { Link, useLocation } from "wouter";
 import { ChevronDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocale } from "../contexts/LocaleContextState";
+import DashboardQuickLinks from "./DashboardQuickLinks";
 import DashboardSidebar, { SidebarToggle, useSidebarState, type DashboardRole } from "./DashboardSidebar";
 import NotificationBell from "./NotificationBell";
 import { LocaleSelector } from "./LocaleSelector";
@@ -38,7 +39,11 @@ export function hrefForModule(role: DashboardRole, item: string) {
     withdrawals: `/dashboard/${role}/withdrawals`,
     wallet: `/dashboard/${role}/wallet`,
     "find-students": `/dashboard/${role}/requirements`,
-    "classroom-demo": `/dashboard/${role}/classroom-demo`,
+    // Teacher discovery inside the dashboard, not the public marketplace page: the public route
+    // renders the site header and reads as the logged-out experience.
+    "find-quran-teacher": `/dashboard/${role}/teachers`,
+    // Renamed in the sidebar only — the route and the page behind it are unchanged.
+    "edit-profile": `/dashboard/${role}/profile`,
     "ai-tutor": role === "admin" ? "/admin/ai-tutor" : `/dashboard/${role}/ai-tutor`,
   };
   return mapped[slug] || `/dashboard/${role}/${slug === "overview" ? "" : slug}`;
@@ -81,9 +86,15 @@ export default function DashboardChrome({ children }: { children: ReactNode }) {
                 onToggleCollapsed={toggleCollapsed}
                 onToggleMobile={() => setMobileOpen(!mobileOpen)}
               />
-              <p className="truncate text-xs font-bold uppercase tracking-[.18em] text-[var(--ni-gold-ink)]">
-                {role} dashboard
-              </p>
+              {/* The role's few most-used destinations sit inline beside the toggle. Admin has no
+                  promoted set, so it keeps the plain dashboard label. */}
+              {role === "admin" ? (
+                <p className="truncate text-xs font-bold uppercase tracking-[.18em] text-[var(--ni-gold-ink)]">
+                  {role} dashboard
+                </p>
+              ) : (
+                <DashboardQuickLinks role={role} />
+              )}
             </div>
             <div className="flex items-center gap-2">
               {/* Language is the shared, persisted LocaleContext selector, so both dashboards stay in sync. */}

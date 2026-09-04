@@ -13,6 +13,7 @@ import { Check } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { trpc } from "@/lib/trpc";
 import { useLocale } from "../contexts/LocaleContextState";
+import GenderSelect from "./GenderSelect";
 import { SearchableMultiSelect, SearchableSelect } from "./SearchableSelect";
 import { countryOptions, languageOptions, nextTimezoneForCountry, subjectOptions, timezoneOptionsForCountry } from "../lib/reference-data";
 
@@ -60,6 +61,7 @@ export default function LearnerProfileEditor() {
   const [country, setCountry] = useState("");
   const [city, setCity] = useState("");
   const [timezone, setTimezone] = useState("");
+  const [gender, setGender] = useState("");
   const [languages, setLanguages] = useState<string[]>([]);
   const [subjects, setSubjects] = useState<string[]>([]);
   const [profileError, setProfileError] = useState("");
@@ -81,6 +83,7 @@ export default function LearnerProfileEditor() {
     setCountry(String(p.country ?? ""));
     setCity(String(p.city ?? ""));
     setTimezone(String(p.timezone ?? ""));
+    setGender(String(p.gender ?? ""));
     setLanguages(((p.supported_languages as string[] | null) ?? []));
     setSubjects(((core.learnerProfile?.learning_subjects as string[] | null) ?? []));
   }, [core]);
@@ -96,6 +99,7 @@ export default function LearnerProfileEditor() {
         country: country || undefined,
         city: city || undefined,
         timezone: timezone || undefined,
+        gender: gender === "male" || gender === "female" ? gender : undefined,
         supportedLanguages: languages,
       });
       if (!result.ok) { setProfileError(result.error || t("common.error")); return; }
@@ -187,6 +191,9 @@ export default function LearnerProfileEditor() {
             </fieldset>
           </Section>
 
+          <Row label={t("gender.label")} htmlFor="gender">
+            <GenderSelect name="learner-gender" value={gender} onChange={setGender}/>
+          </Row>
           <Section title={t("learnerProfile.location")}>
             <Row label={t("learnerProfile.country")} htmlFor="country">
               <SearchableSelect id="country" options={countryOptions()} value={country} onChange={(value) => { setCountry(value); setTimezone((current) => nextTimezoneForCountry(value, current)); }}/>
@@ -203,7 +210,7 @@ export default function LearnerProfileEditor() {
           {profileSaved && <p className="mt-6 rounded-xl bg-[var(--ni-sage-soft)] px-4 py-2.5 text-sm text-[var(--ni-moss-deep)]"><Check size={14} className="me-1 inline"/>{t("learnerProfile.profileSaved")}</p>}
 
           <div className="mt-7 flex justify-end gap-3">
-            <button type="button" onClick={() => { if (core?.profile) { const p = core.profile; setFullName(String(p.full_name ?? "")); setDisplayName(String(p.display_name ?? "")); setCountry(String(p.country ?? "")); setCity(String(p.city ?? "")); setTimezone(String(p.timezone ?? "")); setLanguages(((p.supported_languages as string[] | null) ?? [])); setSubjects(((core.learnerProfile?.learning_subjects as string[] | null) ?? [])); setProfileError(""); setProfileSaved(false); } }}
+            <button type="button" onClick={() => { if (core?.profile) { const p = core.profile; setFullName(String(p.full_name ?? "")); setDisplayName(String(p.display_name ?? "")); setCountry(String(p.country ?? "")); setCity(String(p.city ?? "")); setTimezone(String(p.timezone ?? "")); setGender(String(p.gender ?? "")); setLanguages(((p.supported_languages as string[] | null) ?? [])); setSubjects(((core.learnerProfile?.learning_subjects as string[] | null) ?? [])); setProfileError(""); setProfileSaved(false); } }}
               className="rounded-full border border-[var(--ni-sage-mid)] px-6 py-2.5 text-sm font-semibold text-[var(--ni-muted)] outline-none hover:bg-[var(--ni-sage-soft)] focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]">
               {t("onboarding.back")}
             </button>

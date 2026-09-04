@@ -9,7 +9,14 @@ export { AI_TUTOR_CORRECTION_STYLES, AI_TUTOR_GOALS, AI_TUTOR_LANGUAGES, AI_TUTO
 export type { TutorMode } from "@shared/ai-tutor";
 
 export const AI_TUTOR_POLICY_VERSION = "language-learning-v1";
-export const AI_TUTOR_DEFAULT_MODEL = "gemini-2.0-flash";
+/**
+ * Only a documented reference point. It is deliberately NOT used as a silent fallback: Google
+ * retires these identifiers, and the previous value (gemini-2.0-flash) had been retired, so a
+ * missing GEMINI_MODEL quietly produced a 404 that surfaced as "the provider did not return an
+ * answer". Configuration is now read from the environment alone, and a missing value is reported
+ * as missing configuration rather than guessed at.
+ */
+export const AI_TUTOR_DEFAULT_MODEL = "gemini-3.6-flash";
 export const AI_TUTOR_MAX_MESSAGE_LENGTH = 4000;
 export const AI_TUTOR_MAX_TURNS = 20;
 
@@ -168,14 +175,21 @@ export async function sendTutorMessage(identity: SupabaseIdentity, input: { conv
 
   const db = clientFor(identity);
   if (!db) return resultFailure<never>("unavailable", "Language AI Tutor is temporarily unavailable.");
-  const conversation = await db.from("ai_tutor_conversations").select("id,target_language,practice_mode,learner_id,status,course_id,lesson_id").eq("id", input.conversationId).eq("learner_id", identity.id).maybeSingle();
+  // These four reads do not depend on one another, and each is independently scoped to the caller
+  // (by conversation id and learner id, with RLS behind that), so issuing them together is the same
+  // query set in one round trip instead of four. Sequentially they measured ~6s against a remote
+  // pooler — more than the model itself takes to answer. The guards below still run in the original
+  // order, so a bad conversation is still rejected before anything else is considered.
+  const [conversation, preferences, count, history] = await Promise.all([
+    db.from("ai_tutor_conversations").select("id,target_language,practice_mode,learner_id,status,course_id,lesson_id").eq("id", input.conversationId).eq("learner_id", identity.id).maybeSingle(),
+    db.from("ai_tutor_preferences").select("target_language,native_language,response_language,explanation_language,level,correction_style,goals").eq("learner_id", identity.id).maybeSingle(),
+    db.from("ai_tutor_messages").select("id", { count: "exact", head: true }).eq("conversation_id", input.conversationId).eq("sender_type", "learner"),
+    db.from("ai_tutor_messages").select("sender_type,content").eq("conversation_id", input.conversationId).order("created_at", { ascending: false }).limit(12),
+  ]);
   if (conversation.error) return resultFailure<never>("failed", "AI Tutor conversation could not be loaded.");
   if (!conversation.data || conversation.data.status !== "active") return resultFailure<never>("not_found", "AI Tutor conversation is not available.");
-  const preferences = await db.from("ai_tutor_preferences").select("target_language,native_language,response_language,explanation_language,level,correction_style,goals").eq("learner_id", identity.id).maybeSingle();
   if (preferences.error || !preferences.data) return resultFailure<never>("failed", "Complete AI Tutor setup before starting practice.");
-  const count = await db.from("ai_tutor_messages").select("id", { count: "exact", head: true }).eq("conversation_id", input.conversationId).eq("sender_type", "learner");
   if ((count.count ?? 0) >= AI_TUTOR_MAX_TURNS) return resultFailure<never>("limit", "This practice session reached its turn limit. Start a new session to continue.");
-  const history = await db.from("ai_tutor_messages").select("sender_type,content").eq("conversation_id", input.conversationId).order("created_at", { ascending: false }).limit(12);
   if (history.error) return resultFailure<never>("failed", "Conversation history could not be loaded.");
 
   const safeContext = sanitizeTutorContext(input.context);
@@ -187,7 +201,9 @@ export async function sendTutorMessage(identity: SupabaseIdentity, input: { conv
 
   try {
     const generated = await generateGeminiTutorReply({
-      model: process.env.GEMINI_MODEL?.trim() || AI_TUTOR_DEFAULT_MODEL,
+      // No fallback: the provider resolves the model from the environment and reports a missing
+      // GEMINI_MODEL as missing setup, instead of guessing an identifier that may be retired.
+      model: process.env.GEMINI_MODEL?.trim(),
       systemPrompt: `${buildLanguageTutorSystemPrompt({ targetLanguage: preferences.data.target_language, nativeLanguage: preferences.data.native_language, responseLanguage: preferences.data.response_language, explanationLanguage: preferences.data.explanation_language, level: preferences.data.level, correctionStyle: preferences.data.correction_style, goals: preferences.data.goals })}\n${contextLine}`,
       history: (history.data || []).reverse().map(message => ({ role: message.sender_type === "learner" ? "user" as const : "model" as const, text: message.content })),
       userText: content,

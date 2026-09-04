@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 const sidebar = readFileSync(new URL("../client/src/components/DashboardSidebar.tsx", import.meta.url), "utf8");
 const overview = readFileSync(new URL("../client/src/components/DashboardOverview.tsx", import.meta.url), "utf8");
 const chrome = readFileSync(new URL("../client/src/components/DashboardChrome.tsx", import.meta.url), "utf8");
+const quickLinks = readFileSync(new URL("../client/src/components/DashboardQuickLinks.tsx", import.meta.url), "utf8");
 const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const lmsData = readFileSync(new URL("../client/src/lib/lms-data.ts", import.meta.url), "utf8");
 
@@ -69,13 +70,15 @@ describe("dashboard sidebar", () => {
     expect(new Set(learnerIcons).size).toBeGreaterThanOrEqual(routeGroups.learner.length - 1);
   });
 
-  it("keeps the learner account modules and the Settings entry on both dashboards", () => {
-    // Learner keeps its full account group.
-    for (const item of ["Reviews", "Settings", "Wallet"]) {
+  it("keeps the learner account modules, and moves Settings to the account menu", () => {
+    // Learner keeps the account modules it owns.
+    for (const item of ["Reviews", "Wallet"]) {
       expect(routeGroups.learner).toContain(item);
     }
-    // The tutor desk was trimmed to the modules a tutor actually uses; Settings stays.
-    expect(routeGroups.instructor).toContain("Settings");
+    // Settings left both sidebars: the header account menu is the single entry point for it.
+    expect(routeGroups.learner).not.toContain("Settings");
+    expect(routeGroups.instructor).not.toContain("Settings");
+    expect(chrome).toContain('href={`/dashboard/${role}/settings`}');
     for (const role of ["learner", "instructor"] as const) {
       // Notifications is a header bell popover, so a sidebar entry would be a competing
       // second entry point to the same content.
@@ -90,17 +93,25 @@ describe("dashboard sidebar", () => {
     for (const item of ["Bookings", "Sessions", "Reports", "Reviews", "Wallet"]) {
       expect(routeGroups.learner).toContain(item);
     }
+    // AI Tutor was removed from the tutor desk in a later pass — it is a student-facing feature,
+    // and the tutor-side page was only ever a placeholder. See dashboard-navigation.test.ts.
+    expect(routeGroups.instructor).not.toContain("AI Tutor");
+    // AI Tutor moved out of the student sidebar to the quick-links strip; it is still a student
+    // feature and is still one click away. See dashboard-navigation.test.ts.
+    expect(routeGroups.learner).not.toContain("AI Tutor");
+    expect(quickLinks).toContain('href: "/dashboard/learner/ai-tutor"');
     // Noor Ilm's own modules survive the trim.
-    expect(routeGroups.instructor).toContain("AI Tutor");
     expect(routeGroups.instructor).toContain("Courses");
-    expect(routeGroups.instructor).toContain("Find Students");
+    // Find Students was promoted to the quick-links strip, so it leaves the sidebar but not the UI.
+    expect(routeGroups.instructor).not.toContain("Find Students");
+    expect(quickLinks).toContain('label: "Find Students"');
     expect(routeGroups.instructor.length).toBeLessThan(routeGroups.learner.length + 3);
   });
 
   it("collapses, persists the preference, and keeps links working when collapsed", () => {
     expect(sidebar).toContain('const STORAGE_KEY = "noor-ilm-sidebar-collapsed"');
     expect(sidebar).toContain("window.localStorage.setItem(STORAGE_KEY");
-    expect(sidebar).toContain('collapsed ? "w-[4.75rem] px-3" : "w-72 px-5"');
+    expect(sidebar).toContain('collapsed ? "w-[4.5rem] px-2.5" : "w-64 px-4"');
     // Labels hide, but the link and its accessible name remain.
     expect(sidebar).toContain("{!collapsed && <span className=\"truncate\">{label}</span>}");
     expect(sidebar).toContain("aria-label={collapsed ? label : undefined}");

@@ -10,6 +10,7 @@ export type OnboardingProfile = {
   countryCity: string;
   timezone: string;
   preferredLanguage: "English" | "Urdu" | "Arabic";
+  gender: string;
   subjects: string[];
   level: string;
   goal: string;
