@@ -17,6 +17,7 @@ import DashboardQuickLinks from "./DashboardQuickLinks";
 import OfflineBanner from "./OfflineBanner";
 import DashboardSidebar, { SidebarToggle, useSidebarState, type DashboardRole } from "./DashboardSidebar";
 import NotificationBell from "./NotificationBell";
+import ThemeToggle from "./ThemeToggle";
 import { LocaleSelector } from "./LocaleSelector";
 
 const CHROME_ROLES: DashboardRole[] = ["learner", "instructor", "admin"];
@@ -39,7 +40,10 @@ export function hrefForModule(role: DashboardRole, item: string) {
     billing: `/dashboard/${role}/billing`,
     withdrawals: `/dashboard/${role}/withdrawals`,
     wallet: `/dashboard/${role}/wallet`,
-    "find-students": `/dashboard/${role}/requirements`,
+    // Find Students has its own desk now. It pointed at the requirements page
+    // only because no such desk existed and a dead link is worse than a
+    // near-miss; that reason has expired.
+    "find-students": `/dashboard/${role}/students`,
     // Teacher discovery inside the dashboard, not the public marketplace page: the public route
     // renders the site header and reads as the logged-out experience.
     "find-quran-teacher": `/dashboard/${role}/teachers`,
@@ -91,7 +95,7 @@ export default function DashboardChrome({ children }: { children: ReactNode }) {
               {/* The role's few most-used destinations sit inline beside the toggle. Admin has no
                   promoted set, so it keeps the plain dashboard label. */}
               {role === "admin" ? (
-                <p className="truncate text-xs font-bold uppercase tracking-[.18em] text-[var(--ni-gold-ink)]">
+                <p className="truncate text-xs font-bold uppercase tracking-[.18em] ni-t-gold">
                   {role} dashboard
                 </p>
               ) : (
@@ -101,6 +105,7 @@ export default function DashboardChrome({ children }: { children: ReactNode }) {
             <div className="flex items-center gap-2">
               {/* Language is the shared, persisted LocaleContext selector, so both dashboards stay in sync. */}
               <LocaleSelector compact />
+              <ThemeToggle />
               <NotificationBell role={role} />
               <div className="relative">
                 <button
@@ -108,7 +113,7 @@ export default function DashboardChrome({ children }: { children: ReactNode }) {
                   aria-haspopup="menu"
                   aria-expanded={profileOpen}
                   onClick={() => setProfileOpen((open) => !open)}
-                  className="flex items-center gap-2 rounded-full bg-[var(--ni-sage-soft)] px-3 py-2 text-xs font-bold text-[var(--ni-moss-deep)] outline-none transition-colors hover:bg-[var(--ni-sage)] focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]"
+                  className="flex items-center gap-2 rounded-full bg-[var(--ni-sage-soft)] px-3 py-2 text-xs font-bold ni-t-moss-deep outline-none transition-colors hover:bg-[var(--ni-sage)] focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]"
                 >
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--ni-moss)] text-white">{initials}</span>
                   <span className="hidden max-w-[10rem] truncate sm:inline">{displayName}</span>
@@ -116,17 +121,17 @@ export default function DashboardChrome({ children }: { children: ReactNode }) {
                 </button>
                 {profileOpen && (
                   <div role="menu" className="absolute end-0 top-12 z-40 w-48 rounded-2xl border border-[var(--ni-sage)] bg-[var(--ni-paper)] p-2 shadow-lg">
-                    <Link role="menuitem" href={`/dashboard/${role}/profile`} className="block rounded-xl px-3 py-2 text-sm text-[var(--ni-moss-deep)] hover:bg-[var(--ni-sage-soft)]">
+                    <Link role="menuitem" href={`/dashboard/${role}/profile`} className="block rounded-xl px-3 py-2 text-sm ni-t-moss-deep hover:bg-[var(--ni-sage-soft)]">
                       {t("dashboard.viewProfile")}
                     </Link>
-                    <Link role="menuitem" href={`/dashboard/${role}/settings`} className="block rounded-xl px-3 py-2 text-sm text-[var(--ni-moss-deep)] hover:bg-[var(--ni-sage-soft)]">
+                    <Link role="menuitem" href={`/dashboard/${role}/settings`} className="block rounded-xl px-3 py-2 text-sm ni-t-moss-deep hover:bg-[var(--ni-sage-soft)]">
                       {t("dashboard.settings")}
                     </Link>
                     <button
                       type="button"
                       role="menuitem"
                       onClick={logout}
-                      className="w-full rounded-xl px-3 py-2 text-start text-sm font-bold text-[var(--ni-clay-ink)] hover:bg-[var(--ni-clay-soft)]"
+                      className="w-full rounded-xl px-3 py-2 text-start text-sm font-bold ni-t-clay-ink hover:bg-[var(--ni-clay-soft)]"
                     >
                       {t("dashboard.logOut")}
                     </button>

@@ -65,11 +65,11 @@ export function ManusDialog({
 
           {/* Title and subtitle */}
           {title ? (
-            <DialogTitle className="text-xl font-semibold text-[var(--ni-ink)] leading-[26px] tracking-[-0.44px]">
+            <DialogTitle className="text-xl font-semibold ni-t-ink leading-[26px] tracking-[-0.44px]">
               {title}
             </DialogTitle>
           ) : null}
-          <DialogDescription className="text-sm text-[var(--ni-muted-soft)] leading-5 tracking-[-0.154px]">
+          <DialogDescription className="text-sm ni-t-muted-soft leading-5 tracking-[-0.154px]">
             Please login with Manus to continue
           </DialogDescription>
         </div>

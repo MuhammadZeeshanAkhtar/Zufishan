@@ -22,7 +22,7 @@ const QUICK_LINKS: Partial<Record<DashboardRole, QuickLink[]>> = {
     { label: "AI Tutor", href: "/dashboard/learner/ai-tutor", icon: Sparkles },
   ],
   instructor: [
-    { label: "Find Students", href: "/dashboard/instructor/requirements", icon: UserSearch },
+    { label: "Find Students", href: "/dashboard/instructor/students", icon: UserSearch },
     { label: "Schedule", href: "/dashboard/instructor/schedule", icon: CalendarDays },
     { label: "Messages", href: "/dashboard/instructor/messages", icon: MessageSquare },
   ],
@@ -50,7 +50,7 @@ export default function DashboardQuickLinks({ role }: { role: DashboardRole }) {
               "outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]",
               active
                 ? "bg-[var(--ni-moss)] text-[var(--ni-paper)]"
-                : "text-[var(--ni-moss-deep)] hover:bg-[var(--ni-sage-soft)]",
+                : "ni-t-moss-deep hover:bg-[var(--ni-sage-soft)]",
             ].join(" ")}
           >
             <Icon size={15} strokeWidth={1.9} />

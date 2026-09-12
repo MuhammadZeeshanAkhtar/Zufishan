@@ -17,12 +17,19 @@ describe("public requirements discovery boundary", () => {
   it("wires public RequirementListing and RequirementDetail to Supabase without demo fallback", () => {
     const listing = component.slice(component.indexOf("export function RequirementListing"), component.indexOf("export function RequirementDetail"));
     expect(listing).toContain("trpc.schedulingPublic.publishedRequirements.useQuery");
-    expect(listing).toContain("const publicRows");
     expect(listing).not.toContain("getPublicRequirements(filters)");
-    expect(listing).toContain("publicRequirements.isError");
+    // `const publicRows` and a bare `isError` check were the old shape. `resultRows` is stronger —
+    // it yields rows only from a successful envelope instead of coalescing a failure to [] — and
+    // `resultState` catches a handled `ok: false`, which `isError` never sees.
+    expect(listing).toContain("resultRows<RequirementRow>(query as never)");
+    expect(listing).toContain("const base = resultState(query as never, online);");
+
     const detail = component.slice(component.indexOf("export function RequirementDetail"), component.indexOf("export function RequirementForm"));
     expect(detail).toContain("trpc.schedulingPublic.publishedRequirementById.useQuery");
     expect(detail).not.toContain("getRequirement(id) || demoRequirements[0]");
-    expect(detail).toContain("requirementsExp.notPublicRequirement");
+    // The old copy said "not a public requirement", which blames the record. No policy grants read
+    // access to a published requirement at all, so the honest message names the permission.
+    expect(detail).toContain("<VisibilityBlocker />");
+    expect(component).toContain('t("requirementsExp.notVisibleYet")');
   });
 });

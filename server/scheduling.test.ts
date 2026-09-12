@@ -38,7 +38,11 @@ describe("real scheduling persistence boundaries", () => {
     expect(schedulingUi).not.toContain("demoSessions");
     expect(schedulingUi).not.toContain("getNotifications");
     expect(schedulingUi).toContain("trpc.scheduling.availableSlots");
-    expect(schedulingUi).toContain("safeBookings");
+    // Bookings come from the query envelope, never a fixture. This used to check for the
+    // `safeBookings` local; `resultRows` replaced it and is a stronger guarantee, because it
+    // returns rows only from a successful envelope instead of coalescing a failure to [].
+    expect(schedulingUi).toContain("resultRows<");
+    expect(schedulingUi).toContain("trpc.scheduling.learnerBookings.useQuery");
   });
 
   it("does not attempt an atomic booking when the server database boundary is unavailable", async () => {

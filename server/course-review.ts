@@ -20,6 +20,7 @@
 import { getSupabaseAdminClient } from "./supabase-admin-client";
 import type { SupabaseIdentity } from "./supabase-auth";
 import { readOwnRoles } from "./supabase-admin-auth";
+import { notify } from "./notifications";
 
 /** Decisions a reviewer may record. 'archived' is an operational state, not a review outcome. */
 export const COURSE_REVIEW_DECISIONS = ["published", "rejected"] as const;
@@ -106,5 +107,11 @@ export async function setCourseReviewDecision(
   });
   if (auditError) console.error("[course-review] audit write failed:", { code: auditError.code, message: auditError.message });
 
+  await notify({ userId: String((course as { instructor_id: string }).instructor_id),
+    type: input.decision === "published" ? "course_published" : "course_rejected",
+    title: input.decision === "published" ? "Your course is live" : "Your course was reviewed",
+    body: input.decision === "published" ? "Learners can now find and enrol on it." : "A reviewer sent your course back.",
+    relatedEntityType: "courses", relatedEntityId: input.courseId,
+    idempotencyKey: `course-review:${input.courseId}:${input.decision}` });
   return { ok: true, data: { courseId: input.courseId, status: input.decision } };
 }

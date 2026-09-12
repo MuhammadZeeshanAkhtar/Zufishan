@@ -59,4 +59,6 @@ export const saveInstructorBookmark = () => ({ status: "not_connected" as const 
 export const createTrialRequest = (context: { courseSlug?: string; instructorSlug?: string }): TrialRequest => ({ status: "logged_out", context });
 export const getAvailability = () => [];
 export const getMessages = () => [];
-export const routeGroups = { learner: ["Overview", "Edit Profile", "Courses", "Requirements", "Bookings", "Schedule", "Sessions", "Progress", "Reports", "Reviews", "Wallet"], instructor: ["Overview", "Edit Profile", "Courses", "Classrooms", "Training", "Billing", "Withdrawals"], admin: ["LMS overview", "Users", "Instructors", "Courses", "Requirements", "Bookings", "Classrooms", "AI Tutor", "Reviews", "Billing", "Withdrawals", "Audit logs"] };
+// Hifz was reachable only by typing its URL: the module had screens, routes and procedures but
+// no navigation entry for either role.
+export const routeGroups = { learner: ["Overview", "Courses", "Hifz", "Requirements", "Trial Lessons", "Bookings", "Schedule", "Classrooms", "Certificates", "Archives", "Transactions", "Reviews", "Wallet", "Sessions", "Progress", "Reports", "Edit Profile"], instructor: ["Overview", "Edit Profile", "Courses", "Classrooms", "Hifz", "Training", "Billing", "Withdrawals"], admin: ["LMS overview", "Users", "Instructors", "Courses", "Requirements", "Bookings", "Classrooms", "AI Tutor", "Reviews", "Billing", "Withdrawals", "Audit logs"] };

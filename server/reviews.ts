@@ -90,6 +90,35 @@ export async function listOwnReviews(identity: SupabaseIdentity): Promise<Result
 }
 
 /**
+ * Reviews written *about* the caller, for an instructor's own desk.
+ *
+ * `listOwnReviews` filters on reviewer_id, which for an instructor returns the reviews they wrote as
+ * a learner — not the ones about their teaching. `reviews_public_or_participant` already permits an
+ * instructor to read their own reviews at every status, so this shows pending ones too: an
+ * instructor should see feedback that has arrived even while it waits for moderation, rather than
+ * discovering it only once it is public.
+ */
+export async function listReviewsAboutMe(identity: SupabaseIdentity): Promise<Result<{ reviews: unknown[]; count: number; average: number | null }>> {
+  const db = getSupabaseUserClient(identity.accessToken);
+  if (!db) return { ok: false, error: "Supabase persistence unavailable.", code: "SETUP_NEEDED" };
+  const { data, error } = await db
+    .from("reviews").select(REVIEW_COLUMNS).eq("instructor_id", identity.id).order("created_at", { ascending: false }).limit(100);
+  if (error) {
+    console.error("[reviews] about-me list failed:", { code: error.code, message: error.message });
+    return { ok: false, error: "Reviews could not be loaded." };
+  }
+  // The average counts published reviews only, so it matches what a visitor sees on the profile.
+  const rows = (data ?? []) as { rating: number | null; status: string }[];
+  return { ok: true, data: { reviews: data ?? [], count: rows.length, average: averageOf(rows.filter((row) => row.status === "published")) } };
+}
+
+/** The mean rating of the given rows, to one decimal, or null when nothing is rated. */
+function averageOf(rows: { rating: number | null }[]): number | null {
+  const rated = rows.map((row) => row.rating).filter((rating): rating is number => typeof rating === "number");
+  return rated.length ? Math.round((rated.reduce((sum, n) => sum + n, 0) / rated.length) * 10) / 10 : null;
+}
+
+/**
  * Published reviews for one instructor, with the average.
  *
  * The average is computed from the rows actually returned rather than stored on the profile, so it
@@ -115,8 +144,5 @@ export async function listInstructorReviews(instructorId: string): Promise<Resul
   }
 
   const rows = (data ?? []) as { rating: number | null }[];
-  const rated = rows.map((row) => row.rating).filter((rating): rating is number => typeof rating === "number");
-  const average = rated.length ? Math.round((rated.reduce((sum, n) => sum + n, 0) / rated.length) * 10) / 10 : null;
-
-  return { ok: true, data: { reviews: data ?? [], count: rows.length, average } };
+  return { ok: true, data: { reviews: data ?? [], count: rows.length, average: averageOf(rows) } };
 }

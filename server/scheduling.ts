@@ -2,6 +2,7 @@ import { getSupabaseAdminClient } from "./supabase-admin-client";
 import { getSupabasePublicClient, getSupabaseUserClient } from "./supabase-user-client";
 import type { SupabaseIdentity } from "./supabase-auth";
 import { atomicallyConfirmTrial } from "./scheduling-atomic";
+import { attachInstructorStats, instructorIdsWithMinRating, ratingBucketCounts } from "./discovery-stats";
 
 export type ScheduleErrorCode = "SETUP_NEEDED" | "VALIDATION" | "CONFLICT" | "FORBIDDEN" | "NOT_FOUND";
 export type ScheduleResult<T> = { ok: true; data: T } | { ok: false; error: string; code?: ScheduleErrorCode };
@@ -256,6 +257,8 @@ export type PublicInstructorFilters = {
   timezone?: string;
   sect?: string;
   hasIjazah?: boolean;
+  /** Mean published rating floor, e.g. 4 for "4.0 and above". Unrated instructors never match. */
+  minRating?: number;
   sort?: "relevance" | "rate_asc" | "rate_desc" | "experience_desc";
   limit?: number;
   offset?: number;
@@ -270,6 +273,30 @@ export type PublicInstructorFilters = {
  * the anonymous client, which keeps RLS as the authority on who is visible at all. Gender is used
  * to select rows and is never returned to the caller.
  */
+/**
+ * Instructor accounts that must not be discoverable whatever their listing says.
+ *
+ * Anything other than `active` — suspended, pending or deleted — is excluded.
+ * Returns null on a read failure so the caller can report an error rather than
+ * quietly showing a suspended account.
+ */
+async function suspendedInstructorIds(): Promise<string[] | null> {
+  const admin = getSupabaseAdminClient();
+  // Without the admin client this cannot be checked, and discovery must not
+  // guess that everyone is in good standing.
+  if (!admin) return null;
+  const { data, error } = await admin
+    .from("profiles")
+    .select("id")
+    .neq("account_status", "active")
+    .limit(GENDER_MATCH_CAP);
+  if (error) {
+    console.error("[discovery] standing lookup failed:", { code: error.code, message: error.message });
+    return null;
+  }
+  return (data ?? []).map((row) => String((row as { id: string }).id));
+}
+
 async function publishedInstructorIdsByProfile(match: { gender?: string; country?: string; timezone?: string }): Promise<string[] | null> {
   const admin = getSupabaseAdminClient();
   if (!admin) return null;
@@ -285,6 +312,39 @@ async function publishedInstructorIdsByProfile(match: { gender?: string; country
   if (match.timezone) request = request.eq("profiles.timezone", match.timezone);
   const { data, error } = await request.limit(GENDER_MATCH_CAP);
   if (error) return null;
+  return (data ?? []).map((row) => String((row as { user_id: string }).user_id));
+}
+
+/**
+ * Ids of published instructors whose display or full name matches the search term.
+ *
+ * Names live on `profiles`, which the anonymous client cannot read, so a name search is
+ * impossible from the browser side alone — searching only the slug meant typing a teacher's
+ * actual name returned nothing. This resolves the term to ids through the admin client, the
+ * same way the gender and country filters already do, and returns ids only: no name, avatar
+ * or any other profile column leaves this function.
+ *
+ * The published-and-approved gate is applied here too, so an unpublished listing can never be
+ * discovered by guessing at a name.
+ */
+async function publishedInstructorIdsByName(term: string): Promise<string[]> {
+  const admin = getSupabaseAdminClient();
+  if (!admin) return [];
+  const escaped = term.replace(/[%,()]/g, " ").trim();
+  if (!escaped) return [];
+  const { data, error } = await admin
+    .from("instructor_profiles")
+    .select("user_id,profiles!inner(display_name,full_name,profile_visibility)")
+    .eq("public_profile_status", "published")
+    .eq("verification_status", "approved")
+    // Only a person who made their profile public can be found by their name.
+    .eq("profiles.profile_visibility", "public")
+    .or(`display_name.ilike.%${escaped}%,full_name.ilike.%${escaped}%`, { referencedTable: "profiles" })
+    .limit(GENDER_MATCH_CAP);
+  if (error) {
+    console.error("[discovery] name lookup failed:", { code: error.code, message: error.message });
+    return [];
+  }
   return (data ?? []).map((row) => String((row as { user_id: string }).user_id));
 }
 
@@ -306,6 +366,15 @@ export async function listPublicInstructors(filters: PublicInstructorFilters = {
     .eq("public_profile_status", "published")
     .eq("verification_status", "approved");
 
+  // A published listing is not enough on its own: an account that has been
+  // suspended or deleted must leave discovery entirely, not merely appear
+  // without its name. `account_status` lives on `profiles`, which this anonymous
+  // client cannot read, so the ids are resolved through the admin client and
+  // excluded here — before the count and the page, so the total stays honest.
+  const barred = await suspendedInstructorIds();
+  if (barred === null) return fail("Instructor discovery could not be loaded.");
+  if (barred.length > 0) request = request.not("user_id", "in", `(${barred.join(",")})`);
+
   // Gender, country and timezone live on `profiles`, which this anonymous client cannot read, so
   // they are resolved to ids through the admin client first — see publishedInstructorIdsByProfile.
   if (filters.gender || filters.country || filters.timezone) {
@@ -313,6 +382,15 @@ export async function listPublicInstructors(filters: PublicInstructorFilters = {
     if (ids === null) return fail("Instructor discovery could not be loaded.");
     if (!ids.length) return { ok: true as const, data: { instructors: [], total: 0, limit, offset } };
     request = request.in("user_id", ids);
+  }
+
+  // Rating lives in `reviews`, not on the listing, so it resolves to ids the same way the
+  // profile-side filters do. Applied before the page and the count, so the total stays honest.
+  if (typeof filters.minRating === "number") {
+    const rated = await instructorIdsWithMinRating(filters.minRating);
+    if (rated === null) return fail("Instructor discovery could not be loaded.");
+    if (!rated.length) return { ok: true as const, data: { instructors: [], total: 0, limit, offset } };
+    request = request.in("user_id", rated);
   }
 
   // Sect and ijazah are on the listing itself, so they filter directly under the published policy.
@@ -333,7 +411,14 @@ export async function listPublicInstructors(filters: PublicInstructorFilters = {
   const term = filters.query?.trim();
   if (term) {
     const escaped = term.replace(/[%,()]/g, " ").trim();
-    if (escaped) request = request.or(`public_slug.ilike.%${escaped}%,teaching_approach.ilike.%${escaped}%,availability_summary.ilike.%${escaped}%`);
+    if (escaped) {
+      // A name match and a listing match are alternatives, so they belong in one `or` — two
+      // separate filters would AND and return only instructors matching both.
+      const named = await publishedInstructorIdsByName(escaped);
+      const clauses = [`public_slug.ilike.%${escaped}%`, `teaching_approach.ilike.%${escaped}%`, `availability_summary.ilike.%${escaped}%`];
+      if (named.length) clauses.push(`user_id.in.(${named.join(",")})`);
+      request = request.or(clauses.join(","));
+    }
   }
 
   switch (filters.sort) {
@@ -345,7 +430,88 @@ export async function listPublicInstructors(filters: PublicInstructorFilters = {
 
   const { data, error, count } = await request.range(offset, offset + limit - 1);
   if (error) return fail("Instructor discovery could not be loaded.");
-  return { ok: true as const, data: { instructors: data ?? [], total: count ?? 0, limit, offset } };
+
+  // Presentation first (who they are), then the aggregates (what they have taught). Both run
+  // over this page only, and neither can widen the rows the published+approved gate allowed.
+  const instructors = await attachInstructorStats(await attachPublicPresentation(data ?? []));
+  return { ok: true as const, data: { instructors, total: count ?? 0, limit, offset } };
+}
+
+/**
+ * Attaches the person-level fields a discovery card needs, for the rows on this
+ * page only.
+ *
+ * `profiles` is `select own or admin` under RLS, so neither the anonymous client
+ * nor another signed-in learner can read a name or an avatar from it. Without
+ * this the card had nothing to identify an instructor by and printed the URL
+ * slug as the heading.
+ *
+ * Two consents are required, and they are different things:
+ *
+ *   - `instructor_profiles.public_profile_status = 'published'` and
+ *     `verification_status = 'approved'` decide whether the LISTING appears.
+ *     Those are already applied by the caller, before any user-supplied filter.
+ *   - `profiles.profile_visibility = 'public'` decides whether the PERSON's
+ *     details may be shown. A published listing whose profile is private still
+ *     appears, but as its slug and a fallback avatar — the listing was consented
+ *     to, the personal detail was not.
+ *
+ * The selected columns are an allow-list. `city` is deliberately absent: country
+ * and timezone are the agreed granularity. Nothing here reads an email, a phone
+ * number, a credential, or any private column, and this runs on the admin client
+ * only after the published-and-approved filter has already narrowed the rows.
+ */
+type PublicPresentation = {
+  displayName: string | null;
+  avatarUrl: string | null;
+  country: string | null;
+  timezone: string | null;
+  gender: string | null;
+  bio: string | null;
+  /** False when the person kept their profile private; the card then shows no personal detail. */
+  profilePublic: boolean;
+};
+
+async function attachPublicPresentation<T extends { user_id?: string }>(rows: T[]): Promise<Array<T & PublicPresentation>> {
+  const blank: PublicPresentation = {
+    displayName: null, avatarUrl: null, country: null, timezone: null, gender: null, bio: null, profilePublic: false,
+  };
+  const ids = rows.map((row) => row.user_id).filter((id): id is string => typeof id === "string");
+  if (ids.length === 0) return rows.map((row) => ({ ...row, ...blank }));
+
+  const admin = getSupabaseAdminClient();
+  // No admin client is not a reason to fail discovery: the listings are real and
+  // still useful. The cards simply carry no personal detail.
+  if (!admin) return rows.map((row) => ({ ...row, ...blank }));
+
+  const { data, error } = await admin
+    .from("profiles")
+    .select("id,display_name,full_name,avatar_url,country,timezone,gender,bio,profile_visibility,account_status")
+    .in("id", ids);
+  if (error) {
+    console.error("[discovery] presentation lookup failed:", { code: error.code, message: error.message });
+    return rows.map((row) => ({ ...row, ...blank }));
+  }
+
+  const byId = new Map<string, PublicPresentation>();
+  for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+    // A suspended or deleted account is never presented, whatever its listing says.
+    const active = String(row.account_status ?? "") === "active";
+    const isPublic = String(row.profile_visibility ?? "") === "public" && active;
+    byId.set(String(row.id), isPublic
+      ? {
+          displayName: (row.display_name ? String(row.display_name) : null) || (row.full_name ? String(row.full_name) : null),
+          avatarUrl: row.avatar_url ? String(row.avatar_url) : null,
+          country: row.country ? String(row.country) : null,
+          timezone: row.timezone ? String(row.timezone) : null,
+          gender: row.gender ? String(row.gender) : null,
+          bio: row.bio ? String(row.bio) : null,
+          profilePublic: true,
+        }
+      : blank);
+  }
+
+  return rows.map((row) => ({ ...row, ...(byId.get(String(row.user_id)) ?? blank) }));
 }
 
 /** Distinct values actually present on published profiles, so the UI never offers a dead filter. */
@@ -361,12 +527,17 @@ export async function listInstructorFilterFacets() {
   const collect = (key: "subjects" | "teaching_languages" | "teaching_levels") =>
     Array.from(new Set(rows.flatMap((row) => (row[key] as string[] | null) ?? []))).filter(Boolean).sort();
   const rates = rows.map((row) => row.hourly_rate_minor as number | null).filter((value): value is number => typeof value === "number");
+  // Counts of instructors, not of reviews, so the figure beside a threshold is exactly how many
+  // listings that filter would return. Null when the lookup failed: the sidebar then offers no
+  // rating filter at all rather than showing a count it could not verify.
+  const ratingBuckets = await ratingBucketCounts();
   return {
     ok: true as const,
     data: {
       subjects: collect("subjects"),
       languages: collect("teaching_languages"),
       levels: collect("teaching_levels"),
+      ratingBuckets,
       currencies: Array.from(new Set(rows.map((row) => row.currency as string | null).filter(Boolean))).sort() as string[],
       rateRangeMinor: rates.length ? { min: Math.min(...rates), max: Math.max(...rates) } : null,
     },
@@ -375,11 +546,21 @@ export async function listInstructorFilterFacets() {
 
 export async function getPublicInstructorBySlug(slug: string) {
   const client = db(); if (!client) return fail("Scheduling persistence is not configured.", "SETUP_NEEDED");
-  const { data, error } = await client.from("instructor_profiles").select("user_id,public_slug,teaching_languages,subjects,public_profile_status,verification_status").eq("public_slug", slug).eq("public_profile_status", "published").eq("verification_status", "approved").maybeSingle();
+  // The same columns the discovery card reads, so a listing and its profile page can never
+  // disagree about what the instructor teaches or charges.
+  const { data, error } = await client.from("instructor_profiles").select("user_id,public_slug,subjects,teaching_levels,teaching_languages,years_experience,teaching_approach,hourly_rate_minor,currency,availability_summary,public_profile_status,verification_status,sect,has_ijazah").eq("public_slug", slug).eq("public_profile_status", "published").eq("verification_status", "approved").maybeSingle();
   if (error) return fail("Instructor availability could not be loaded.");
   if (!data) return fail("Instructor profile not found.", "NOT_FOUND");
-  const { data: profile } = await client.from("profiles").select("timezone").eq("id", data.user_id).maybeSingle();
-  return { ok: true as const, data: { ...data, timezone: profile?.timezone || "UTC" } };
+  // Presentation and aggregates come from the same two helpers the listing uses, so the
+  // privacy rules and the counting rules are stated once rather than twice.
+  const [presented] = await attachInstructorStats(await attachPublicPresentation([data]));
+  // `timezone` and `display_name` keep their original contract: scheduling reads the timezone
+  // as the instructor's booking zone and must never receive null, and the trial form names the
+  // instructor from `display_name`. A private profile still falls back to the public slug.
+  return {
+    ok: true as const,
+    data: { ...presented, timezone: presented.timezone || "UTC", display_name: presented.displayName || data.public_slug },
+  };
 }
 
 export async function listTrialRequests(identity: SupabaseIdentity, role: "learner" | "instructor") {

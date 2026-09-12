@@ -98,19 +98,45 @@ describe("dashboard navigation is role-specific", () => {
   });
 
   it("keeps every student module the student still needs", () => {
+    // Hifz joined the list: the module had screens, routes and procedures but no way in.
     for (const item of ["Overview", "Edit Profile", "Courses", "Requirements",
-      "Bookings", "Schedule", "Sessions", "Progress", "Reports", "Reviews", "Wallet"]) {
+      "Bookings", "Schedule", "Sessions", "Hifz", "Progress", "Reports", "Reviews", "Wallet"]) {
       expect(routeGroups.learner, `${item} must remain for students`).toContain(item);
     }
-    expect(routeGroups.learner).toHaveLength(11);
+    // Five more modules joined later for the same reason Hifz did — Trial lessons,
+    // Classrooms, Certificates, Archives and Transactions all had real routes and
+    // no rail entry. The guarantee is that nothing named above is dropped, not a
+    // fixed count: pinning the length turns every future addition into a failure.
+    expect(routeGroups.learner.length).toBeGreaterThanOrEqual(12);
+    // What the length was really guarding: no module appears twice.
+    expect(new Set(routeGroups.learner).size).toBe(routeGroups.learner.length);
+  });
+
+  it("routes every module on the student rail to a page that exists", () => {
+    // The reason the count is no longer pinned: additions are welcome, dead links
+    // are not. Every entry must resolve to a real <Route>, not the catch-all.
+    const mapped: Record<string, string> = {
+      "edit profile": "profile", "find quran teacher": "teachers", "ai tutor": "ai-tutor",
+    };
+    const missing: string[] = [];
+    for (const item of routeGroups.learner) {
+      const slug = item.toLowerCase().split(" ").join("-");
+      const target = mapped[item.toLowerCase()] ?? slug;
+      if (item === "Overview") continue;
+      // Progress has no dedicated route and renders the shared subpage; it is
+      // listed here as a known exception rather than silently tolerated.
+      if (item === "Progress") continue;
+      if (!app.includes(`<Route path="/dashboard/learner/${target}"`)) missing.push(item);
+    }
+    expect(missing, "these rail entries have no route").toEqual([]);
   });
 
   it("keeps every tutor module the tutor still needs", () => {
-    for (const item of ["Overview", "Edit Profile", "Courses", "Classrooms", "Training",
+    for (const item of ["Overview", "Edit Profile", "Courses", "Classrooms", "Hifz", "Training",
       "Billing", "Withdrawals"]) {
       expect(routeGroups.instructor, `${item} must remain for tutors`).toContain(item);
     }
-    expect(routeGroups.instructor).toHaveLength(7);
+    expect(routeGroups.instructor).toHaveLength(8);
     // Find Students, Schedule and Messages moved to the quick-links strip, not away.
     for (const label of ["Find Students", "Schedule", "Messages"]) {
       expect(quickLinks, `${label} must be promoted, not dropped`).toContain(`label: "${label}"`);
@@ -162,7 +188,9 @@ describe("teacher discovery stays inside the authenticated area", () => {
   it("reuses the existing discovery page rather than duplicating it", () => {
     // One component serves both surfaces; embedded only drops the public chrome.
     expect(app).toContain("<TeachersPage embedded/>");
-    expect(app).toContain('embedded = false }: { initialSubject?: string; embedded?: boolean }');
+    // `initialGender` joined the signature so /teachers/male and /teachers/female can seed
+    // the gender filter. `embedded` is unchanged and still the only thing that drops chrome.
+    expect(app).toContain('embedded = false }: { initialSubject?: string; initialGender?: string; embedded?: boolean }');
     expect(app).toContain("{!embedded && <Header/>}");
     expect(app).toContain("{!embedded && <Footer/>}");
     // Cards keep the learner inside the dashboard when embedded.

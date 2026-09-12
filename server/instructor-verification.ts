@@ -17,6 +17,7 @@
 import { getSupabaseAdminClient } from "./supabase-admin-client";
 import type { SupabaseIdentity } from "./supabase-auth";
 import { readOwnRoles } from "./supabase-admin-auth";
+import { notify } from "./notifications";
 
 export const VERIFICATION_STATUSES = ["verification_pending", "process_coming_soon", "approved", "rejected"] as const;
 export type VerificationStatus = (typeof VERIFICATION_STATUSES)[number];
@@ -54,7 +55,7 @@ export async function listInstructorsForReview(identity: SupabaseIdentity): Prom
 export async function setInstructorVerification(
   identity: SupabaseIdentity,
   input: { instructorId: string; status: VerificationStatus; note?: string },
-): Promise<Result<{ instructorId: string; status: VerificationStatus }>> {
+): Promise<Result<{ instructorId: string; status: VerificationStatus; notified: boolean }>> {
   const roles = await readOwnRoles(identity);
   if (!roles.ok) return { ok: false, error: roles.error, code: "SETUP_NEEDED" };
   if (!roles.isReviewer) return forbidden();
@@ -98,5 +99,17 @@ export async function setInstructorVerification(
   });
   if (auditError) console.error("[verification] audit write failed:", { code: auditError.code, message: auditError.message });
 
-  return { ok: true, data: { instructorId: input.instructorId, status: input.status } };
+  // A verification decision changes their standing on the platform, so the
+  // instructor is always told. The outcome is REPORTED rather than swallowed:
+  // for two years' worth of call sites this return value was ignored, which is
+  // how a broken conflict target went unnoticed until notifications were audited.
+  const raised = await notify({ userId: input.instructorId, type: "verification_decided",
+    title: input.status === "approved" ? "Your profile was approved" : "Your profile was reviewed",
+    body: input.status === "approved" ? "Learners can now find you in search." : "A reviewer recorded a decision on your profile.",
+    relatedEntityType: "instructor_profiles", relatedEntityId: input.instructorId,
+    idempotencyKey: `verification:${input.instructorId}:${input.status}` });
+  if (!raised.delivered) {
+    console.error("[verification] decision saved but notification not delivered:", { reason: raised.reason });
+  }
+  return { ok: true, data: { instructorId: input.instructorId, status: input.status, notified: raised.delivered } };
 }

@@ -13,6 +13,7 @@ import { Check } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { trpc } from "@/lib/trpc";
 import { useLocale } from "../contexts/LocaleContextState";
+import DiscoverabilitySwitch from "./DiscoverabilitySwitch";
 import GenderSelect from "./GenderSelect";
 import { SearchableMultiSelect, SearchableSelect } from "./SearchableSelect";
 import { countryOptions, languageOptions, nextTimezoneForCountry, subjectOptions, timezoneOptionsForCountry } from "../lib/reference-data";
@@ -28,7 +29,7 @@ type CoreProfiles = {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="border-b border-[var(--ni-sage)] pb-8 last:border-b-0 last:pb-0">
-      <h2 className="mb-5 font-display text-2xl text-[var(--ni-moss)]">{title}</h2>
+      <h2 className="mb-5 font-display text-2xl ni-t-moss">{title}</h2>
       {children}
     </section>
   );
@@ -37,16 +38,16 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Row({ label, htmlFor, children, hint }: { label: string; htmlFor?: string; children: React.ReactNode; hint?: string }) {
   return (
     <div className="mb-4 grid gap-1.5 sm:grid-cols-[10rem_1fr] sm:items-start sm:gap-4">
-      <label htmlFor={htmlFor} className="pt-2.5 text-sm font-semibold text-[var(--ni-moss-deep)] sm:text-end">{label}</label>
+      <label htmlFor={htmlFor} className="pt-2.5 text-sm font-semibold ni-t-moss-deep sm:text-end">{label}</label>
       <div className="min-w-0">
         {children}
-        {hint && <p className="mt-1.5 text-xs leading-5 text-[var(--ni-muted-soft)]">{hint}</p>}
+        {hint && <p className="mt-1.5 text-xs leading-5 ni-t-muted-soft">{hint}</p>}
       </div>
     </div>
   );
 }
 
-const fieldClass = "w-full rounded-xl border border-[var(--ni-sage-line)] bg-[var(--ni-field)] px-4 py-2.5 text-sm text-[var(--ni-ink)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)] disabled:cursor-not-allowed disabled:bg-[var(--ni-sage-soft)] disabled:text-[var(--ni-muted)]";
+const fieldClass = "w-full rounded-xl border border-[var(--ni-sage-line)] bg-[var(--ni-field)] px-4 py-2.5 text-sm ni-t-ink outline-none focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)] disabled:cursor-not-allowed disabled:bg-[var(--ni-sage-soft)] disabled:text-[var(--ni-muted)]";
 
 export default function LearnerProfileEditor() {
   const { t } = useLocale();
@@ -125,12 +126,12 @@ export default function LearnerProfileEditor() {
   };
 
   if (profilesQuery.isLoading) {
-    return <div className="mx-auto max-w-4xl px-5 py-10 lg:px-10" aria-live="polite"><p className="rounded-2xl bg-[var(--ni-sage-soft)] p-5 text-sm text-[var(--ni-muted)]">{t("dashboard.loading")}</p></div>;
+    return <div className="mx-auto max-w-4xl px-5 py-10 lg:px-10" aria-live="polite"><p className="rounded-2xl bg-[var(--ni-sage-soft)] p-5 text-sm ni-t-muted">{t("dashboard.loading")}</p></div>;
   }
 
   return (
     <div className="mx-auto max-w-4xl px-5 py-8 lg:px-10 lg:py-10">
-      <h1 className="mb-8 font-display text-3xl text-[var(--ni-ink)]">{t("learnerProfile.title")}</h1>
+      <h1 className="mb-8 font-display text-3xl ni-t-ink">{t("learnerProfile.title")}</h1>
 
       <div className="space-y-8 rounded-[1.35rem] border border-[var(--ni-sage)] bg-[var(--ni-paper)] p-6 lg:p-8">
         <Section title={t("learnerProfile.changePassword")}>
@@ -144,8 +145,8 @@ export default function LearnerProfileEditor() {
             <Row label={t("learnerProfile.confirmPassword")} htmlFor="confirm-password">
               <input id="confirm-password" type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={fieldClass}/>
             </Row>
-            {passwordError && <p role="alert" className="mb-3 rounded-xl bg-[var(--ni-clay-soft)] px-4 py-2.5 text-sm text-[var(--ni-clay)]">{passwordError}</p>}
-            {passwordSaved && <p className="mb-3 rounded-xl bg-[var(--ni-sage-soft)] px-4 py-2.5 text-sm text-[var(--ni-moss-deep)]"><Check size={14} className="me-1 inline"/>{t("learnerProfile.passwordSaved")}</p>}
+            {passwordError && <p role="alert" className="mb-3 rounded-xl bg-[var(--ni-clay-soft)] px-4 py-2.5 text-sm ni-t-clay">{passwordError}</p>}
+            {passwordSaved && <p className="mb-3 rounded-xl bg-[var(--ni-sage-soft)] px-4 py-2.5 text-sm ni-t-moss-deep"><Check size={14} className="me-1 inline"/>{t("learnerProfile.passwordSaved")}</p>}
             <div className="flex justify-end">
               <button type="submit" disabled={savingPassword} className="rounded-full bg-[var(--ni-moss)] px-6 py-2.5 text-sm font-semibold text-white outline-none transition-colors hover:bg-[var(--ni-teal-soft)] focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)] disabled:cursor-not-allowed disabled:opacity-60">
                 {savingPassword ? t("onboarding.saving") : t("common.save")}
@@ -173,10 +174,10 @@ export default function LearnerProfileEditor() {
 
           <Section title={t("learnerProfile.subjects")}>
             <fieldset>
-              <legend className="mb-3 text-sm font-semibold text-[var(--ni-moss-deep)]">{t("learnerProfile.wantToLearn")}</legend>
+              <legend className="mb-3 text-sm font-semibold ni-t-moss-deep">{t("learnerProfile.wantToLearn")}</legend>
               <div className="grid gap-2.5 sm:grid-cols-2">
                 {SUBJECT_OPTIONS.map((subject) => (
-                  <label key={subject} className="flex cursor-pointer items-center gap-2.5 text-sm text-[var(--ni-ink)]">
+                  <label key={subject} className="flex cursor-pointer items-center gap-2.5 text-sm ni-t-ink">
                     <input
                       type="checkbox"
                       checked={subjects.includes(subject)}
@@ -187,7 +188,7 @@ export default function LearnerProfileEditor() {
                   </label>
                 ))}
               </div>
-              <p className="mt-3 text-xs leading-5 text-[var(--ni-gold-ink)]">{t("learnerProfile.subjectsNote")}</p>
+              <p className="mt-3 text-xs leading-5 ni-t-gold">{t("learnerProfile.subjectsNote")}</p>
             </fieldset>
           </Section>
 
@@ -206,12 +207,12 @@ export default function LearnerProfileEditor() {
             </Row>
           </Section>
 
-          {profileError && <p role="alert" className="mt-6 rounded-xl bg-[var(--ni-clay-soft)] px-4 py-2.5 text-sm text-[var(--ni-clay)]">{profileError}</p>}
-          {profileSaved && <p className="mt-6 rounded-xl bg-[var(--ni-sage-soft)] px-4 py-2.5 text-sm text-[var(--ni-moss-deep)]"><Check size={14} className="me-1 inline"/>{t("learnerProfile.profileSaved")}</p>}
+          {profileError && <p role="alert" className="mt-6 rounded-xl bg-[var(--ni-clay-soft)] px-4 py-2.5 text-sm ni-t-clay">{profileError}</p>}
+          {profileSaved && <p className="mt-6 rounded-xl bg-[var(--ni-sage-soft)] px-4 py-2.5 text-sm ni-t-moss-deep"><Check size={14} className="me-1 inline"/>{t("learnerProfile.profileSaved")}</p>}
 
           <div className="mt-7 flex justify-end gap-3">
             <button type="button" onClick={() => { if (core?.profile) { const p = core.profile; setFullName(String(p.full_name ?? "")); setDisplayName(String(p.display_name ?? "")); setCountry(String(p.country ?? "")); setCity(String(p.city ?? "")); setTimezone(String(p.timezone ?? "")); setGender(String(p.gender ?? "")); setLanguages(((p.supported_languages as string[] | null) ?? [])); setSubjects(((core.learnerProfile?.learning_subjects as string[] | null) ?? [])); setProfileError(""); setProfileSaved(false); } }}
-              className="rounded-full border border-[var(--ni-sage-mid)] px-6 py-2.5 text-sm font-semibold text-[var(--ni-muted)] outline-none hover:bg-[var(--ni-sage-soft)] focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]">
+              className="rounded-full border border-[var(--ni-sage-mid)] px-6 py-2.5 text-sm font-semibold ni-t-muted outline-none hover:bg-[var(--ni-sage-soft)] focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]">
               {t("onboarding.back")}
             </button>
             <button type="submit" disabled={saveProfile.isPending}
@@ -220,6 +221,10 @@ export default function LearnerProfileEditor() {
             </button>
           </div>
         </form>
+
+        {/* The learner decides for themselves whether instructors can find them.
+            No approval step stands between this switch and discovery. */}
+        <DiscoverabilitySwitch />
       </div>
     </div>
   );

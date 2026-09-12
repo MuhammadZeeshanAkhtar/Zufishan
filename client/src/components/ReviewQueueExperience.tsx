@@ -22,8 +22,8 @@ type Envelope = { ok: boolean; error?: string; code?: string; data?: unknown };
 function Panel({ title, icon: Icon, children }: { title: string; icon: typeof BadgeCheck; children: React.ReactNode }) {
   return (
     <section className="ni-card p-6">
-      <h2 className="flex items-center gap-2.5 font-display text-2xl text-[var(--ni-ink)]">
-        <Icon size={20} className="text-[var(--ni-moss)]" aria-hidden="true" />
+      <h2 className="flex items-center gap-2.5 font-display text-2xl ni-t-ink">
+        <Icon size={20} className="ni-t-moss" aria-hidden="true" />
         {title}
       </h2>
       <div className="mt-5">{children}</div>
@@ -63,9 +63,7 @@ export default function ReviewQueueExperience() {
 
   return (
     <main className="mx-auto max-w-5xl px-5 py-10 lg:px-8 lg:py-14">
-      <p className="ni-eyebrow">{t("review.eyebrow")}</p>
-      <h1 className="mt-3 font-display text-4xl text-[var(--ni-ink)]">{t("review.title")}</h1>
-      <p className="mt-3 max-w-[62ch] text-sm leading-6 text-[var(--ni-muted)]">{t("review.copy")}</p>
+      <p className="max-w-[62ch] text-sm leading-6 ni-t-muted">{t("review.copy")}</p>
 
       <div className="mt-9 grid gap-6">
         <Panel title={t("review.instructorQueue")} icon={BadgeCheck}>
@@ -79,8 +77,8 @@ export default function ReviewQueueExperience() {
                   <li key={id} className="rounded-2xl border border-[var(--ni-sage)] bg-[var(--ni-field)] p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="font-semibold text-[var(--ni-ink)]">{String(profile.display_name ?? profile.full_name ?? row.public_slug)}</p>
-                        <p className="mt-1 text-xs text-[var(--ni-muted)]">
+                        <p className="font-semibold ni-t-ink">{String(profile.display_name ?? profile.full_name ?? row.public_slug)}</p>
+                        <p className="mt-1 text-xs ni-t-muted">
                           {String(row.verification_status)} · {String(row.public_profile_status)}
                           {row.sect ? ` · ${String(row.sect)}` : ""}{row.has_ijazah ? " · ijazah declared" : ""}
                         </p>
@@ -99,7 +97,7 @@ export default function ReviewQueueExperience() {
                             className={`rounded-full px-4 py-2 text-xs font-bold disabled:opacity-50 ${
                               status === "approved"
                                 ? "bg-[var(--ni-moss)] text-[var(--ni-paper)]"
-                                : "border border-[var(--ni-clay-ink)] text-[var(--ni-clay-ink)]"
+                                : "border border-[var(--ni-clay-ink)] ni-t-clay-ink"
                             }`}
                           >
                             {t(status === "approved" ? "review.approve" : "review.reject")}
@@ -108,7 +106,7 @@ export default function ReviewQueueExperience() {
                       </div>
                     </div>
                     {outcome?.id === id && (
-                      <p role={outcome.ok ? "status" : "alert"} className={`mt-3 text-xs font-semibold ${outcome.ok ? "text-[var(--ni-moss-deep)]" : "text-[var(--ni-clay-ink)]"}`}>
+                      <p role={outcome.ok ? "status" : "alert"} className={`mt-3 text-xs font-semibold ${outcome.ok ? "ni-t-moss-deep" : "ni-t-clay-ink"}`}>
                         {outcome.text}
                       </p>
                     )}
@@ -129,8 +127,8 @@ export default function ReviewQueueExperience() {
                   <li key={id} className="rounded-2xl border border-[var(--ni-sage)] bg-[var(--ni-field)] p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="font-semibold text-[var(--ni-ink)]">{String(row.title)}</p>
-                        <p className="mt-1 text-xs text-[var(--ni-muted)]">{String(row.subject)} · {String(row.level)} · {String(row.language)}</p>
+                        <p className="font-semibold ni-t-ink">{String(row.title)}</p>
+                        <p className="mt-1 text-xs ni-t-muted">{String(row.subject)} · {String(row.level)} · {String(row.language)}</p>
                       </div>
                       <div className="flex shrink-0 gap-2">
                         {(["published", "rejected"] as const).map((decision) => (
@@ -146,7 +144,7 @@ export default function ReviewQueueExperience() {
                             className={`rounded-full px-4 py-2 text-xs font-bold disabled:opacity-50 ${
                               decision === "published"
                                 ? "bg-[var(--ni-moss)] text-[var(--ni-paper)]"
-                                : "border border-[var(--ni-clay-ink)] text-[var(--ni-clay-ink)]"
+                                : "border border-[var(--ni-clay-ink)] ni-t-clay-ink"
                             }`}
                           >
                             {t(decision === "published" ? "review.publish" : "review.reject")}
@@ -155,7 +153,7 @@ export default function ReviewQueueExperience() {
                       </div>
                     </div>
                     {outcome?.id === id && (
-                      <p role={outcome.ok ? "status" : "alert"} className={`mt-3 text-xs font-semibold ${outcome.ok ? "text-[var(--ni-moss-deep)]" : "text-[var(--ni-clay-ink)]"}`}>
+                      <p role={outcome.ok ? "status" : "alert"} className={`mt-3 text-xs font-semibold ${outcome.ok ? "ni-t-moss-deep" : "ni-t-clay-ink"}`}>
                         {outcome.text}
                       </p>
                     )}

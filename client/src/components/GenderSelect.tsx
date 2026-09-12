@@ -28,7 +28,7 @@ export default function GenderSelect({ value, onChange, required, name }: {
             className={`cursor-pointer rounded-xl border px-4 py-3 text-sm font-semibold transition ${
               active
                 ? "border-[var(--ni-moss)] bg-[var(--ni-moss)] text-[var(--ni-paper)]"
-                : "border-[var(--ni-sage-line)] bg-[var(--ni-field)] text-[var(--ni-ink)] hover:border-[var(--ni-moss)]"
+                : "border-[var(--ni-sage-line)] bg-[var(--ni-field)] ni-t-ink hover:border-[var(--ni-moss)]"
             }`}
           >
             <input

@@ -10,7 +10,15 @@ const catalog = readFileSync(new URL("../client/src/i18n/catalog.ts", import.met
 // Regression cover for the onboarding completion bug: Finish onboarding ran a handler whose
 // three bare `return` statements swallowed validation, mutation failure and thrown errors, so
 // the button appeared to do nothing and the learner never reached a dashboard.
-const onboardingPage = app.slice(app.indexOf("function OnboardingPage"), app.indexOf("function OnboardingPage") + 12000);
+/**
+ * The whole component, bounded by the next top-level declaration rather than by
+ * a character count. A fixed window silently truncates the moment anything is
+ * added above the code being asserted on, which turns an unrelated edit into a
+ * failing test about a string that is still right there.
+ */
+const onboardingStart = app.indexOf("function OnboardingPage");
+const onboardingEnd = app.indexOf("\nfunction ", onboardingStart + 1);
+const onboardingPage = app.slice(onboardingStart, onboardingEnd === -1 ? undefined : onboardingEnd);
 
 describe("onboarding completion", () => {
   it("never fails silently: every guard sets a visible error", () => {

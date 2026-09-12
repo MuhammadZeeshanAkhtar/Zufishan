@@ -19,7 +19,7 @@ export default function OfflineBanner() {
     <div
       role="status"
       aria-live="polite"
-      className="sticky top-0 z-40 flex items-center justify-center gap-2 border-b border-[var(--ni-gold-mid)] bg-[var(--ni-gold-soft)] px-4 py-2 text-xs font-semibold text-[var(--ni-gold-ink)]"
+      className="sticky top-0 z-40 flex items-center justify-center gap-2 border-b border-[var(--ni-gold-mid)] bg-[var(--ni-gold-soft)] px-4 py-2 text-xs font-semibold ni-t-gold"
     >
       <CloudOff size={14} aria-hidden="true" />
       {t("state.offlineBanner")}

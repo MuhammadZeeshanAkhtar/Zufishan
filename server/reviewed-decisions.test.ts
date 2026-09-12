@@ -78,8 +78,13 @@ describe("conversations open only between people already connected", () => {
   });
 
   it("requires a real relationship before a thread can exist", () => {
+    // The four connection types moved into connection-eligibility.ts, which now
+    // owns the rule for both the write and the screens — and, unlike the copy
+    // that used to live here, it filters on status so a declined or cancelled
+    // record no longer counts.
+    const rule = readFileSync(new URL("./connection-eligibility.ts", import.meta.url), "utf8");
     for (const table of ["trial_requests", "bookings", "requirement_responses", "enrolments"]) {
-      expect(conversation, `${table} should count as a relationship`).toContain(table);
+      expect(rule, `${table} should count as a relationship`).toContain(table);
     }
     expect(conversation).toContain("if (!(await relationshipExists(admin, me, other)))");
   });

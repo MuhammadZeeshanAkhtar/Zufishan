@@ -35,33 +35,12 @@ export function getBearerTokenForTest(req: HeaderRequest) {
 }
 
 /**
- * Grants the public instructor role to the caller when their own signup metadata asked for it.
+ * Public-role assignment moved to `role-identity.ts`.
  *
- * The signup trigger always grants 'learner', ignoring raw_user_meta_data — correct, because a
- * client must never be able to name its own role. That left tutors sitting on a learner account
- * and being routed to the learner dashboard.
- *
- * This closes the gap without weakening that rule:
- *  - identity comes from the verified bearer token (ctx.supabaseIdentity), never from the client;
- *  - the requested role is read server-side from auth.users metadata, not from the request body;
- *  - only "instructor" can be granted. Privileged roles (admin, moderator, super_admin, finance)
- *    are never reachable here, so this is role selection, not privilege escalation. Instructors
- *    still require verification before any public listing.
+ * The version that lived here could only ever ADD `instructor`, on top of the
+ * `learner` row the signup trigger inserted unconditionally — which is how an
+ * instructor signup ended up holding both roles. Role decisions now live in one
+ * module alongside the signup and login checks that share their vocabulary.
  */
-export async function claimRequestedPublicRole(identity: SupabaseIdentity) {
-  const admin = getSupabaseAdminClient();
-  if (!admin) return { ok: false as const, error: "Supabase administrative access is not configured." };
+export { claimRequestedPublicRole } from "./role-identity";
 
-  const { data, error } = await admin.auth.admin.getUserById(identity.id);
-  if (error || !data.user) return { ok: false as const, error: "The account could not be verified." };
-
-  const requested = String(data.user.user_metadata?.requested_public_role ?? "").trim().toLowerCase();
-  if (requested !== "instructor") return { ok: true as const, data: { granted: false, role: "learner" as const } };
-
-  const { error: insertError } = await admin
-    .from("user_roles")
-    .upsert({ user_id: identity.id, role: "instructor" }, { onConflict: "user_id,role" });
-  if (insertError) return { ok: false as const, error: "The instructor role could not be assigned." };
-
-  return { ok: true as const, data: { granted: true, role: "instructor" as const } };
-}

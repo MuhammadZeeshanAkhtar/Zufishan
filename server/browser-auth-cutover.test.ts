@@ -21,8 +21,12 @@ describe("browser Supabase Auth cutover", () => {
   it("restores sessions and connects the complete browser auth surface", () => {
     expect(auth).toContain("supabaseClient.auth.getSession()");
     expect(auth).toContain("supabaseClient.auth.onAuthStateChange");
-    expect(auth).toContain("supabaseClient.auth.signUp");
-    expect(auth).toContain("supabaseClient.auth.signInWithPassword");
+    // Both password calls are now made on a locally bound non-null client, so
+    // that a failure can be caught and classified. What matters is unchanged:
+    // they are Supabase browser-auth calls, not a second auth system.
+    expect(auth).toMatch(/\bclient\.auth\.signUp\(/);
+    expect(auth).toMatch(/\bclient\.auth\.signInWithPassword\(/);
+    expect(auth).toContain('from "../lib/supabase-client"');
     expect(auth).toContain("supabaseClient.auth.signOut");
     expect(auth).toContain("resetPasswordForEmail");
     expect(auth).toContain("supabaseClient.auth.updateUser");

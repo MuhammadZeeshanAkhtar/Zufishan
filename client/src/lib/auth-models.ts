@@ -37,6 +37,24 @@ export const isClientFixtureMode = import.meta.env.DEV && import.meta.env.VITE_E
 export function saveOnboardingDraft(profile: OnboardingProfile) { if (isClientFixtureMode) localStorage.setItem(STORAGE_KEY, JSON.stringify(profile)); return profile; }
 export function getOnboardingDraft(): OnboardingProfile | null { if (!isClientFixtureMode) return null; try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) as OnboardingProfile : null; } catch { return null; } }
 export function clearOnboardingDraft() { if (isClientFixtureMode) localStorage.removeItem(STORAGE_KEY); }
+/**
+ * Which context a person says they are signing in for.
+ *
+ * This is a hint for the destination and the error message, and nothing more.
+ * It grants no access: the role that decides where someone lands is read from
+ * the database after authentication. Selecting "Board / Admin" on an account
+ * that is not an admin produces a refusal, not a dashboard.
+ *
+ * Kept separate from `publicRoles` on purpose — that list drives SIGN-UP, and
+ * an admin context must never be self-selectable at registration.
+ */
+export type LoginContext = "learner" | "instructor" | "admin";
+export const loginContexts: { value: LoginContext; label: string; copy: string }[] = [
+  { value: "learner", label: "Learner / student", copy: "Continue your courses, bookings and Hifz." },
+  { value: "instructor", label: "Ustaz / instructor", copy: "Your teaching desk, requests and availability." },
+  { value: "admin", label: "Board / admin", copy: "Governance and operations. Authorised accounts only." },
+];
+
 export function isPublicSignupRole(role: string): role is PublicRole { return role === "learner" || role === "instructor"; }
 export function isAdminRole(role: AccountRole | string | undefined): role is "admin" | "super_admin" { return role === "admin" || role === "super_admin"; }
 export function canAssignRole(actor: AccountRole, requested: AccountRole) { return isAdminRole(actor) && requested !== "super_admin"; }

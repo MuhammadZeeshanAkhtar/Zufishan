@@ -20,6 +20,7 @@
  */
 import { getSupabaseUserClient } from "./supabase-user-client";
 import type { SupabaseIdentity } from "./supabase-auth";
+import { notify } from "./notifications";
 
 /** Statuses the exclusion constraints treat as occupying the slot. */
 const ACTIVE = ["confirmed", "completed", "no_show", "disputed"] as const;
@@ -32,6 +33,10 @@ type Result<T> =
   | { ok: false; error: string; code?: "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "SETUP_NEEDED" | "VALIDATION" };
 
 const isOverlap = (error: { code?: string } | null) => error?.code === "23P01";
+
+/** The party who did not perform the action is the one who needs telling. */
+const counterpart = (booking: BookingRow, actorId: string) =>
+  booking.learner_id === actorId ? booking.instructor_id : booking.learner_id;
 
 type BookingRow = {
   id: string; learner_id: string; instructor_id: string; status: string;
@@ -90,6 +95,10 @@ export async function rescheduleBooking(
     if (error) console.error("[booking] reschedule failed:", { code: error.code, message: error.message });
     return { ok: false, error: "This booking changed and must be refreshed.", code: "CONFLICT" };
   }
+  await notify({ userId: counterpart(booking, identity.id), type: "booking_rescheduled",
+    title: "A session was moved", body: "One of your sessions has a new time.",
+    relatedEntityType: "bookings", relatedEntityId: input.bookingId,
+    idempotencyKey: `booking-moved:${input.bookingId}:${start.toISOString()}` });
   return { ok: true, data: data as BookingRow };
 }
 
@@ -124,6 +133,10 @@ export async function cancelBooking(
     if (error) console.error("[booking] cancel failed:", { code: error.code, message: error.message });
     return { ok: false, error: "This booking changed and must be refreshed.", code: "CONFLICT" };
   }
+  await notify({ userId: counterpart(booking, identity.id), type: "class_cancelled",
+    title: "A session was cancelled", body: reason,
+    relatedEntityType: "bookings", relatedEntityId: input.bookingId,
+    idempotencyKey: `booking-cancelled:${input.bookingId}` });
   return { ok: true, data: data as BookingRow };
 }
 
@@ -169,6 +182,11 @@ export async function completeBooking(
     if (error) console.error("[booking] completion failed:", { code: error.code, message: error.message });
     return { ok: false, error: "This booking changed and must be refreshed.", code: "CONFLICT" };
   }
+  await notify({ userId: booking.learner_id, type: "booking_completed",
+    title: input.outcome === "completed" ? "Session recorded as complete" : "Session recorded as missed",
+    body: "Your instructor recorded how the session went.",
+    relatedEntityType: "bookings", relatedEntityId: input.bookingId,
+    idempotencyKey: `booking-closed:${input.bookingId}:${input.outcome}` });
   return { ok: true, data: data as BookingRow };
 }
 

@@ -1,8 +1,15 @@
 import type { SupabaseIdentity } from "./supabase-auth";
 import { getSupabasePublicClient, getSupabaseUserClient } from "./supabase-user-client";
+import { getSupabaseAdminClient } from "./supabase-admin-client";
 import { summarizeHifzProgress } from "./hifz-progress-utils";
+import { statusAfterSave } from "@shared/learner-publication";
 
-export type CoreError = "Supabase persistence unavailable." | "Supabase operation failed.";
+export type CoreError =
+  | "Supabase persistence unavailable."
+  | "Supabase operation failed."
+  // A refusal with a reason, rather than a generic failure: enrolling in a course
+  // that is not published is a thing the learner can understand and act on.
+  | "That course is not open for enrolment.";
 export type CoreResult<T> = { ok: true; data: T } | { ok: false; error: CoreError };
 
 function client(identity: SupabaseIdentity) {
@@ -107,10 +114,37 @@ export async function updateOwnLearnerProfile(identity: SupabaseIdentity, input:
     ...optional(input.budgetRange, () => ({ budget_range: input.budgetRange!.trim() || null })),
   }, { onConflict: "user_id" });
 
-  return safe(() => Promise.all([profileUpdate, learnerUpdate]).then(([profile, learner]) => ({
-    data: { profile: profile.data, learnerProfile: learner.data },
-    error: profile.error ?? learner.error,
-  })), "updateOwnLearnerProfile");
+  return safe(() => Promise.all([profileUpdate, learnerUpdate]).then(async ([profile, learner]) => {
+    const failed = profile.error ?? learner.error;
+    if (failed) return { data: { profile: profile.data, learnerProfile: learner.data, profileStatus: "draft" as string }, error: failed };
+
+    // A learner needs no administrator to become discoverable: completing the
+    // required fields and saving IS the publication. This reads the merged row
+    // rather than the incoming patch, because a partial edit only carries some
+    // columns and completeness is a property of the whole profile.
+    //
+    // `statusAfterSave` returns null for a profile that is still incomplete, for
+    // one already published, and — importantly — for one the learner explicitly
+    // paused. An edit is not a request to undo a hide.
+    const [{ data: mergedProfile }, { data: mergedLearner }] = await Promise.all([
+      db.from("profiles").select("full_name,display_name,country,timezone,preferred_language").eq("id", identity.id).maybeSingle(),
+      db.from("learner_profiles").select("learning_level,learning_subjects,profile_status").eq("user_id", identity.id).maybeSingle(),
+    ]);
+    const current = (mergedLearner as { profile_status?: string } | null)?.profile_status;
+    const next = statusAfterSave(current, {
+      profile: mergedProfile as Record<string, unknown> | null,
+      learnerProfile: mergedLearner as Record<string, unknown> | null,
+    });
+    if (next) {
+      // Guarded on the status we read, so a concurrent hide cannot be overwritten.
+      await db.from("learner_profiles")
+        .update({ profile_status: next })
+        .eq("user_id", identity.id)
+        .eq("profile_status", current ?? "draft");
+    }
+
+    return { data: { profile: profile.data, learnerProfile: learner.data, profileStatus: next ?? current ?? "draft" }, error: null };
+  }), "updateOwnLearnerProfile");
 }
 
 export async function updateOwnLocale(identity: SupabaseIdentity, preferredLocale: "en" | "ur" | "ar") {
@@ -125,7 +159,39 @@ export async function listOwnAvailability(identity: SupabaseIdentity) {
 
 export async function listOwnRequirements(identity: SupabaseIdentity) {
   const db = client(identity); if (!db) return failure("Supabase persistence unavailable.");
-  return safe(() => db.from("learner_requirements").select("*").eq("learner_id", identity.id).order("created_at", { ascending: false }));
+  // The embedded count is the real number of responses. The listing used to render a hardcoded 0,
+  // so a learner with responses waiting was told there were none. `requirement_responses_parties_or_moderator`
+  // already lets the requirement's learner read them, so this needs no extra permission.
+  return safe(() => db.from("learner_requirements").select("*, requirement_responses(count)").eq("learner_id", identity.id).order("created_at", { ascending: false }), "listOwnRequirements");
+}
+
+/**
+ * The learner's decision on a response to their own requirement.
+ *
+ * `updateOwnRequirementResponseStatus` is the instructor's side — it filters on `instructor_id`, so
+ * it is how an instructor withdraws. Nothing let the learner shortlist, accept or reject, which is
+ * the whole point of the comparison screen, and three of the five statuses were therefore
+ * unreachable.
+ *
+ * `requirement_responses_parties_update` already permits the requirement's learner to write the row,
+ * so this runs on their own client. Ownership of the requirement is confirmed first so the refusal
+ * is a readable message rather than a silent no-op, and 0019 enforces the same split at the database.
+ */
+export async function setRequirementResponseDecision(
+  identity: SupabaseIdentity,
+  input: { responseId: string; status: "shortlisted" | "accepted" | "rejected" },
+) {
+  const db = client(identity); if (!db) return failure("Supabase persistence unavailable.");
+  return safe(async () => {
+    const response = await db.from("requirement_responses").select("id, requirement_id").eq("id", input.responseId).maybeSingle();
+    if (response.error || !response.data) return { data: null, error: response.error ?? { message: "Response not found" } };
+    const owned = await db
+      .from("learner_requirements").select("id")
+      .eq("id", (response.data as { requirement_id: string }).requirement_id)
+      .eq("learner_id", identity.id).maybeSingle();
+    if (owned.error || !owned.data) return { data: null, error: owned.error ?? { message: "Only the learner who posted this requirement can decide on a response" } };
+    return db.from("requirement_responses").update({ status: input.status, updated_at: new Date().toISOString() }).eq("id", input.responseId).select("*").single();
+  }, "setRequirementResponseDecision");
 }
 
 export async function listPublicPublishedRequirements() {
@@ -364,9 +430,69 @@ export async function getOwnCourseStructure(identity: SupabaseIdentity, courseId
   });
 }
 
+/**
+ * Takes a place on a published course.
+ *
+ * The published check is here for the message, not for the security: policy
+ * `enrolments_learner_insert` refuses an unpublished course at the database, so
+ * a caller who skips this path is still stopped. It matters because an active
+ * enrolment is one of the four relationships that authorise messaging — without
+ * the rule, holding any course UUID would have been enough to open a thread with
+ * its instructor, whether or not that instructor had published anything.
+ *
+ * The instructor is then told, because someone joining your course is exactly
+ * the kind of thing you should not have to go looking for. Reuses the existing
+ * notifications table and its idempotency key; no new delivery system.
+ */
+/**
+ * Writes a notification on the admin client.
+ *
+ * `notifications` restricts inserts, so a learner cannot write a row addressed to
+ * their instructor through their own session — which is correct, and is why this
+ * goes through the service role after the calling procedure has already decided
+ * the event genuinely happened. Same shape and same conflict target as the
+ * scheduling module already uses, so nothing new is introduced.
+ */
+async function notifyUser(
+  userId: string, type: string, title: string, body: string,
+  relatedEntityType: string, relatedEntityId: string, idempotencyKey: string,
+) {
+  const admin = getSupabaseAdminClient();
+  if (!admin) return;
+  const { error } = await admin.from("notifications").upsert({
+    user_id: userId, type, title, body,
+    related_entity_type: relatedEntityType, related_entity_id: relatedEntityId,
+    idempotency_key: idempotencyKey, locale: "en",
+  }, { onConflict: "user_id,idempotency_key", ignoreDuplicates: true });
+  if (error) console.error("[supabase-core] notification failed:", { type, code: error.code, message: error.message });
+}
+
 export async function createEnrolment(identity: SupabaseIdentity, courseId: string) {
   const db = client(identity); if (!db) return failure("Supabase persistence unavailable.");
-  return safe(() => db.from("enrolments").upsert({ learner_id: identity.id, course_id: courseId, status: "active" }, { onConflict: "learner_id,course_id" }).select("*").single());
+
+  const { data: course } = await db
+    .from("courses").select("id,title,status,instructor_id").eq("id", courseId).maybeSingle();
+  const row = course as { id: string; title?: string; status?: string; instructor_id?: string } | null;
+  if (!row || row.status !== "published") {
+    return failure("That course is not open for enrolment.");
+  }
+
+  const result = await safe(() => db.from("enrolments")
+    .upsert({ learner_id: identity.id, course_id: courseId, status: "active" }, { onConflict: "learner_id,course_id" })
+    .select("*").single());
+
+  if (result.ok && row.instructor_id && row.instructor_id !== identity.id) {
+    await notifyUser(
+      row.instructor_id,
+      "enrolment_created",
+      "A learner enrolled in your course",
+      `Someone enrolled in ${row.title ?? "your course"}.`,
+      "enrolment",
+      String(courseId),
+      `enrolment:${courseId}:${identity.id}`,
+    );
+  }
+  return result;
 }
 
 export async function listOwnEnrolments(identity: SupabaseIdentity) {

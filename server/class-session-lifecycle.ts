@@ -20,6 +20,7 @@
 import { getSupabaseAdminClient } from "./supabase-admin-client";
 import { getSupabaseUserClient } from "./supabase-user-client";
 import type { SupabaseIdentity } from "./supabase-auth";
+import { resolveClassroomProvider, type JoinGrant, type RecordingStatus } from "./classroom-provider";
 
 /** The ordered life of a session. A session may also be cancelled or marked no_show. */
 export const SESSION_FLOW = ["scheduled", "waiting_room", "live", "completed"] as const;
@@ -28,15 +29,17 @@ export type SessionStatus = (typeof SESSION_STATUSES)[number];
 
 type Result<T> =
   | { ok: true; data: T }
-  | { ok: false; error: string; code?: "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "SETUP_NEEDED" | "VALIDATION" };
+  // PROVIDER_FAILED is its own code: a provider that was asked and failed is a different problem
+  // from one that was never configured, and the two must not collapse into one message.
+  | { ok: false; error: string; code?: "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "SETUP_NEEDED" | "VALIDATION" | "PROVIDER_FAILED" };
 
 type SessionRow = {
   id: string; learner_id: string; instructor_id: string; status: string;
   scheduled_start_at: string; scheduled_end_at: string; session_type: string;
-  live_provider: string | null; recording_status: string;
+  live_provider: string | null; external_session_id: string | null; recording_status: string;
 };
 
-const SESSION_COLUMNS = "id,learner_id,instructor_id,status,scheduled_start_at,scheduled_end_at,session_type,live_provider,recording_status";
+const SESSION_COLUMNS = "id,learner_id,instructor_id,status,scheduled_start_at,scheduled_end_at,session_type,live_provider,external_session_id,recording_status";
 
 /**
  * Creates the session for a confirmed booking, or returns the one that already exists.
@@ -193,6 +196,127 @@ export async function recordOwnAttendance(
     return { ok: false, error: "Attendance could not be recorded." };
   }
   return { ok: true, data: { sessionId: input.sessionId, action: input.action } };
+}
+
+/**
+ * One session, if the caller is party to it.
+ *
+ * `class_sessions_participant_or_moderator` means a stranger's read returns nothing rather than a
+ * row, so "not found" and "not yours" are genuinely the same answer here — and reporting it as
+ * NOT_FOUND avoids confirming that a session with that id exists to someone who cannot see it.
+ */
+export async function getOwnSession(identity: SupabaseIdentity, input: { sessionId: string }): Promise<Result<SessionRow>> {
+  const db = getSupabaseUserClient(identity.accessToken);
+  if (!db) return { ok: false, error: "Scheduling persistence is not configured.", code: "SETUP_NEEDED" };
+  const { data, error } = await db.from("class_sessions").select(SESSION_COLUMNS).eq("id", input.sessionId).maybeSingle();
+  if (error) {
+    console.error("[class-session] read failed:", { code: error.code, message: error.message });
+    return { ok: false, error: "The session could not be loaded." };
+  }
+  if (!data) return { ok: false, error: "This session is not available to your account.", code: "NOT_FOUND" };
+  return { ok: true, data: data as SessionRow };
+}
+
+/**
+ * Who has joined this session.
+ *
+ * `class_attendance_session_member` lets either party read the whole session's attendance, so both
+ * sides can see whether the other has arrived. Only the user id, timestamps and status are
+ * returned — the caller already knows which id is the instructor's and which is theirs from the
+ * session row, so the screen can label each side by role without reading anybody's profile.
+ */
+export async function listSessionAttendance(identity: SupabaseIdentity, input: { sessionId: string }): Promise<Result<unknown[]>> {
+  const db = getSupabaseUserClient(identity.accessToken);
+  if (!db) return { ok: false, error: "Scheduling persistence is not configured.", code: "SETUP_NEEDED" };
+  const { data, error } = await db
+    .from("class_attendance").select("id,session_id,user_id,joined_at,left_at,status").eq("session_id", input.sessionId);
+  if (error) {
+    console.error("[class-session] attendance list failed:", { code: error.code, message: error.message });
+    return { ok: false, error: "Attendance could not be loaded." };
+  }
+  return { ok: true, data: data ?? [] };
+}
+
+/**
+ * Asks the provider for this person's join credential.
+ *
+ * Three refusals, kept apart because they are three different problems: the caller is not party to
+ * the session, no provider is configured, or the provider was asked and failed. None of them
+ * produces a link — a fabricated join URL is worse than no link, because it fails in front of a
+ * learner at the moment a class was due to start.
+ *
+ * The grant is issued per person and short-lived, and the room is created on first ask so a session
+ * that nobody opens never reaches the provider at all.
+ */
+export async function requestJoinGrant(
+  identity: SupabaseIdentity,
+  input: { sessionId: string },
+): Promise<Result<JoinGrant>> {
+  const session = await getOwnSession(identity, { sessionId: input.sessionId });
+  if (!session.ok) return session;
+
+  const row = session.data;
+  if (row.status !== "waiting_room" && row.status !== "live") {
+    return { ok: false, error: "This session is not open to join.", code: "CONFLICT" };
+  }
+
+  const resolved = resolveClassroomProvider();
+  if (resolved.status !== "ready") {
+    return { ok: false, error: "No live classroom provider is connected, so there is no call to join.", code: "SETUP_NEEDED" };
+  }
+
+  const db = getSupabaseUserClient(identity.accessToken);
+  if (!db) return { ok: false, error: "Scheduling persistence is not configured.", code: "SETUP_NEEDED" };
+
+  // Create the room once, and record which provider owns it, so a later provider change is visible
+  // in the record rather than silently reinterpreted.
+  let externalSessionId = row.external_session_id;
+  if (!externalSessionId) {
+    const created = await resolved.provider.createRoom({
+      sessionId: row.id, scheduledStartAt: row.scheduled_start_at, scheduledEndAt: row.scheduled_end_at,
+    });
+    if (!created.ok) return created;
+    externalSessionId = created.data.externalSessionId;
+    const { error } = await db
+      .from("class_sessions")
+      .update({ live_provider: resolved.provider.name, external_session_id: externalSessionId, updated_at: new Date().toISOString() })
+      .eq("id", row.id);
+    if (error) {
+      console.error("[class-session] room record failed:", { code: error.code, message: error.message });
+      return { ok: false, error: "The classroom was created but could not be recorded.", code: "PROVIDER_FAILED" };
+    }
+  }
+
+  return resolved.provider.issueJoinGrant({
+    externalSessionId,
+    userId: identity.id,
+    role: row.instructor_id === identity.id ? "host" : "guest",
+    displayName: "",
+  });
+}
+
+/**
+ * What the provider currently holds for this session's recording.
+ *
+ * `recording_status` on the row is the platform's own record and defaults to 'not_configured'. It is
+ * never advanced by guesswork: with no provider there is nothing to ask, so the stored value stands.
+ */
+export async function readSessionRecordingStatus(
+  identity: SupabaseIdentity,
+  input: { sessionId: string },
+): Promise<Result<{ status: RecordingStatus; fromProvider: boolean }>> {
+  const session = await getOwnSession(identity, { sessionId: input.sessionId });
+  if (!session.ok) return session;
+
+  const resolved = resolveClassroomProvider();
+  const stored = session.data.recording_status as RecordingStatus;
+  if (resolved.status !== "ready" || !session.data.external_session_id) {
+    return { ok: true, data: { status: stored, fromProvider: false } };
+  }
+
+  const live = await resolved.provider.readRecordingStatus({ externalSessionId: session.data.external_session_id });
+  if (!live.ok) return { ok: true, data: { status: stored, fromProvider: false } };
+  return { ok: true, data: { status: live.data, fromProvider: true } };
 }
 
 /** The sessions the caller is party to. RLS scopes this to their own. */

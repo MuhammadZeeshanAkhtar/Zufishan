@@ -1,18 +1,39 @@
 import { COOKIE_NAME } from "@shared/const";
-import { claimRequestedPublicRole } from "./supabase-auth";
+import { claimRequestedPublicRole, checkSignupEligibility, resolveLoginContext, PUBLIC_ROLES, LOGIN_CONTEXTS } from "./role-identity";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router, supabaseOnlyProcedure } from "./_core/trpc";
 import { z } from "zod";
-import { createCourse, createCredential, deleteOwnCredential, createEnrolment, createHifzPlan, createHifzReview, createRequirement, createRequirementResponse, createCourseLesson, createCourseModule, deleteCourseLesson, deleteCourseModule, getLearnerWorkspace, getOwnCourseStructure, getOwnCoreProfiles, getPublicPublishedCourse, getPublicPublishedCourseById, getPublicPublishedLessonMetadata, getPublicPublishedRequirement, listPublicPublishedRequirements, listPublishedRequirements, listPublicPublishedCourses, listCourseFilterFacets, updateOwnRequirementGoal, updateOwnRequirementResponseStatus, listCourseLessons, listCourseModules, listHifzPlans, submitOwnCourseForReview, updateCourseLesson, updateCourseModule, updateOwnCourse, listHifzReviews, listOwnAvailability, listOwnCredentials, listOwnCourses, listOwnEnrolments, listOwnProgress, listOwnRequirements, listOwnRequirementResponses, updateOwnInstructorProfile, updateOwnLocale, updateOwnProfile, updateOwnLearnerProfile, upsertLessonProgress, listOwnConversations, listConversationMessages, createConversationMessage, createAdvancedHifzPlan, updateAdvancedHifzPlan, listAdvancedHifzPlans, createHifzRecord, listOwnHifzRecords, updateOwnDraftHifzRecord, submitHifzRecordForReview, listAssignedLearnerHifzRecords, listAssignedHifzReviews, reviewHifzRecord, calculateHifzProgress, createHifzReminder, listHifzReminders } from "./supabase-core";
+import {
+  ARTICLE_ACTIONS, ARTICLE_FILTERS, ARTICLE_SORTS, articleInput,
+  deleteBlogArticle, getBlogArticle, getPublishedArticle, listBlogArticles,
+  listPublishedArticleFacets, listPublishedArticles, saveBlogArticle, setBlogArticleStatus,
+} from "./blog";
+import { createCourse, createCredential, deleteOwnCredential, createEnrolment, createHifzPlan, createHifzReview, createRequirement, createRequirementResponse, createCourseLesson, createCourseModule, deleteCourseLesson, deleteCourseModule, getLearnerWorkspace, getOwnCourseStructure, getOwnCoreProfiles, getPublicPublishedCourse, getPublicPublishedCourseById, getPublicPublishedLessonMetadata, getPublicPublishedRequirement, listPublicPublishedRequirements, listPublishedRequirements, listPublicPublishedCourses, listCourseFilterFacets, updateOwnRequirementGoal, updateOwnRequirementResponseStatus, setRequirementResponseDecision, listCourseLessons, listCourseModules, listHifzPlans, submitOwnCourseForReview, updateCourseLesson, updateCourseModule, updateOwnCourse, listHifzReviews, listOwnAvailability, listOwnCredentials, listOwnCourses, listOwnEnrolments, listOwnProgress, listOwnRequirements, listOwnRequirementResponses, updateOwnInstructorProfile, updateOwnLocale, updateOwnProfile, updateOwnLearnerProfile, upsertLessonProgress, listOwnConversations, listConversationMessages, createConversationMessage, createAdvancedHifzPlan, updateAdvancedHifzPlan, listAdvancedHifzPlans, createHifzRecord, listOwnHifzRecords, updateOwnDraftHifzRecord, submitHifzRecordForReview, listAssignedLearnerHifzRecords, listAssignedHifzReviews, reviewHifzRecord, calculateHifzProgress, createHifzReminder, listHifzReminders } from "./supabase-core";
 import { createSignedDownloadUrl, deletePrivateObject, requestUploadPermission, PRIVATE_BUCKETS, type PrivateBucket } from "./supabase-storage";
 import { listInstructorsForReview, setInstructorVerification, VERIFICATION_STATUSES } from "./instructor-verification";
 import { listCoursesForReview, setCourseReviewDecision, COURSE_REVIEW_DECISIONS } from "./course-review";
 import { startConversation } from "./conversation-start";
+import { getMessagingEligibility } from "./connection-eligibility";
+import { listConversationSummaries, markConversationRead, countUnread } from "./messaging";
 import { rescheduleBooking, cancelBooking, completeBooking, BOOKING_OUTCOMES } from "./booking-lifecycle";
-import { openSessionForBooking, setSessionStatus, recordOwnAttendance, listOwnSessions, SESSION_STATUSES } from "./class-session-lifecycle";
-import { createReview, listOwnReviews, listInstructorReviews } from "./reviews";
-import { listCourseQuizzes, createQuiz, submitQuizAttempt, listCourseAssignments, createAssignment, submitAssignment, gradeSubmission } from "./assessments";
+import { openSessionForBooking, setSessionStatus, recordOwnAttendance, listOwnSessions, getOwnSession, listSessionAttendance, requestJoinGrant, readSessionRecordingStatus, SESSION_STATUSES } from "./class-session-lifecycle";
+import { classroomProviderStatus } from "./classroom-provider";
+import { getCheckoutQuote, startCheckout, listOwnTransactions, getPaymentsSetup } from "./payments";
+import { createReview, listOwnReviews, listReviewsAboutMe, listInstructorReviews } from "./reviews";
+import { claimAdminRole, adminBootstrapStatus } from "./admin-bootstrap";
+import { listDiscoverableLearners, getDiscoverableLearner, getOwnDiscoverability, setOwnDiscoverability } from "./learner-discovery";
+import { describeHumanVerification } from "./human-verification";
+import { getAdminOverview } from "./admin-overview";
+import { listInstructors, getInstructorDetail, decideInstructor, reviewCredential, INSTRUCTOR_FILTERS, INSTRUCTOR_DECISIONS, CREDENTIAL_DECISIONS } from "./admin-instructors";
+import { listCourses, getCourseDetail, decideCourse, COURSE_FILTERS, COURSE_ACTIONS } from "./admin-courses";
+import { listUsers, getUserDetail, setAccountStatus, USER_ROLE_FILTERS, USER_STATUS_FILTERS, SETTABLE_ACCOUNT_STATUSES } from "./admin-users";
+import { listReviews, decideReview, listReports, resolveReport, listCases, decideCase, getContentInventory, REVIEW_FILTERS, REVIEW_ACTIONS, REPORT_KINDS, REPORT_OUTCOMES, CASE_STATUSES } from "./admin-moderation";
+import { listSupportRecords, getSupportSummary, SUPPORT_SCOPES } from "./admin-support";
+import { listAuditLogs, getSystemStatus, getAdminSettings } from "./admin-records";
+import { getOwnEligibility, issueOwnCertificate, listOwnCertificates, verifyByCode, setCoursePassMark } from "./certificates";
+import { listCourseQuizzes, createQuiz, submitQuizAttempt, listOwnQuizAttempts, listCourseSubmissions, listCourseAssignments, createAssignment, submitAssignment, gradeSubmission } from "./assessments";
+import { listOwnNotifications, countOwnUnread, markNotificationsRead, getOwnPreferences, updateOwnPreferences } from "./notifications";
 import { getSupabaseHealth } from "./supabase-connection";
 import { getProductionConfigReport } from "./production-config";
 import { acceptTrialRequest, cancelTrialOrBooking, confirmProposedTime, createAvailabilityInterval, createTrialRequest, declineTrialRequest, deleteAvailabilityInterval, getAvailableSlots, getOwnTrialRequest, getPublicInstructorBySlug, listPublicInstructors, listInstructorFilterFacets, listBookings, listClassSessions, listInstructorAvailability, listSchedulingNotifications, listTrialRequests, proposeNewTrialTime, updateAvailabilityInterval } from "./scheduling";
@@ -30,6 +51,57 @@ export const appRouter = router({
     publicLessonMetadata: publicProcedure.input(z.object({ slug: z.string().min(1).max(160), lessonId: z.string().uuid() })).query(({ input }) => getPublicPublishedLessonMetadata(input.slug, input.lessonId)),
     profiles: supabaseOnlyProcedure.query(({ ctx }) => getOwnCoreProfiles(ctx.supabaseIdentity)),
     claimPublicRole: supabaseOnlyProcedure.mutation(({ ctx }) => claimRequestedPublicRole(ctx.supabaseIdentity)),
+    // Find Students. The instructor role is re-checked server-side, and the rows
+    // come back under the caller's own session so RLS policy 0025 is the gate.
+    discoverableLearners: supabaseOnlyProcedure
+      .input(z.object({
+        subjects: z.array(z.string().max(60)).max(12).optional(),
+        level: z.string().max(60).optional(),
+        language: z.string().max(60).optional(),
+        // The column's own check constraint allows only these two, so anything
+        // else would match no row; rejecting it here says so plainly instead.
+        gender: z.enum(["male", "female"]).optional(),
+        country: z.string().max(80).optional(),
+        timezone: z.string().max(80).optional(),
+        query: z.string().max(120).optional(),
+        limit: z.number().int().min(1).max(48).optional(),
+        offset: z.number().int().min(0).optional(),
+        // Verified server-side against the provider's secret. Bounded so a
+        // malformed value cannot be used to push a large body through.
+        humanToken: z.string().max(4096).optional(),
+      }).optional())
+      .query(({ ctx, input }) => listDiscoverableLearners(ctx.supabaseIdentity, input ?? {})),
+    // Which human-verification provider is configured, if any. Returns the public
+    // site key and the NAMES of any missing variables — never a secret.
+    humanVerification: supabaseOnlyProcedure.query(() => ({ ok: true as const, data: describeHumanVerification() })),
+    // One published learner, for the detail view behind a card. Repeats every
+    // guard the list applies, because a URL can be typed directly.
+    discoverableLearner: supabaseOnlyProcedure
+      .input(z.object({ learnerId: z.string().uuid(), humanToken: z.string().max(4096).optional() }))
+      .query(({ ctx, input }) => getDiscoverableLearner(ctx.supabaseIdentity, input)),
+    // The learner's own switch. No admin approval is involved in either direction.
+    ownDiscoverability: supabaseOnlyProcedure.query(({ ctx }) => getOwnDiscoverability(ctx.supabaseIdentity)),
+    setOwnDiscoverability: supabaseOnlyProcedure
+      .input(z.object({ discoverable: z.boolean() }))
+      .mutation(({ ctx, input }) => setOwnDiscoverability(ctx.supabaseIdentity, input)),
+    // Answers before an account exists, so it takes the address as input. It is
+    // the only pre-auth surface that distinguishes registered addresses, and it
+    // grants nothing — the role still comes from the trigger and the claim above.
+    signupEligibility: publicProcedure
+      .input(z.object({ email: z.string().email().max(320), role: z.enum(PUBLIC_ROLES) }))
+      .mutation(({ input }) => checkSignupEligibility(input)),
+    // Reconciles the selected card with the roles the VERIFIED account holds and
+    // returns the destination. The card can only be refused, never obeyed.
+    loginContext: supabaseOnlyProcedure
+      .input(z.object({ context: z.enum(LOGIN_CONTEXTS) }))
+      .mutation(({ ctx, input }) => resolveLoginContext(ctx.supabaseIdentity, input)),
+    // Grants `admin` only when the VERIFIED account's email matches ADMIN_EMAIL,
+    // which is read server-side. Safe to call on every sign-in: it is an upsert,
+    // and it refuses identically for everyone else so it cannot be used to probe
+    // for the configured address.
+    claimAdminRole: supabaseOnlyProcedure.mutation(({ ctx }) => claimAdminRole(ctx.supabaseIdentity)),
+    // Boolean only — never the configured address.
+    adminBootstrapConfigured: supabaseOnlyProcedure.query(() => ({ ok: true as const, data: adminBootstrapStatus() })),
     updateLearnerProfile: supabaseOnlyProcedure.input(z.object({
       fullName: z.string().min(1).max(160),
       displayName: z.string().min(1).max(120),
@@ -61,6 +133,9 @@ export const appRouter = router({
     requirementResponses: supabaseOnlyProcedure.input(z.object({ requirementId: z.string().uuid() })).query(({ ctx, input }) => listOwnRequirementResponses(ctx.supabaseIdentity, input.requirementId)),
     respondToRequirement: supabaseOnlyProcedure.input(z.object({ requirementId: z.string().uuid(), message: z.string().trim().min(1).max(5000) })).mutation(({ ctx, input }) => createRequirementResponse(ctx.supabaseIdentity, input)),
     updateRequirementResponseStatus: supabaseOnlyProcedure.input(z.object({ responseId: z.string().uuid(), status: z.enum(["pending", "shortlisted", "accepted", "rejected", "withdrawn"]) })).mutation(({ ctx, input }) => updateOwnRequirementResponseStatus(ctx.supabaseIdentity, input)),
+    // The learner's side of the same row: shortlist, accept or reject a response to their own
+    // requirement. Withdrawing stays the instructor's, above.
+    decideOnRequirementResponse: supabaseOnlyProcedure.input(z.object({ responseId: z.string().uuid(), status: z.enum(["shortlisted", "accepted", "rejected"]) })).mutation(({ ctx, input }) => setRequirementResponseDecision(ctx.supabaseIdentity, input)),
     courses: supabaseOnlyProcedure.query(({ ctx }) => listOwnCourses(ctx.supabaseIdentity)),
     credentials: supabaseOnlyProcedure.query(({ ctx }) => listOwnCredentials(ctx.supabaseIdentity)),
     createCredential: supabaseOnlyProcedure.input(z.object({ objectPath: z.string().min(1).max(500), mimeType: z.string().min(1).max(100), sizeBytes: z.number().int().positive() })).mutation(({ ctx, input }) => createCredential(ctx.supabaseIdentity, input)),
@@ -83,6 +158,17 @@ export const appRouter = router({
     learnerWorkspace: supabaseOnlyProcedure.query(({ ctx }) => getLearnerWorkspace(ctx.supabaseIdentity)),
     conversations: supabaseOnlyProcedure.query(({ ctx }) => listOwnConversations(ctx.supabaseIdentity)),
     messages: supabaseOnlyProcedure.input(z.object({ conversationId: z.string().uuid() })).query(({ ctx, input }) => listConversationMessages(ctx.supabaseIdentity, input.conversationId)),
+    conversationSummaries: supabaseOnlyProcedure.query(({ ctx }) => listConversationSummaries(ctx.supabaseIdentity)),
+    unreadCount: supabaseOnlyProcedure.query(({ ctx }) => countUnread(ctx.supabaseIdentity)),
+    markConversationRead: supabaseOnlyProcedure
+      .input(z.object({ conversationId: z.string().uuid() }))
+      .mutation(({ ctx, input }) => markConversationRead(ctx.supabaseIdentity, input)),
+    // Whether a thread may be opened with this account, and if not, whether a
+    // request is already waiting. Decided by the same check that authorises
+    // the write, so the button and the write cannot disagree.
+    messagingEligibility: supabaseOnlyProcedure
+      .input(z.object({ counterpartId: z.string().uuid() }))
+      .query(({ ctx, input }) => getMessagingEligibility(ctx.supabaseIdentity, input)),
     startConversation: supabaseOnlyProcedure
       .input(z.object({ counterpartId: z.string().uuid(), subject: z.string().max(200).optional() }))
       .mutation(({ ctx, input }) => startConversation(ctx.supabaseIdentity, input)),
@@ -138,12 +224,16 @@ export const appRouter = router({
       timezone: z.string().max(80).optional(),
       sect: z.enum(["Sunni", "Shia", "Other", "Prefer not to say"]).optional(),
       hasIjazah: z.boolean().optional(),
+      // Only the thresholds the sidebar offers, so an arbitrary float cannot be probed.
+      minRating: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(4.5)]).optional(),
       sort: z.enum(["relevance", "rate_asc", "rate_desc", "experience_desc"]).optional(),
       limit: z.number().int().min(1).max(48).optional(),
       offset: z.number().int().min(0).optional(),
     }).optional()).query(({ input }) => listPublicInstructors(input ?? {})),
     instructorFacets: publicProcedure.query(() => listInstructorFilterFacets()),
     instructorReviews: publicProcedure.input(z.object({ instructorId: z.string().uuid() })).query(({ input }) => listInstructorReviews(input.instructorId)),
+    // Takes the printed random code only — never a row id — and returns the minimal record.
+    verifyCertificate: publicProcedure.input(z.object({ code: z.string().trim().min(8).max(40) })).query(({ input }) => verifyByCode({ code: input.code })),
     publishedRequirements: publicProcedure.query(() => listPublicPublishedRequirements()),
     publishedRequirementById: publicProcedure.input(z.object({ id: z.string().uuid() })).query(({ input }) => getPublicPublishedRequirement(input.id)),
     publishedCourses: publicProcedure.input(z.object({
@@ -156,6 +246,15 @@ export const appRouter = router({
       offset: z.number().int().min(0).optional(),
     }).optional()).query(({ input }) => listPublicPublishedCourses(input ?? {})),
     courseFacets: publicProcedure.query(() => listCourseFilterFacets()),
+
+    // ---- blog. Published rows only; the table's one RLS policy enforces it. ----
+    blogArticles: publicProcedure
+      .input(z.object({ search: z.string().max(120).optional(), category: z.string().max(80).optional(), subject: z.string().max(80).optional(), limit: z.number().int().min(1).max(50).optional(), offset: z.number().int().min(0).optional() }).optional())
+      .query(({ input }) => listPublishedArticles(input ?? {})),
+    blogArticle: publicProcedure
+      .input(z.object({ slug: z.string().min(1).max(160) }))
+      .query(({ input }) => getPublishedArticle(input)),
+    blogFacets: publicProcedure.query(() => listPublishedArticleFacets()),
     courseBySlug: publicProcedure.input(z.object({ slug: z.string().min(1).max(160) })).query(({ input }) => getPublicPublishedCourse(input.slug)),
   }),
 
@@ -175,7 +274,38 @@ export const appRouter = router({
     confirmTime: supabaseOnlyProcedure.input(z.object({ requestId: z.string().uuid() })).mutation(({ ctx, input }) => confirmProposedTime(ctx.supabaseIdentity, input.requestId)),
     cancel: supabaseOnlyProcedure.input(z.object({ id: z.string().uuid(), reason: z.string().min(1).max(1000) })).mutation(({ ctx, input }) => cancelTrialOrBooking(ctx.supabaseIdentity, input.id, input.reason)),
     sessions: supabaseOnlyProcedure.query(({ ctx }) => listOwnSessions(ctx.supabaseIdentity)),
+    session: supabaseOnlyProcedure.input(z.object({ sessionId: z.string().uuid() })).query(({ ctx, input }) => getOwnSession(ctx.supabaseIdentity, input)),
+    sessionAttendance: supabaseOnlyProcedure.input(z.object({ sessionId: z.string().uuid() })).query(({ ctx, input }) => listSessionAttendance(ctx.supabaseIdentity, input)),
+    // Provider status is answered by the server, not assumed by the browser: a client-side
+    // constant would keep saying "not configured" after a provider was actually connected.
+    classroomProvider: supabaseOnlyProcedure.query(() => ({ ok: true as const, data: classroomProviderStatus() })),
+    classroomJoin: supabaseOnlyProcedure.input(z.object({ sessionId: z.string().uuid() })).mutation(({ ctx, input }) => requestJoinGrant(ctx.supabaseIdentity, input)),
+    sessionRecording: supabaseOnlyProcedure.input(z.object({ sessionId: z.string().uuid() })).query(({ ctx, input }) => readSessionRecordingStatus(ctx.supabaseIdentity, input)),
     myReviews: supabaseOnlyProcedure.query(({ ctx }) => listOwnReviews(ctx.supabaseIdentity)),
+    // Certificates. Eligibility is decided server-side from the caller's own rows; issuance goes
+    // through the service role because certificates_admin_write blocks every other write.
+    certificateEligibility: supabaseOnlyProcedure.input(z.object({ courseId: z.string().uuid() })).query(({ ctx, input }) => getOwnEligibility(ctx.supabaseIdentity, input)),
+    myCertificates: supabaseOnlyProcedure.query(({ ctx }) => listOwnCertificates(ctx.supabaseIdentity)),
+    // Payments. Every financial row is written by the service role after this server decides;
+    // session_ledger and payment_references have no insert or update policy at all.
+    paymentsSetup: supabaseOnlyProcedure.query(() => getPaymentsSetup()),
+    checkoutQuote: supabaseOnlyProcedure.input(z.object({ bookingId: z.string().uuid() })).query(({ ctx, input }) => getCheckoutQuote(ctx.supabaseIdentity, input)),
+    startCheckout: supabaseOnlyProcedure.input(z.object({ bookingId: z.string().uuid() })).mutation(({ ctx, input }) => startCheckout(ctx.supabaseIdentity, input)),
+    myTransactions: supabaseOnlyProcedure.query(({ ctx }) => listOwnTransactions(ctx.supabaseIdentity)),
+    issueCertificate: supabaseOnlyProcedure.input(z.object({ courseId: z.string().uuid() })).mutation(({ ctx, input }) => issueOwnCertificate(ctx.supabaseIdentity, input)),
+    setCoursePassMark: supabaseOnlyProcedure.input(z.object({ courseId: z.string().uuid(), passMark: z.number().int().min(0).max(100).nullable() })).mutation(({ ctx, input }) => setCoursePassMark(ctx.supabaseIdentity, input)),
+    reviewsAboutMe: supabaseOnlyProcedure.query(({ ctx }) => listReviewsAboutMe(ctx.supabaseIdentity)),
+    // Named `inbox` here because `scheduling.notifications` already exists and returns only the
+    // scheduling subset; this one reads the whole table for the caller.
+    inbox: supabaseOnlyProcedure.query(({ ctx }) => listOwnNotifications(ctx.supabaseIdentity)),
+    unreadNotifications: supabaseOnlyProcedure.query(({ ctx }) => countOwnUnread(ctx.supabaseIdentity)),
+    markNotificationsRead: supabaseOnlyProcedure
+      .input(z.object({ notificationId: z.string().uuid().optional() }))
+      .mutation(({ ctx, input }) => markNotificationsRead(ctx.supabaseIdentity, input)),
+    notificationPreferences: supabaseOnlyProcedure.query(({ ctx }) => getOwnPreferences(ctx.supabaseIdentity)),
+    updateNotificationPreferences: supabaseOnlyProcedure
+      .input(z.object({ emailEnabled: z.boolean().optional(), classRemindersEnabled: z.boolean().optional(), messageNotificationsEnabled: z.boolean().optional(), courseUpdatesEnabled: z.boolean().optional() }))
+      .mutation(({ ctx, input }) => updateOwnPreferences(ctx.supabaseIdentity, input)),
     courseQuizzes: supabaseOnlyProcedure.input(z.object({ courseId: z.string().uuid() })).query(({ ctx, input }) => listCourseQuizzes(ctx.supabaseIdentity, input.courseId)),
     createQuiz: supabaseOnlyProcedure
       .input(z.object({ courseId: z.string().uuid(), title: z.string().trim().min(1).max(180), questions: z.array(z.object({ id: z.string().min(1).max(80), prompt: z.string().max(2000).optional(), answer: z.string().max(500).optional() })).min(1).max(100) }))
@@ -183,6 +313,8 @@ export const appRouter = router({
     submitQuizAttempt: supabaseOnlyProcedure
       .input(z.object({ quizId: z.string().uuid(), answers: z.record(z.string(), z.unknown()) }))
       .mutation(({ ctx, input }) => submitQuizAttempt(ctx.supabaseIdentity, input)),
+    myQuizAttempts: supabaseOnlyProcedure.input(z.object({ quizId: z.string().uuid().optional() })).query(({ ctx, input }) => listOwnQuizAttempts(ctx.supabaseIdentity, input)),
+    courseSubmissions: supabaseOnlyProcedure.input(z.object({ courseId: z.string().uuid() })).query(({ ctx, input }) => listCourseSubmissions(ctx.supabaseIdentity, input)),
     courseAssignments: supabaseOnlyProcedure.input(z.object({ courseId: z.string().uuid() })).query(({ ctx, input }) => listCourseAssignments(ctx.supabaseIdentity, input.courseId)),
     createAssignment: supabaseOnlyProcedure
       .input(z.object({ courseId: z.string().uuid(), title: z.string().trim().min(1).max(180), instructions: z.string().max(10000).optional(), dueOffsetDays: z.number().int().min(0).max(365).optional() }))
@@ -227,6 +359,100 @@ export const appRouter = router({
     deletePrivateObject: supabaseOnlyProcedure.input(z.object({ bucket: z.enum([PRIVATE_BUCKETS.credentials, PRIVATE_BUCKETS.instructorMedia, PRIVATE_BUCKETS.courseMedia, PRIVATE_BUCKETS.classroomResources]), objectPath: z.string().min(1).max(500) })).mutation(({ ctx, input }) => deletePrivateObject(ctx.supabaseIdentity, input as { bucket: PrivateBucket; objectPath: string })),
   }),
 
+  // The operations desk. Every procedure re-verifies the administrator role against
+  // `user_roles` on the server before it reads anything; the namespace itself grants
+  // nothing, and a learner or instructor reaching one gets the same FORBIDDEN envelope
+  // the database would give them.
+  admin: router({
+    overview: supabaseOnlyProcedure.query(({ ctx }) => getAdminOverview(ctx.supabaseIdentity)),
+
+    // ---- instructor verification ----
+    instructors: supabaseOnlyProcedure
+      .input(z.object({ search: z.string().max(120).optional(), status: z.enum(INSTRUCTOR_FILTERS).optional(), limit: z.number().int().min(1).max(50).optional(), offset: z.number().int().min(0).optional() }).optional())
+      .query(({ ctx, input }) => listInstructors(ctx.supabaseIdentity, input ?? {})),
+    instructor: supabaseOnlyProcedure
+      .input(z.object({ instructorId: z.string().uuid() }))
+      .query(({ ctx, input }) => getInstructorDetail(ctx.supabaseIdentity, input)),
+    decideInstructor: supabaseOnlyProcedure
+      .input(z.object({ instructorId: z.string().uuid(), decision: z.enum(INSTRUCTOR_DECISIONS), note: z.string().max(2000).optional() }))
+      .mutation(({ ctx, input }) => decideInstructor(ctx.supabaseIdentity, input)),
+    reviewCredential: supabaseOnlyProcedure
+      .input(z.object({ credentialId: z.string().uuid(), status: z.enum(CREDENTIAL_DECISIONS), note: z.string().max(2000).optional() }))
+      .mutation(({ ctx, input }) => reviewCredential(ctx.supabaseIdentity, input)),
+
+    // ---- blog management. Every one of these calls requireAdmin internally. ----
+    blogArticles: supabaseOnlyProcedure
+      .input(z.object({ search: z.string().max(120).optional(), status: z.enum(ARTICLE_FILTERS).optional(), category: z.string().max(80).optional(), subject: z.string().max(80).optional(), sort: z.enum(ARTICLE_SORTS).optional(), limit: z.number().int().min(1).max(50).optional(), offset: z.number().int().min(0).optional() }).optional())
+      .query(({ ctx, input }) => listBlogArticles(ctx.supabaseIdentity, input ?? {})),
+    blogArticle: supabaseOnlyProcedure
+      .input(z.object({ id: z.string().uuid() }))
+      .query(({ ctx, input }) => getBlogArticle(ctx.supabaseIdentity, input)),
+    saveBlogArticle: supabaseOnlyProcedure
+      .input(articleInput)
+      .mutation(({ ctx, input }) => saveBlogArticle(ctx.supabaseIdentity, input)),
+    setBlogArticleStatus: supabaseOnlyProcedure
+      .input(z.object({ id: z.string().uuid(), action: z.enum(ARTICLE_ACTIONS) }))
+      .mutation(({ ctx, input }) => setBlogArticleStatus(ctx.supabaseIdentity, input)),
+    deleteBlogArticle: supabaseOnlyProcedure
+      .input(z.object({ id: z.string().uuid() }))
+      .mutation(({ ctx, input }) => deleteBlogArticle(ctx.supabaseIdentity, input)),
+
+    // ---- course management ----
+    courses: supabaseOnlyProcedure
+      .input(z.object({ search: z.string().max(120).optional(), status: z.enum(COURSE_FILTERS).optional(), limit: z.number().int().min(1).max(50).optional(), offset: z.number().int().min(0).optional() }).optional())
+      .query(({ ctx, input }) => listCourses(ctx.supabaseIdentity, input ?? {})),
+    course: supabaseOnlyProcedure
+      .input(z.object({ courseId: z.string().uuid() }))
+      .query(({ ctx, input }) => getCourseDetail(ctx.supabaseIdentity, input)),
+    decideCourse: supabaseOnlyProcedure
+      .input(z.object({ courseId: z.string().uuid(), action: z.enum(COURSE_ACTIONS), note: z.string().max(2000).optional() }))
+      .mutation(({ ctx, input }) => decideCourse(ctx.supabaseIdentity, input)),
+
+    // ---- user management. No procedure here writes user_roles, by design. ----
+    users: supabaseOnlyProcedure
+      .input(z.object({ search: z.string().max(120).optional(), role: z.enum(USER_ROLE_FILTERS).optional(), status: z.enum(USER_STATUS_FILTERS).optional(), limit: z.number().int().min(1).max(50).optional(), offset: z.number().int().min(0).optional() }).optional())
+      .query(({ ctx, input }) => listUsers(ctx.supabaseIdentity, input ?? {})),
+    user: supabaseOnlyProcedure
+      .input(z.object({ userId: z.string().uuid() }))
+      .query(({ ctx, input }) => getUserDetail(ctx.supabaseIdentity, input)),
+    setAccountStatus: supabaseOnlyProcedure
+      .input(z.object({ userId: z.string().uuid(), status: z.enum(SETTABLE_ACCOUNT_STATUSES), reason: z.string().min(1).max(2000) }))
+      .mutation(({ ctx, input }) => setAccountStatus(ctx.supabaseIdentity, input)),
+
+    // ---- content and review moderation ----
+    reviews: supabaseOnlyProcedure
+      .input(z.object({ search: z.string().max(120).optional(), status: z.enum(REVIEW_FILTERS).optional(), limit: z.number().int().min(1).max(50).optional(), offset: z.number().int().min(0).optional() }).optional())
+      .query(({ ctx, input }) => listReviews(ctx.supabaseIdentity, input ?? {})),
+    decideReview: supabaseOnlyProcedure
+      .input(z.object({ reviewId: z.string().uuid(), action: z.enum(REVIEW_ACTIONS), note: z.string().max(2000).optional() }))
+      .mutation(({ ctx, input }) => decideReview(ctx.supabaseIdentity, input)),
+    reports: supabaseOnlyProcedure
+      .input(z.object({ kind: z.enum([...REPORT_KINDS, "all"] as const).optional(), status: z.string().max(40).optional(), limit: z.number().int().min(1).max(50).optional(), offset: z.number().int().min(0).optional() }).optional())
+      .query(({ ctx, input }) => listReports(ctx.supabaseIdentity, input ?? {})),
+    resolveReport: supabaseOnlyProcedure
+      .input(z.object({ reportId: z.string().uuid(), kind: z.enum(REPORT_KINDS), outcome: z.enum(REPORT_OUTCOMES), note: z.string().max(2000).optional() }))
+      .mutation(({ ctx, input }) => resolveReport(ctx.supabaseIdentity, input)),
+    cases: supabaseOnlyProcedure
+      .input(z.object({ status: z.enum([...CASE_STATUSES, "all"] as const).optional(), limit: z.number().int().min(1).max(50).optional(), offset: z.number().int().min(0).optional() }).optional())
+      .query(({ ctx, input }) => listCases(ctx.supabaseIdentity, input ?? {})),
+    decideCase: supabaseOnlyProcedure
+      .input(z.object({ caseId: z.string().uuid(), status: z.enum(CASE_STATUSES), reason: z.string().min(1).max(2000) }))
+      .mutation(({ ctx, input }) => decideCase(ctx.supabaseIdentity, input)),
+    contentInventory: supabaseOnlyProcedure.query(({ ctx }) => getContentInventory(ctx.supabaseIdentity)),
+
+    // ---- booking and support review. Read-only: no admin override exists. ----
+    support: supabaseOnlyProcedure
+      .input(z.object({ scope: z.enum(SUPPORT_SCOPES).optional(), status: z.string().max(40).optional(), limit: z.number().int().min(1).max(50).optional(), offset: z.number().int().min(0).optional() }).optional())
+      .query(({ ctx, input }) => listSupportRecords(ctx.supabaseIdentity, input ?? {})),
+    supportSummary: supabaseOnlyProcedure.query(({ ctx }) => getSupportSummary(ctx.supabaseIdentity)),
+
+    // ---- records. audit_logs has no write policy, so there is no mutation here. ----
+    auditLogs: supabaseOnlyProcedure
+      .input(z.object({ action: z.string().max(80).optional(), entityType: z.string().max(80).optional(), actorId: z.string().uuid().optional(), since: z.string().max(40).optional(), until: z.string().max(40).optional(), limit: z.number().int().min(1).max(50).optional(), offset: z.number().int().min(0).optional() }).optional())
+      .query(({ ctx, input }) => listAuditLogs(ctx.supabaseIdentity, input ?? {})),
+    systemStatus: supabaseOnlyProcedure.query(({ ctx }) => getSystemStatus(ctx.supabaseIdentity)),
+    settings: supabaseOnlyProcedure.query(({ ctx }) => getAdminSettings(ctx.supabaseIdentity)),
+  }),
   // Reviewed decisions. Every procedure re-checks the caller role server-side; the router
   // namespace is organisational only and grants nothing on its own.
   adminReview: router({

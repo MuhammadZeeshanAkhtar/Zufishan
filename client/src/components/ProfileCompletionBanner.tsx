@@ -36,7 +36,7 @@ export default function ProfileCompletionBanner({ role }: { role: Role }) {
   return (
     <section
       aria-labelledby="profile-completion-title"
-      className="mb-6 rounded-2xl border border-[var(--ni-gold-mid)] bg-[var(--ni-gold-soft)] px-5 py-4 text-[var(--ni-gold-ink)]"
+      className="mb-6 rounded-2xl border border-[var(--ni-gold-mid)] bg-[var(--ni-gold-soft)] px-5 py-4 ni-t-gold"
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
@@ -72,7 +72,7 @@ export default function ProfileCompletionBanner({ role }: { role: Role }) {
         {result.missing.map((field) => (
           <li
             key={field.key}
-            className="rounded-full border border-[var(--ni-gold-mid)] bg-[var(--ni-paper)] px-3 py-1 text-xs text-[var(--ni-ink)]"
+            className="rounded-full border border-[var(--ni-gold-mid)] bg-[var(--ni-paper)] px-3 py-1 text-xs ni-t-ink"
           >
             {t(field.labelKey)}
           </li>

@@ -124,6 +124,79 @@ export async function submitQuizAttempt(
   return { ok: true, data: { attemptId, score, markable } };
 }
 
+/**
+ * The caller's own attempts.
+ *
+ * `quiz_attempts_own` is `for all using (learner_id = auth.uid())`, so this needs no filter of its
+ * own — the database returns only the caller's rows, and an instructor cannot read attempts at all.
+ * That is why quizzes have no grading screen: they are marked by the server, not by a person.
+ *
+ * The answers come back because they are the learner's own words and reviewing what you submitted
+ * is the point of a result screen. The stored correct answers are not here and never leave
+ * `listCourseQuizzes`, which strips them for anyone who does not own the course.
+ */
+export async function listOwnQuizAttempts(identity: SupabaseIdentity, input: { quizId?: string }): Promise<Result<unknown[]>> {
+  const db = getSupabaseUserClient(identity.accessToken);
+  if (!db) return { ok: false, error: "Supabase persistence unavailable.", code: "SETUP_NEEDED" };
+  let query = db.from("quiz_attempts").select("id,quiz_id,answers,score,submitted_at,created_at").order("created_at", { ascending: false }).limit(200);
+  if (input.quizId) query = query.eq("quiz_id", input.quizId);
+  const { data, error } = await query;
+  if (error) {
+    console.error("[assessments] attempts list failed:", { code: error.code, message: error.message });
+    return { ok: false, error: "Attempts could not be loaded." };
+  }
+  return { ok: true, data: data ?? [] };
+}
+
+/**
+ * Submissions on a course: the caller's own, or every learner's if they own the course.
+ *
+ * One query serves both screens because `submissions_own_or_course_owner` already draws exactly
+ * that line — `learner_id = auth.uid() or <the course's instructor>`. Asking the database rather
+ * than branching here means the learner view cannot accidentally widen.
+ *
+ * Names are the one thing RLS cannot supply: `profiles_select_own_or_admin` lets nobody read
+ * another account's profile, so an instructor would be grading numbered strangers. They are fetched
+ * separately through the service role, only after the caller is confirmed to own the course, and
+ * only `display_name` — the same field a counterpart already sees in messaging. Nothing else about
+ * the learner is read or returned.
+ */
+export async function listCourseSubmissions(
+  identity: SupabaseIdentity,
+  input: { courseId: string },
+): Promise<Result<{ submissions: unknown[]; isCourseOwner: boolean }>> {
+  const db = getSupabaseUserClient(identity.accessToken);
+  if (!db) return { ok: false, error: "Supabase persistence unavailable.", code: "SETUP_NEEDED" };
+
+  const { data, error } = await db
+    .from("submissions")
+    .select("id,assignment_id,learner_id,body,object_path,status,score,created_at,updated_at,assignments!inner(id,title,course_id)")
+    .eq("assignments.course_id", input.courseId)
+    .order("updated_at", { ascending: false })
+    .limit(200);
+  if (error) {
+    console.error("[assessments] submissions list failed:", { code: error.code, message: error.message });
+    return { ok: false, error: "Submissions could not be loaded." };
+  }
+
+  const { data: course } = await db.from("courses").select("instructor_id").eq("id", input.courseId).maybeSingle();
+  const isCourseOwner = String((course as { instructor_id?: string } | null)?.instructor_id ?? "") === identity.id;
+
+  const rows = (data ?? []) as Record<string, unknown>[];
+  if (!isCourseOwner || !rows.length) return { ok: true, data: { submissions: rows, isCourseOwner } };
+
+  const admin = getSupabaseAdminClient();
+  if (!admin) return { ok: true, data: { submissions: rows, isCourseOwner } };
+  const learnerIds = Array.from(new Set(rows.map((row) => String(row.learner_id))));
+  const { data: people } = await admin.from("profiles").select("id,display_name").in("id", learnerIds);
+  const nameById = new Map((people ?? []).map((row) => [String((row as { id: string }).id), String((row as { display_name?: string }).display_name ?? "")]));
+
+  return {
+    ok: true,
+    data: { submissions: rows.map((row) => ({ ...row, learner_name: nameById.get(String(row.learner_id)) || "" })), isCourseOwner },
+  };
+}
+
 /* -------------------------------------------------------------- assignments */
 
 export async function listCourseAssignments(identity: SupabaseIdentity, courseId: string): Promise<Result<unknown[]>> {

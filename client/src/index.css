@@ -7,54 +7,249 @@
   --radius-sm: calc(var(--radius) - 4px); --radius-md: calc(var(--radius) - 2px); --radius-lg: var(--radius); --radius-xl: calc(var(--radius) + 4px);
   --color-background: var(--background); --color-foreground: var(--foreground); --color-card: var(--card); --color-card-foreground: var(--card-foreground); --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground); --color-secondary: var(--secondary); --color-secondary-foreground: var(--secondary-foreground); --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground); --color-accent: var(--accent); --color-accent-foreground: var(--accent-foreground); --color-border: var(--border); --color-input: var(--input); --color-ring: var(--ring);
 }
-:root { --radius: 0.85rem; --background: oklch(0.975 0.012 84); --foreground: oklch(0.235 0.025 165); --card: oklch(0.995 0.006 84); --card-foreground: oklch(0.235 0.025 165); --primary: oklch(0.36 0.085 166); --primary-foreground: oklch(0.98 0.01 84); --secondary: oklch(0.93 0.035 156); --secondary-foreground: oklch(0.32 0.07 166); --muted: oklch(0.945 0.018 84); --muted-foreground: oklch(0.48 0.035 164); --accent: oklch(0.79 0.105 82); --accent-foreground: oklch(0.25 0.035 82); --border: oklch(0.88 0.025 156); --input: oklch(0.88 0.025 156); --ring: oklch(0.55 0.09 166); }
+:root { --radius: 0.85rem; }  /* colour now comes from the dual-theme block below */
 
 /* ---------------------------------------------------------------------------
-   Noor Ilm palette tokens. Every surface colour in the app resolves through
-   these, so the identity is changed here rather than in per-page classes.
-   Roles: teal = navigation/hero, moss = primary action, ivory/sage = learning
-   surfaces, saffron = highlight & progress only, clay = status communication.
+   Noor Ilm — dual theme.
+
+   Two complete identities, one token contract. Every surface, border and text
+   colour in the app resolves through the `--ni-*` names below, so a theme is
+   changed here and nowhere else; no component knows which theme is active.
+
+   THE RULE THAT KEEPS BOTH THEMES READABLE
+   Each token is named for its ROLE, not its colour. `--ni-ink` is "the strongest
+   text on a card", so it is near-black in light and ivory in dark. `--ni-paper`
+   is "the card surface", so it is ivory in light and raised navy in dark.
+   Because roles invert together, a component written once is correct in both.
+   Naming a token for its appearance — `--ni-white` — is what forces per-page
+   overrides and produces text that matches its background.
+
+   PAIRINGS
+   Text tokens are only ever used on their partner surface:
+     ink / muted / muted-soft   → on bg, bg-lift, paper, field
+     on-primary                 → on moss (the primary button)
+     on-gold                    → on gold (the highlight button)
+     gold-ink                   → on gold-soft / gold-tint, never on bg
+     clay-ink                   → on clay-soft
+     on-dark                    → on teal / teal-deep, in BOTH themes
+   `--ni-teal` stays dark in both themes deliberately: it anchors the navigation
+   and immersive panels, and `--ni-on-dark` is its guaranteed partner.
+
+   SWITCHING
+   Light is the base `:root`. Dark applies when the document carries
+   data-theme="dark", or when the system asks for dark and the reader has not
+   chosen light. Three blocks, so an explicit choice always wins in both
+   directions and a system preference is honoured on a first visit.
    --------------------------------------------------------------------------- */
+
+/* ============================ PREMIUM LIGHT ============================
+   Warm ivory and sand, not white. The page ground is deliberately darker
+   than the card so a card lifts off it — a white card on a white page is
+   what makes a light theme look like an unstyled template. */
 :root {
-  --ni-teal: #0A2E2C;          /* deep ink teal - nav, hero panels */
-  --ni-teal-soft: #123F3A;     /* raised surface on teal */
-  --ni-teal-deep: #06201F;     /* the darkest ground, for immersive panels */
-  --ni-moss: #0F665A;          /* forest/moss - primary actions */
-  --ni-moss-deep: #14544A;     /* labels, strong headings on light */
-  --ni-moss-lift: #158173;     /* hover state on moss, and thin luminous rules */
-  --ni-ink: #19312F;           /* charcoal ink - display headings */
-  --ni-paper: #FDFBF4;         /* card paper */
-  --ni-bg: #F6F2E6;            /* warm parchment page ground */
-  --ni-field: #FBF8EF;         /* input ground */
-  --ni-sage: #DCE8E0;          /* pale sage - borders, dividers */
-  --ni-sage-soft: #EAF1E9;     /* quiet surfaces, secondary buttons */
-  --ni-sage-line: #CBDCD0;     /* input borders */
-  --ni-sage-mid: #B6D0BD;      /* decorative rules */
-  --ni-sage-ink: #4F6A62;      /* sage-toned secondary text */
-  --ni-muted: #56706A;         /* muted body copy */
-  --ni-muted-soft: #7A9088;    /* placeholder, tertiary */
-  --ni-gold: #E0A93B;          /* saffron highlight, progress */
-  --ni-gold-ink: #7E6118;      /* readable gold text on light */
-  --ni-gold-mid: #C79A38;      /* gold rules and icons */
-  --ni-gold-soft: #FBF0D3;     /* gold surface wash */
-  --ni-gold-tint: #FDF7E4;     /* faintest gold wash */
-  --ni-gold-glow: #F4CE7A;     /* luminous gold, for light on dark only */
-  --ni-clay: #8F4232;          /* clay - error/attention status */
-  --ni-clay-ink: #A34734;      /* clay text */
-  --ni-clay-soft: #FBEDE7;     /* clay surface wash */
+  --ni-bg: #F3EEE1;            /* warm sand — the page itself */
+  --ni-bg-lift: #EBE4D3;       /* a band that should separate from the page */
+  --ni-paper: #FDFBF5;         /* card surface — ivory, lighter than the page */
+  --ni-field: #F8F4E9;         /* input ground, recessed below the card */
 
-  /* Elevation. One scale, used everywhere, so depth reads as a system rather
-     than as per-component guesswork. Shadows are teal-tinted, never neutral
-     grey — grey shadows on a warm ground are what makes a page look cheap. */
-  --ni-e1: 0 1px 2px rgba(10,46,44,.05), 0 2px 8px -4px rgba(10,46,44,.08);
-  --ni-e2: 0 2px 4px rgba(10,46,44,.05), 0 10px 24px -12px rgba(10,46,44,.14);
-  --ni-e3: 0 4px 8px rgba(10,46,44,.05), 0 20px 44px -16px rgba(10,46,44,.20);
-  --ni-e4: 0 8px 16px rgba(10,46,44,.06), 0 36px 72px -24px rgba(10,46,44,.28);
-  --ni-ring-gold: inset 0 0 0 1px rgba(224,169,59,.22);
+  --ni-teal: #0A2E2C;          /* nav and immersive panels — dark in BOTH themes */
+  --ni-teal-soft: #123F3A;
+  --ni-teal-deep: #06201F;
 
-  /* One easing for everything that moves. */
+  --ni-moss: #0E5F53;          /* primary action — dark enough to carry ivory text */
+  --ni-moss-deep: #0B4A41;     /* strong emerald headings and labels */
+  --ni-moss-lift: #147F70;     /* hover */
+
+  --ni-ink: #162B28;           /* strongest text: charcoal with an emerald cast */
+  --ni-muted: #47605A;         /* body copy */
+  --ni-muted-soft: #5A6F68;    /* tertiary — dark enough for small text on sand */
+
+  --ni-sage: #D3DFD4;          /* borders — deep enough that cards keep an edge */
+  --ni-sage-soft: #E7EEE5;     /* quiet surfaces, secondary buttons */
+  --ni-sage-line: #BFD0C3;     /* input borders */
+  --ni-sage-mid: #A3BBA9;      /* decorative rules */
+  --ni-page-wash: rgba(226, 238, 226, .55);  /* top-left wash on the page ground */
+  --ni-sage-ink: #3C534D;      /* secondary text */
+
+  --ni-gold: #B8952E;          /* gold SURFACE / fill */
+  --ni-gold-ink: #6E5411;      /* readable gold TEXT on a light ground */
+  --ni-gold-mid: #6E5411;      /* gold rules, icons AND small text — clears 4.5 on sand */
+  --ni-gold-soft: #F7EFD9;     /* gold-washed surface, carries --ni-gold-ink */
+  --ni-gold-tint: #FCF8EC;
+  --ni-gold-glow: #E6D3A2;     /* luminous gold — always sits on --ni-teal, dark in BOTH themes */
+
+  --ni-clay: #A0492F;
+  --ni-clay-ink: #8A3A28;      /* clay TEXT */
+  --ni-clay-soft: #FAEAE3;     /* clay surface wash */
+
+  --ni-moon: #24486B;          /* the atmosphere accent, ink-blue when lit */
+  --ni-moon-glow: rgba(36, 72, 107, .12);
+  --ni-halo: rgba(14, 95, 83, .10);
+
+  /* Elevation: cast shadows, teal-tinted. Grey shadows on a warm ground are
+     what make a light page look cheap. */
+  --ni-e1: 0 1px 2px rgba(10,46,44,.05), 0 2px 8px -4px rgba(10,46,44,.10);
+  --ni-e2: 0 2px 4px rgba(10,46,44,.06), 0 10px 24px -12px rgba(10,46,44,.16);
+  --ni-e3: 0 4px 8px rgba(10,46,44,.06), 0 20px 44px -16px rgba(10,46,44,.22);
+  --ni-e4: 0 8px 16px rgba(10,46,44,.07), 0 36px 72px -24px rgba(10,46,44,.30);
+  --ni-ring-gold: inset 0 0 0 1px rgba(184,149,46,.24);
+
+  /* Glass, tuned per theme so the panel reads against its own sky. */
+  --ni-glass-bg: linear-gradient(160deg, rgba(255,253,247,.86) 0%, rgba(246,241,229,.78) 100%);
+  --ni-glass-border: rgba(10,46,44,.10);
+
+  /* Image overlay: what sits between a photograph and text laid over it. */
+  --ni-overlay: linear-gradient(180deg, rgba(8,26,24,.16) 0%, rgba(8,26,24,.62) 100%);
+  --ni-overlay-text: #FDFBF5;
+
   --ni-ease: cubic-bezier(.23,1,.32,1);
+  color-scheme: light;
 }
+
+/* ============================ PREMIUM DARK ============================= */
+[data-theme="dark"] {
+  /* Warm espresso, never pure black. Each surface sits a step ABOVE the page,
+     so a card is lighter than its ground rather than outlined against it. */
+  --ni-bg: #16130F;            /* deep espresso — the page */
+  --ni-bg-lift: #1D1914;
+  --ni-paper: #241F19;         /* cards, modals, dropdowns — the lightest surface */
+  --ni-field: #1C1813;         /* sidebars, inputs, table heads — one step up */
+
+  --ni-teal: #1F1A14;          /* dark editorial panels, warmed to match */
+  --ni-teal-soft: #2A2419;
+  --ni-teal-deep: #100D09;
+
+  /* Emerald is the SECOND voice here: verification, success, learning progress.
+     Warmed slightly so it sits with espresso rather than against it. */
+  --ni-moss: #3FAE8C;
+  --ni-moss-deep: #6FD9B4;     /* success text and verified marks on dark */
+  --ni-moss-lift: #55C6A0;
+
+  --ni-ink: #F5F0E4;           /* warm ivory — headings and strongest text */
+  --ni-muted: #C8BFAC;         /* soft beige — descriptions and body copy */
+  --ni-muted-soft: #9A917F;    /* tertiary — timestamps, hints, placeholders */
+
+  --ni-sage: #332C23;          /* borders — present but low contrast, as asked */
+  --ni-sage-soft: #221D17;
+  --ni-page-wash: rgba(63, 174, 140, .10);
+  --ni-sage-line: #3D3529;
+  --ni-sage-mid: #4E4535;
+  --ni-sage-ink: #C0B7A4;
+
+  /* Muted mustard-gold is the PRIMARY voice: fills, links, active states,
+     highlights, progress. The fill stays the same value as the light theme —
+     gold is a light fill on either ground — while the TEXT tone lifts. */
+  --ni-gold: #C8A84E;
+  --ni-gold-ink: #E8CE8A;      /* readable gold TEXT on espresso */
+  --ni-gold-mid: #C0A047;
+  --ni-gold-soft: #2A2214;     /* dark gold wash, carries --ni-gold-ink */
+  --ni-gold-tint: #1E1810;
+  --ni-gold-glow: #F2D9A4;
+
+  --ni-clay: #E08A72;
+  --ni-clay-ink: #F3B29C;      /* clay TEXT on dark */
+  --ni-clay-soft: #2E1C16;
+
+  --ni-moon: #F0E4CF;          /* the atmosphere layer, warmed off blue */
+  --ni-moon-glow: rgba(240, 214, 160, .16);
+  --ni-halo: rgba(217, 169, 76, .16);
+
+  /* On a dark ground a cast shadow is nearly invisible, so each step pairs it
+     with a hairline of light along the top edge. That rim is what actually
+     separates a card from the page here. */
+  --ni-e1: 0 1px 0 rgba(255,244,220,.05) inset, 0 2px 10px -4px rgba(0,0,0,.60);
+  --ni-e2: 0 1px 0 rgba(255,244,220,.06) inset, 0 10px 26px -12px rgba(0,0,0,.68);
+  --ni-e3: 0 1px 0 rgba(255,244,220,.07) inset, 0 22px 48px -18px rgba(0,0,0,.74);
+  --ni-e4: 0 1px 0 rgba(255,244,220,.09) inset, 0 40px 80px -26px rgba(0,0,0,.82);
+  --ni-ring-gold: inset 0 0 0 1px rgba(200,168,78,.24);
+
+  --ni-glass-bg: linear-gradient(160deg, rgba(46,39,30,.72) 0%, rgba(28,24,19,.66) 100%);
+  --ni-glass-border: rgba(220,200,160,.14);
+
+  --ni-overlay: linear-gradient(180deg, rgba(10,8,6,.32) 0%, rgba(10,8,6,.80) 100%);
+  --ni-overlay-text: #F5F0E4;
+
+  color-scheme: dark;
+}
+
+/* System preference on a first visit — but an explicit light choice still wins,
+   which is why this is guarded rather than a bare media query. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ni-bg: #16130F; --ni-bg-lift: #1D1914; --ni-paper: #241F19; --ni-field: #1C1813;
+    --ni-teal: #1F1A14; --ni-teal-soft: #2A2419; --ni-teal-deep: #100D09;
+    --ni-moss: #3FAE8C; --ni-moss-deep: #6FD9B4; --ni-moss-lift: #55C6A0;
+    --ni-ink: #F5F0E4; --ni-muted: #C8BFAC; --ni-muted-soft: #9A917F;
+    --ni-sage: #332C23; --ni-sage-soft: #221D17; --ni-sage-line: #3D3529;
+    --ni-page-wash: rgba(63, 174, 140, .10);
+    --ni-sage-mid: #4E4535; --ni-sage-ink: #C0B7A4;
+    --ni-gold: #C8A84E; --ni-gold-ink: #E8CE8A; --ni-gold-mid: #C0A047;
+    --ni-gold-soft: #2A2214; --ni-gold-tint: #1E1810; --ni-gold-glow: #F2D9A4;
+    --ni-clay: #E08A72; --ni-clay-ink: #F3B29C; --ni-clay-soft: #2E1C16;
+    --ni-moon: #F0E4CF; --ni-moon-glow: rgba(240,214,160,.16); --ni-halo: rgba(217,169,76,.16);
+    --ni-e1: 0 1px 0 rgba(255,244,220,.05) inset, 0 2px 10px -4px rgba(0,0,0,.60);
+    --ni-e2: 0 1px 0 rgba(255,244,220,.06) inset, 0 10px 26px -12px rgba(0,0,0,.68);
+    --ni-e3: 0 1px 0 rgba(255,244,220,.07) inset, 0 22px 48px -18px rgba(0,0,0,.74);
+    --ni-e4: 0 1px 0 rgba(255,244,220,.09) inset, 0 40px 80px -26px rgba(0,0,0,.82);
+    --ni-glass-bg: linear-gradient(160deg, rgba(46,39,30,.72) 0%, rgba(28,24,19,.66) 100%);
+    --ni-glass-border: rgba(220,200,160,.14);
+    --ni-overlay: linear-gradient(180deg, rgba(10,8,6,.32) 0%, rgba(10,8,6,.80) 100%);
+    --ni-overlay-text: #F5F0E4;
+    color-scheme: dark;
+  }
+}
+
+/* ===================== SEMANTIC LAYER — both themes =====================
+   Derived roles. These exist so a component never has to ask which theme is
+   active in order to pick a readable partner colour. */
+:root {
+  --ni-on-primary: #FFFFFF;    /* text on --ni-moss */
+  --ni-on-gold: #1A1814;       /* text on --ni-gold — dark in BOTH themes, because
+                                  gold is a light fill either way */
+  --ni-on-dark: #F2EFE6;       /* text on --ni-teal / --ni-teal-deep, both themes */
+  --ni-link: #0B4A41;          /* declared literally per theme, not via var() indirection */
+  --ni-placeholder: var(--ni-muted-soft);
+  --ni-disabled-bg: var(--ni-sage-soft);
+  --ni-disabled-text: var(--ni-muted-soft);
+
+  --ni-success: var(--ni-moss-deep);
+  --ni-success-bg: var(--ni-sage-soft);
+  --ni-warning: var(--ni-gold-ink);
+  --ni-warning-bg: var(--ni-gold-soft);
+  --ni-error: var(--ni-clay-ink);
+  --ni-error-bg: var(--ni-clay-soft);
+  --ni-info: var(--ni-sage-ink);
+  --ni-info-bg: var(--ni-sage-soft);
+}
+[data-theme="dark"] { --ni-on-primary: #0A1F18; --ni-link: #E8CE8A; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --ni-on-primary: #0A1F18; --ni-link: #E8CE8A; } }
+
+/* The shadcn layer follows the same identity, so any primitive resolving
+   through --background/--foreground inherits the active theme instead of
+   punching a light hole through a dark page (or the reverse). */
+:root {
+  --background: var(--ni-bg); --foreground: var(--ni-ink);
+  --card: var(--ni-paper); --card-foreground: var(--ni-ink);
+  --primary: var(--ni-moss); --primary-foreground: var(--ni-on-primary);
+  --secondary: var(--ni-sage-soft); --secondary-foreground: var(--ni-ink);
+  --muted: var(--ni-sage-soft); --muted-foreground: var(--ni-muted);
+  --accent: var(--ni-gold); --accent-foreground: var(--ni-on-gold);
+  --border: var(--ni-sage); --input: var(--ni-sage-line); --ring: var(--ni-moss);
+}
+
+/* The theme change itself. Colour only, and short: a long cross-fade on every
+   surface reads as lag rather than as polish, and anything that delays input
+   is worse than an instant switch. Transforms are excluded so nothing moves. */
+@media (prefers-reduced-motion: no-preference) {
+  html.ni-theme-changing,
+  html.ni-theme-changing body,
+  html.ni-theme-changing .ni-card,
+  html.ni-theme-changing header,
+  html.ni-theme-changing aside {
+    transition: background-color 220ms var(--ni-ease), border-color 220ms var(--ni-ease), color 220ms var(--ni-ease);
+  }
+}
+
 * { border-color: var(--border); }
 html { scroll-behavior: smooth; overflow-x: hidden; }
 body { margin: 0; background: var(--background); color: var(--foreground); font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif; overflow-x: hidden; }
@@ -209,7 +404,7 @@ button:active, a[role="button"]:active { transform: scale(.975); }
 body {
   background:
     radial-gradient(120% 60% at 50% -10%, color-mix(in srgb, var(--ni-sage-soft) 80%, transparent), transparent 60%),
-    radial-gradient(circle at 12% 0%, rgba(226, 238, 226, .55), transparent 32rem),
+    radial-gradient(circle at 12% 0%, var(--ni-page-wash), transparent 32rem),
     var(--background);
   letter-spacing: -0.005em;
 }
@@ -227,9 +422,12 @@ body::before {
 .site-header a, .site-footer a { transition: color 180ms ease, transform 180ms var(--ni-ease); }
 .site-header a:hover, .site-footer a:hover { color: var(--ni-gold-ink); }
 /* Underline that grows from the start edge, direction-aware. */
-.site-header nav a { position: relative; }
-.site-header nav a::after { content: ""; position: absolute; inset-inline-start: 0; bottom: -.35rem; height: 1.5px; width: 0; background: var(--ni-gold-mid); border-radius: 1px; transition: width 240ms var(--ni-ease); }
-.site-header nav a:hover::after { width: 100%; }
+.site-header nav a,
+.site-header nav button { position: relative; }
+.site-header nav a::after,
+.site-header nav button::after { content: ""; position: absolute; inset-inline-start: 0; bottom: -.35rem; height: 1.5px; width: 0; background: var(--ni-gold-mid); border-radius: 1px; transition: width 240ms var(--ni-ease); }
+.site-header nav a:hover::after,
+.site-header nav button:hover::after { width: 100%; }
 
 .brand-button { min-height: 2.9rem; letter-spacing: -0.01em; box-shadow: var(--ni-e2); }
 .brand-button:hover { box-shadow: var(--ni-e3); transform: translateY(-1px); }
@@ -359,3 +557,1680 @@ main .group:hover img { transform: scale(1.035); filter: saturate(1.06) contrast
   .auth-aside::before { bottom: -32%; width: min(22rem, 80%); }
   .auth-aside::after { inset-inline-end: 8%; top: 8%; width: 2.25rem; height: 2.25rem; }
 }
+
+/* ------------------------------------------------------------- certificate */
+/*
+ * The certificate is the one page in this app designed to leave the screen. On screen the sheet is
+ * a scaled preview; in print it is A4 landscape with real millimetre dimensions, so the result is a
+ * certificate rather than a screenshot of a web page.
+ *
+ * Everything the reader interacts with is marked `no-print` and removed, because a printed page
+ * with a "Print" button on it is not a document.
+ */
+.certificate-sheet {
+  width: 100%;
+  max-width: 297mm;
+  aspect-ratio: 297 / 210;
+  margin-inline: auto;
+  background: #fffdf7;
+  color: #12312b;
+  padding: 10mm;
+  box-shadow: 0 18px 60px rgba(10, 46, 44, 0.18);
+  container-type: inline-size;
+}
+
+.certificate-border {
+  height: 100%;
+  border: 2px solid #c9a227;
+  outline: 6px solid #fffdf7;
+  outline-offset: -10px;
+  box-shadow: inset 0 0 0 1px #c9a227;
+  padding: 6cqw 7cqw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+/* Sized in container-query units so the sheet scales as one piece, on screen and on paper. */
+.certificate-brand      { font-family: var(--ni-font-display, serif); font-size: 3.4cqw; letter-spacing: .04em; color: #0e5a4f; }
+.certificate-kicker     { margin-top: .4cqw; font-size: 1.15cqw; font-weight: 700; letter-spacing: .28em; text-transform: uppercase; color: #8a6d1f; }
+.certificate-presented  { margin-top: 3.4cqw; font-size: 1.35cqw; letter-spacing: .18em; text-transform: uppercase; color: #4a5a55; }
+.certificate-name       { margin-top: 1cqw; font-family: var(--ni-font-display, serif); font-size: 5.2cqw; line-height: 1.1; color: #12312b; }
+.certificate-course     { margin-top: 1cqw; font-family: var(--ni-font-display, serif); font-size: 3cqw; line-height: 1.2; color: #0e5a4f; }
+.certificate-footer     { margin-top: auto; padding-top: 3.5cqw; width: 100%; display: flex; flex-wrap: wrap; gap: 3cqw; justify-content: space-between; align-items: flex-end; }
+.certificate-footer > * { text-align: start; }
+.certificate-label      { font-size: 1cqw; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: #8a6d1f; }
+.certificate-value      { margin-top: .5cqw; font-size: 1.6cqw; font-weight: 600; color: #12312b; }
+.certificate-code       { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .06em; }
+.certificate-url        { margin-top: .3cqw; font-size: 1.05cqw; color: #4a5a55; word-break: break-all; }
+
+@media print {
+  @page { size: A4 landscape; margin: 0; }
+
+  /* Nothing but the sheet reaches the paper. */
+  .no-print,
+  .dashboard-shell nav,
+  header:not(.certificate-sheet header) { display: none !important; }
+
+  html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
+  .certificate-page { background: #fff !important; }
+  .certificate-page > div { max-width: none !important; padding: 0 !important; margin: 0 !important; }
+
+  .certificate-sheet {
+    width: 297mm;
+    height: 210mm;
+    max-width: none;
+    aspect-ratio: auto;
+    margin: 0;
+    padding: 8mm;
+    box-shadow: none;
+    /* Keep the gold rule and the paper tint rather than letting the browser drop them. */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* On paper the container is a fixed width, so millimetres beat container units. */
+  .certificate-brand     { font-size: 10mm; }
+  .certificate-kicker    { font-size: 3.4mm; }
+  .certificate-presented { font-size: 4mm; margin-top: 10mm; }
+  .certificate-name      { font-size: 15mm; }
+  .certificate-course    { font-size: 9mm; }
+  .certificate-label     { font-size: 3mm; }
+  .certificate-value     { font-size: 4.8mm; }
+  .certificate-url       { font-size: 3.2mm; }
+}
+
+/* ===========================================================================
+   Moonlit Ilm — atmosphere.
+
+   Everything here is CSS and inline SVG. No image files, no CDN, no network:
+   the night sky, the crescent, the stars and the geometry are drawn by the
+   browser, so they cannot 404, cannot be blocked, and render identically
+   offline. That also sidesteps the one real hazard of decorative Islamic
+   imagery — nothing here renders Arabic glyphs, so nothing can render them
+   distorted.
+
+   Every effect below is decorative and sits behind `pointer-events: none`, so
+   none of it can intercept a click or cover a control.
+   =========================================================================== */
+
+/* The night sky. A layered radial wash — moonlight from the upper right, a
+   cool horizon, and an emerald ground bloom — over the midnight base. */
+.ni-night {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(120% 90% at 78% -10%, rgba(150,196,240,.20) 0%, transparent 55%),
+    radial-gradient(90% 70% at 12% 108%, var(--ni-halo) 0%, transparent 60%),
+    linear-gradient(168deg, #0A1526 0%, var(--ni-bg) 46%, #050B14 100%);
+}
+
+/* Stars. Two layers at different sizes and opacities so the field has depth
+   instead of reading as evenly spaced dots. Positions are fixed, not random —
+   a star that lands on a heading is a distraction, and these are placed clear. */
+.ni-stars::before,
+.ni-stars::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+.ni-stars::before {
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 18%, rgba(255,255,255,.55) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 88% 12%, rgba(255,255,255,.45) 50%, transparent 51%),
+    radial-gradient(2px 2px at 62% 30%, rgba(207,227,245,.60) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 32% 62%, rgba(255,255,255,.35) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 74% 72%, rgba(255,255,255,.40) 50%, transparent 51%),
+    radial-gradient(2px 2px at 22% 84%, rgba(207,227,245,.35) 50%, transparent 51%);
+  animation: ni-twinkle 7s ease-in-out infinite;
+}
+.ni-stars::after {
+  background-image:
+    radial-gradient(1px 1px at 46% 10%, rgba(255,255,255,.35) 50%, transparent 51%),
+    radial-gradient(1px 1px at 8% 44%, rgba(255,255,255,.28) 50%, transparent 51%),
+    radial-gradient(1px 1px at 92% 52%, rgba(255,255,255,.30) 50%, transparent 51%),
+    radial-gradient(1px 1px at 54% 88%, rgba(255,255,255,.26) 50%, transparent 51%);
+  animation: ni-twinkle 11s ease-in-out infinite reverse;
+}
+/* Opacity only, and never to zero: a star that disappears entirely reads as a
+   rendering fault rather than as atmosphere. */
+@keyframes ni-twinkle { 0%, 100% { opacity: .75; } 50% { opacity: 1; } }
+
+/* The crescent. Two overlapping circles — a lit disc and an offset cutout in
+   the page colour — which is how a real crescent is shaped, rather than a font
+   glyph that would vary by platform. */
+.ni-crescent {
+  position: relative;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 34% 30%, #FFFDF6 0%, #E7EFF9 42%, #B9CEE6 76%, #8FAAC9 100%);
+  box-shadow:
+    0 0 60px 12px var(--ni-moon-glow),
+    0 0 160px 40px rgba(150,196,240,.14),
+    inset -6px -8px 24px rgba(80,110,150,.45);
+  animation: ni-float 9s ease-in-out infinite;
+}
+.ni-crescent::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  /* The cutout carries the page's own gradient so the crescent reads as a shape
+     in the sky rather than a disc with a coloured patch on it. */
+  background: radial-gradient(circle at 62% 34%, #0A1526 0%, #081120 60%, #060E1B 100%);
+  transform: translate(18%, -12%) scale(.94);
+}
+@keyframes ni-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-14px) rotate(-1.2deg); }
+}
+
+/* A lantern's glow — a soft warm pool, used sparingly behind gold accents. */
+.ni-lantern-glow {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(246,216,154,.22) 0%, rgba(217,169,76,.10) 40%, transparent 70%);
+  filter: blur(2px);
+  animation: ni-breathe 6s ease-in-out infinite;
+}
+@keyframes ni-breathe { 0%, 100% { opacity: .8; transform: scale(1); } 50% { opacity: 1; transform: scale(1.06); } }
+
+/* An arcade of Islamic arches along the horizon, drawn as a repeating SVG so it
+   scales to any width without tiling seams. It sits low and faint — it should
+   register as architecture, not as a border. */
+.ni-arches::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 190px;
+  pointer-events: none;
+  z-index: 0;
+  opacity: .5;
+  background-repeat: repeat-x;
+  background-position: bottom center;
+  background-size: 220px 190px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 190'%3E%3Cg fill='none' stroke='%2333506B' stroke-width='1.4' opacity='.85'%3E%3Cpath d='M20 190V96a35 35 0 0 1 35-35 35 35 0 0 1 35 35v94'/%3E%3Cpath d='M130 190V96a35 35 0 0 1 35-35 35 35 0 0 1 35 35v94'/%3E%3Cpath d='M55 61V31M165 61V31'/%3E%3C/g%3E%3Crect x='0' y='176' width='220' height='14' fill='%231B2C42' opacity='.55'/%3E%3C/svg%3E");
+  mask-image: linear-gradient(to top, black 10%, transparent 92%);
+  -webkit-mask-image: linear-gradient(to top, black 10%, transparent 92%);
+}
+
+/* An eight-point Islamic star, tiled very faintly. This is the geometry that
+   makes a dark page feel considered rather than merely dark. */
+.ni-geo {
+  position: relative;
+  isolation: isolate;
+}
+.ni-geo::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: .055;
+  background-size: 90px 90px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 90'%3E%3Cg fill='none' stroke='%23CFE3F5' stroke-width='1'%3E%3Cpath d='M45 8l10 27 27 10-27 10-10 27-10-27-27-10 27-10z'/%3E%3Crect x='20' y='20' width='50' height='50' transform='rotate(45 45 45)'/%3E%3C/g%3E%3C/svg%3E");
+}
+.ni-geo > * { position: relative; z-index: 1; }
+
+/* A hairline of moonlight along the top of a surface, catching the light source
+   the sky establishes. */
+.ni-rim { position: relative; }
+.ni-rim::before {
+  content: "";
+  position: absolute;
+  left: 12%; right: 12%; top: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(207,227,245,.42), transparent);
+}
+
+/* Glass panel — a raised surface that lets the sky show through. */
+.ni-glass {
+  background: linear-gradient(160deg, rgba(24,42,66,.72) 0%, rgba(14,26,44,.66) 100%);
+  border: 1px solid rgba(120,160,200,.14);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  box-shadow: var(--ni-e2);
+}
+
+/* A card that lifts toward the light on hover, with an emerald halo. */
+.ni-lift {
+  transition: transform 320ms var(--ni-ease), box-shadow 320ms var(--ni-ease), border-color 320ms var(--ni-ease);
+}
+.ni-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--ni-e3), 0 0 0 1px rgba(23,166,127,.22), 0 24px 60px -30px rgba(23,166,127,.45);
+  border-color: rgba(23,166,127,.35);
+}
+
+/* Gold gradient text, for the one phrase per page that should catch the eye. */
+.ni-gold-text {
+  background: linear-gradient(96deg, var(--ni-gold-glow) 0%, var(--ni-gold) 45%, #B98A2E 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Motion is atmosphere, never information. Anyone who has asked their system to
+   reduce motion gets the same layout, colours and crescent — simply still. */
+@media (prefers-reduced-motion: reduce) {
+  .ni-crescent,
+  .ni-lantern-glow,
+  .ni-stars::before,
+  .ni-stars::after { animation: none !important; }
+  .ni-lift:hover { transform: none; }
+}
+
+/* Small screens carry less atmosphere: the arcade and the second star layer go
+   first, because vertical space is scarcer than mood. */
+@media (max-width: 640px) {
+  .ni-arches::before { height: 120px; opacity: .35; }
+  .ni-stars::after { display: none; }
+}
+
+/* Surfaces that stay dark in BOTH themes — the header brand panel, the footer,
+   immersive teal bands. Their text must be light in both, so the pairing is
+   declared once here rather than remembered at every call site. */
+.ni-on-teal, .ni-dark, footer.ni-dark {
+  color: var(--ni-on-dark);
+}
+.ni-on-teal .ni-eyebrow, .ni-dark .ni-eyebrow { color: var(--ni-gold-glow); }
+.ni-on-teal p, .ni-dark p { color: color-mix(in srgb, var(--ni-on-dark) 82%, transparent); }
+.ni-on-teal a:not([class*="bg-"]), .ni-dark a:not([class*="bg-"]) { color: var(--ni-gold-glow); }
+
+/* The wordmark inherits its colour rather than carrying a winning utility, so it
+   is pinned to the strongest-text role here. That role inverts with the theme,
+   which is what stops the brand disappearing into the midnight ground.
+   `.ni-on-teal .brand-logo` covers the footer, where the panel is dark in both. */
+
+/* ===========================================================================
+   Themed text in the global header and footer.
+
+   Why these exist rather than Tailwind utilities: `text-[var(--ni-ink)]` is
+   compiled by Tailwind against the build-time value of the variable, so it
+   emits a literal hex — the LIGHT hex — and can never follow a runtime theme.
+   Measured directly: on the wordmark, `--ni-ink` computes to #F2EFE6 under the
+   dark theme while `color` computes to rgb(22,43,40). The variable is right and
+   the utility ignores it.
+
+   So themed text is declared here, in real CSS, where `var()` is resolved when
+   the page paints. The two-class selectors outrank the single-class utility, so
+   these win wherever both apply.
+
+   The general rule this implies, for the rest of the redesign: colour that must
+   follow the theme belongs in a semantic class, never in `text-[var(--ni-*)]`.
+   =========================================================================== */
+.site-header .brand-logo,
+.site-header .brand-logo .font-display { color: var(--ni-ink); }
+.site-header .brand-logo .ni-brand-sub { color: var(--ni-muted); }
+
+/* Header navigation and quiet actions. */
+.site-header nav a,
+.site-header nav button,
+.site-header .ni-header-link { color: var(--ni-ink); }
+.site-header nav a:hover,
+.site-header nav button:hover,
+.site-header .ni-header-link:hover { color: var(--ni-gold); }
+
+/* Inline 'quiet' links that sit on the page ground — 'Browse all courses',
+   'See how it works', 'Find a tutor'. --ni-moss is a FILL colour and is too dark
+   on midnight; the link role is what follows the theme. */
+/* superseded by the theme-qualified .ni-link pair below */
+.ni-link:hover, a.ni-link:hover { color: var(--ni-gold-ink); }
+
+/* Always-dark panels keep their light text in both themes. */
+.ni-on-teal .brand-logo,
+.ni-on-teal .brand-logo .font-display,
+.ni-dark .brand-logo { color: var(--ni-on-dark); }
+.ni-on-teal .brand-logo .ni-brand-sub { color: color-mix(in srgb, var(--ni-on-dark) 78%, transparent); }
+
+/* ===========================================================================
+   Themed text classes.
+
+   These replace `text-[var(--ni-*)]` throughout the app, and the reason is
+   measured rather than stylistic: Tailwind compiles an arbitrary colour
+   utility by resolving the variable at BUILD time and emitting a literal hex,
+   inside `@layer utilities`. The literal is whatever `:root` held when the
+   stylesheet was generated — the light value — so the utility can never follow
+   a runtime theme, and no amount of correcting the token fixes it.
+
+   Proof, taken from the running page under the dark theme: on the hero's
+   secondary button, `--ni-ink` computed to #F2EFE6 while `color` computed to
+   rgb(22,43,40). The variable was right; the utility ignored it.
+
+   Declared here as ordinary CSS, `var()` is resolved when the page paints, so
+   these follow the theme. They are unlayered, which also puts them ahead of
+   Tailwind's layered utilities in the cascade.
+   =========================================================================== */
+.ni-t-ink        { color: var(--ni-ink); }
+.ni-t-muted      { color: var(--ni-muted); }
+.ni-t-muted-soft { color: var(--ni-muted-soft); }
+.ni-t-moss       { color: var(--ni-moss); }
+.ni-t-moss-deep  { color: var(--ni-moss-deep); }
+.ni-t-moss-lift  { color: var(--ni-moss-lift); }
+.ni-t-gold       { color: var(--ni-gold-ink); }
+.ni-t-gold-mid   { color: var(--ni-gold-mid); }
+.ni-t-gold-glow  { color: var(--ni-gold-glow); }
+.ni-t-sage-ink   { color: var(--ni-sage-ink); }
+.ni-t-clay       { color: var(--ni-clay); }
+.ni-t-clay-ink   { color: var(--ni-clay-ink); }
+.ni-t-on-dark    { color: var(--ni-on-dark); }
+/* --ni-teal is a SURFACE that stays dark in both themes; as text it would be
+   invisible on midnight, so this role maps to the strongest text colour. */
+.ni-t-teal       { color: var(--ni-ink); }
+
+/* Inside an always-dark panel every one of these must stay light. */
+.ni-on-teal .ni-t-ink, .ni-dark .ni-t-ink,
+.ni-on-teal .ni-t-teal, .ni-dark .ni-t-teal { color: var(--ni-on-dark); }
+.ni-on-teal .ni-t-muted, .ni-dark .ni-t-muted,
+.ni-on-teal .ni-t-muted-soft, .ni-dark .ni-t-muted-soft { color: color-mix(in srgb, var(--ni-on-dark) 80%, transparent); }
+.ni-on-teal .ni-t-gold, .ni-dark .ni-t-gold,
+.ni-on-teal .ni-t-gold-mid, .ni-dark .ni-t-gold-mid { color: var(--ni-gold-glow); }
+.ni-on-teal .ni-t-moss, .ni-dark .ni-t-moss,
+.ni-on-teal .ni-t-moss-deep, .ni-dark .ni-t-moss-deep { color: #4FDCB0; }
+
+/* ===========================================================================
+   Theme-scoped literals for the link role.
+
+   `.ni-link { color: var(--ni-link) }` was measured painting the LIGHT value
+   under the dark theme, while `--ni-link` on the same element resolved to
+   #4FDCB0. The build step substitutes `var()` against the first `:root` it
+   sees, so a single rule collapses to one literal regardless of theme.
+
+   Writing one rule per theme defeats that: the selectors differ, so neither
+   can be folded into the other, and the cascade picks the right one at paint
+   time. Verbose, but it is the version that actually changes colour.
+   =========================================================================== */
+/* Both sides are theme-qualified and mutually exclusive, so there is no
+   unqualified rule left for the wrong one to win from. */
+/* Symmetric selectors of equal specificity. The earlier version guarded the
+   light side with `:not([data-theme=dark])`, which pushed it to (0,3,0) —
+   higher than the dark rule's (0,2,0) — so light won even where it should
+   not have matched. The theme attribute is now always written explicitly,
+   so both sides can key on it directly and neither can outrank the other. */
+/* .ni-link is declared once, in the editorial block below. */
+
+/* The same treatment for the strongest text role, which the hero's secondary
+   buttons use and which showed the identical symptom. */
+[data-theme="light"] .ni-t-ink { color: #162B28; }
+[data-theme="dark"]  .ni-t-ink { color: #F5F0E4; }
+.ni-on-teal .ni-t-ink, .ni-dark .ni-t-ink, [data-theme="dark"] .ni-on-teal .ni-t-ink { color: #F5F0E4; }
+
+/* The primary action. `text-white` is fixed, but --ni-moss is not: it is a deep
+   emerald on ivory and a lifted emerald on midnight, and white on the lifted one
+   measured 3.09:1. The label follows the surface instead. */
+.brand-button.bg-\[var\(--ni-moss\)\], a.brand-button.bg-\[var\(--ni-moss\)\] { color: var(--ni-on-primary); }
+
+/* ===========================================================================
+   Editorial pass — the reference's design principles, in Noor Ilm's own terms.
+
+   What the reference actually does, as distinct from what it looks like:
+
+   1. The ground is warm ivory and the CARD is near-white. Most "light themes"
+      invert that — white page, tinted card — which is why they read as flat.
+      Here the card is the lightest thing on the page, so it lifts without
+      needing a heavy border or a big shadow.
+   2. Gold is the PRIMARY action colour, not a decorative accent. Emerald stays
+      for learning, progress and verification — it is the second voice.
+   3. Corners are small. Roughly 6px on controls, 10px on cards. Pills read as
+      consumer-app; small radii read as editorial and scholarly.
+   4. Micro-labels are monospace, uppercase, widely tracked. They do the work
+      that a coloured chip does elsewhere, and they cost no visual weight.
+   5. Dividers are hairlines, not borders.
+
+   None of this changes the token CONTRACT — every name keeps its role, so the
+   dark theme and every component follow automatically.
+   =========================================================================== */
+
+/* ---- Light: warm ivory ground, near-white card, near-black ink ---- */
+[data-theme="light"] {
+  --ni-bg: #F7F3E8;
+  --ni-bg-lift: #F3EFE7;
+  --ni-paper: #FFFDF7;
+  --ni-field: #FBF8EF;
+
+  --ni-ink: #1A1814;           /* near-black, warm — editorial headings */
+  --ni-muted: #57534A;         /* warm grey body copy, not green */
+  /* Tertiary text — timestamps, hints, disabled rows, placeholders. Measured, not
+     eyeballed: the previous #837D70 painted 4.09:1 on white and 3.89:1 on the
+     ivory field, so anything at body size using it failed AA. This value clears
+     4.5:1 on every light surface, including the darkest one it ever sits on
+     (--ni-sage-soft), while staying visibly lighter than --ni-muted so the
+     hierarchy is unchanged. */
+  --ni-muted-soft: #6E6960;
+
+  --ni-sage: #E7E2D7;          /* hairline dividers */
+  --ni-sage-soft: #F3F0E8;
+  --ni-sage-line: #DED8CA;
+  --ni-sage-mid: #CFC7B5;
+  --ni-sage-ink: #5A554A;
+
+  --ni-gold: #B8952E;          /* the primary action fill */
+  --ni-gold-ink: #6E5411;      /* readable gold TEXT on ivory */
+  --ni-gold-mid: #6E5411;      /* also used as small text; clears 4.5 on ivory */
+  --ni-gold-soft: #F7EFD9;
+  --ni-gold-tint: #FCF8EC;
+
+  --ni-on-gold: #1A1814;       /* near-black on the gold fill */
+  --ni-on-primary: #1A1814;    /* the primary IS gold here */
+
+  /* Emerald keeps its second-voice role: learning, progress, verification. */
+  --ni-moss: #0E6B58;
+  --ni-moss-deep: #0A5344;
+  --ni-moss-lift: #148C74;
+
+  /* Shadows are barely there — the card lifts by being lighter, not darker. */
+  --ni-e1: 0 1px 2px rgba(26,24,20,.04);
+  --ni-e2: 0 1px 3px rgba(26,24,20,.05), 0 8px 20px -12px rgba(26,24,20,.10);
+  --ni-e3: 0 2px 6px rgba(26,24,20,.05), 0 18px 40px -18px rgba(26,24,20,.14);
+}
+
+/* ---- Dark: the same composition after nightfall ---- */
+[data-theme="dark"] {
+  --ni-gold: #C8A84E;
+  --ni-gold-ink: #E8CE8A;
+  --ni-on-gold: #16120A;       /* still near-black: gold is a light fill in both */
+  --ni-on-primary: #16120A;
+}
+
+/* ---- Shape ---- */
+:root { --ni-r-btn: 7px; --ni-r-card: 11px; --ni-r-pill: 5px; }
+
+/* ---- Monospace micro-label ----
+   The reference uses these everywhere a lesser design would use a coloured
+   chip. They carry structure at almost no visual weight. */
+.ni-label {
+  font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, monospace;
+  font-size: .68rem;
+  font-weight: 600;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+[data-theme="light"] .ni-label { color: #6E5411; }
+[data-theme="dark"]  .ni-label { color: #E8CE8A; }
+
+/* ---- The 2×2 square mark ----
+   A quiet geometric motif standing in for a bullet, a logo lockup, or a
+   section marker. Two filled quadrants, two tinted: legible at 8px. */
+.ni-mark {
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  width: .62em;
+  height: .62em;
+  vertical-align: -0.02em;
+  flex: none;
+}
+.ni-mark i { display: block; background: currentColor; }
+.ni-mark i:nth-child(2), .ni-mark i:nth-child(3) { opacity: .38; }
+
+/* ---- Hairline rule ---- */
+.ni-rule { height: 1px; border: 0; background: var(--ni-sage); }
+
+/* ---- The striped band ----
+   The reference's most distinctive device: a run of alternating tone blocks,
+   used along the top of a card and as a section divider. Built with a repeating
+   gradient so it scales to any width with no seams and no images. */
+.ni-stripe {
+  height: 6px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--ni-gold) 0 46px,
+    var(--ni-ink) 46px 74px,
+    var(--ni-gold-mid) 74px 116px,
+    var(--ni-sage-mid) 116px 150px
+  );
+}
+.ni-stripe--divider { height: 8px; opacity: .9; }
+
+/* ---- Editorial card: near-white, hairline, small radius ---- */
+.ni-ed-card {
+  background: var(--ni-paper);
+  border: 1px solid var(--ni-sage);
+  border-radius: var(--ni-r-card);
+  box-shadow: var(--ni-e1);
+  overflow: hidden;
+  transition: box-shadow 280ms var(--ni-ease), transform 280ms var(--ni-ease), border-color 280ms var(--ni-ease);
+}
+.ni-ed-card:hover { box-shadow: var(--ni-e3); transform: translateY(-2px); border-color: var(--ni-sage-line); }
+
+/* ---- Verification pill: outlined, not filled ---- */
+.ni-verify {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  border: 1px solid var(--ni-sage-line);
+  border-radius: var(--ni-r-pill);
+  padding: .3rem .55rem;
+  font-size: .7rem;
+  font-weight: 600;
+  letter-spacing: .01em;
+  color: var(--ni-muted);
+  background: transparent;
+}
+[data-theme="dark"] .ni-verify { border-color: var(--ni-sage-mid); }
+
+/* ---- Buttons ----
+   Gold is primary. Secondary is an outline with a hairline border. Both are
+   squared off, and both declare their label colour per theme so neither can
+   inherit a value from the wrong side. */
+.ni-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* A two-word label must not stack: the header lays its buttons out on one line. */
+  white-space: nowrap;
+  gap: .5rem;
+  border-radius: var(--ni-r-btn);
+  padding: .72rem 1.15rem;
+  font-size: .875rem;
+  font-weight: 600;
+  line-height: 1;
+  border: 1px solid transparent;
+  transition: transform 200ms var(--ni-ease), background-color 200ms var(--ni-ease), border-color 200ms var(--ni-ease), box-shadow 200ms var(--ni-ease);
+}
+.ni-btn:hover { transform: translateY(-1px); }
+.ni-btn:active { transform: translateY(0); }
+
+.ni-btn--primary { background: var(--ni-gold); border-color: var(--ni-gold); box-shadow: var(--ni-e1); }
+[data-theme="light"] .ni-btn--primary { color: #1A1814; }
+[data-theme="dark"]  .ni-btn--primary { color: #16120A; }
+[data-theme="light"] .ni-btn--primary:hover { background: #B5842A; border-color: #B5842A; }
+[data-theme="dark"]  .ni-btn--primary:hover { background: #C0A047; border-color: #C0A047; }
+
+.ni-btn--outline { background: transparent; border-color: var(--ni-sage-line); }
+[data-theme="light"] .ni-btn--outline { color: #1A1814; }
+[data-theme="dark"]  .ni-btn--outline { color: #F5F0E4; }
+[data-theme="light"] .ni-btn--outline:hover { background: #F3F0E8; border-color: #CFC7B5; }
+[data-theme="dark"]  .ni-btn--outline:hover { background: #2A2419; border-color: #4E4535; }
+
+/* Quiet: emerald, the learning voice. Declared per theme for the same reason. */
+.ni-btn--quiet { background: transparent; border-color: transparent; padding-inline: .4rem; }
+[data-theme="light"] .ni-btn--quiet { color: #0A5344; }
+[data-theme="dark"]  .ni-btn--quiet { color: #E8CE8A; }
+[data-theme="light"] .ni-btn--quiet:hover { color: #6E5411; }
+[data-theme="dark"]  .ni-btn--quiet:hover { color: #F2D9A4; }
+
+/* Inline text link, same discipline. */
+[data-theme="light"] .ni-link, [data-theme="light"] a.ni-link { color: #0A5344; }
+[data-theme="dark"]  .ni-link, [data-theme="dark"]  a.ni-link { color: #E8CE8A; }
+
+/* ---- Faint geometric line-art, as in the reference's upper right ---- */
+.ni-linework::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: .5;
+  background-repeat: no-repeat;
+  background-position: right -80px top -60px;
+  background-size: 460px 460px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 460 460'%3E%3Cg fill='none' stroke='%23D8D0BE' stroke-width='1'%3E%3Ccircle cx='300' cy='150' r='120'/%3E%3Ccircle cx='300' cy='150' r='64'/%3E%3Cpath d='M170 30h260M170 270h260M180 20v260M420 20v260'/%3E%3Cpath d='M300 30l120 120-120 120-120-120z'/%3E%3C/g%3E%3C/svg%3E");
+}
+[data-theme="dark"] .ni-linework::after { opacity: .16; }
+
+/* ===========================================================================
+   The atmosphere is the part that must differ most between themes.
+
+   A night sky under the light theme is not a light theme — it was painting a
+   dark band across an ivory page. So the sky, the stars, the crescent and the
+   arcade belong to the dark theme, and the light theme gets what the reference
+   actually uses in their place: a warm ivory wash and faint geometric linework.
+   =========================================================================== */
+[data-theme="light"] .ni-night {
+  background:
+    radial-gradient(120% 80% at 82% -20%, rgba(201,150,46,.07) 0%, transparent 58%),
+    radial-gradient(90% 60% at 8% 110%, rgba(14,107,88,.05) 0%, transparent 60%),
+    var(--ni-bg);
+}
+[data-theme="light"] .ni-stars::before,
+[data-theme="light"] .ni-stars::after,
+[data-theme="light"] .ni-arches::before { display: none; }
+
+/* The crescent becomes a quiet geometric medallion by day: the same object,
+   lit differently, rather than a moon floating over a bright page. */
+[data-theme="light"] .ni-crescent {
+  background: radial-gradient(circle at 34% 30%, #FFFFFF 0%, #F6F1E5 46%, #E8E0CE 78%, #DCD2BC 100%);
+  box-shadow: 0 18px 44px -20px rgba(26,24,20,.22), inset -4px -6px 18px rgba(180,166,138,.35);
+}
+[data-theme="light"] .ni-crescent::after {
+  background: radial-gradient(circle at 62% 34%, var(--ni-bg) 0%, var(--ni-bg) 60%, var(--ni-bg) 100%);
+}
+[data-theme="light"] .ni-lantern-glow {
+  background: radial-gradient(circle, rgba(201,150,46,.13) 0%, rgba(201,150,46,.05) 45%, transparent 70%);
+}
+
+/* The geometric linework is the light theme's signature; keep it subtle at night. */
+[data-theme="light"] .ni-geo::before { opacity: .04; }
+
+/* ===========================================================================
+   Header and chrome text, as theme-qualified literals.
+
+   Measured: `.site-header nav a { color: var(--ni-ink) }` painted the DARK
+   ivory while the light theme was active — the same freezing seen on the
+   Tailwind utilities, where a var() reference resolves to one theme's value at
+   build time and stops following the attribute.
+
+   Every rule below therefore states its colour per theme. Verbose, but it is
+   the form that demonstrably changes when the theme changes.
+   =========================================================================== */
+[data-theme="light"] .site-header nav a,
+[data-theme="light"] .site-header nav button,
+[data-theme="light"] .site-header .ni-header-link { color: #1A1814; }
+[data-theme="dark"]  .site-header nav a,
+[data-theme="dark"]  .site-header nav button,
+[data-theme="dark"]  .site-header .ni-header-link { color: #F5F0E4; }
+[data-theme="light"] .site-header nav a:hover,
+[data-theme="light"] .site-header nav button:hover { color: #B8952E; }
+[data-theme="dark"]  .site-header nav a:hover,
+[data-theme="dark"]  .site-header nav button:hover { color: #C8A84E; }
+
+[data-theme="light"] .site-header .brand-logo,
+[data-theme="light"] .site-header .brand-logo .font-display { color: #1A1814; }
+[data-theme="dark"]  .site-header .brand-logo,
+[data-theme="dark"]  .site-header .brand-logo .font-display { color: #F5F0E4; }
+[data-theme="light"] .site-header .brand-logo .ni-brand-sub { color: #57534A; }
+[data-theme="dark"]  .site-header .brand-logo .ni-brand-sub { color: #C8BFAC; }
+
+[data-theme="light"] .ni-verify { color: #57534A; border-color: #DED8CA; }
+[data-theme="dark"]  .ni-verify { color: #C8BFAC; border-color: #4E4535; }
+
+/* Always-dark panels keep light chrome text in both themes. */
+.ni-on-teal .brand-logo, .ni-on-teal .brand-logo .font-display { color: #F2EFE6; }
+.ni-on-teal nav a, .ni-on-teal a { color: #F2EFE6; }
+
+/* ===========================================================================
+   SHARED DESIGN SYSTEM
+   ---------------------------------------------------------------------------
+   Purely additive. Every rule below introduces a new token or a new class; not
+   one existing declaration is modified, so no screen can change appearance
+   until it opts in by using one of these names.
+
+   Why this layer exists. The colour direction, the buttons, the editorial card
+   and the verification pill were already here and already right. Three things
+   were not:
+
+     1. There was no spacing, type-size, duration or focus scale — every screen
+        picked its own numbers, which is why padding drifts between modules.
+     2. The best component vocabulary in the codebase — the table, the dialog,
+        the filter bar, the pager, the status chip — existed only as Tailwind
+        strings inside AdminUI.tsx, reachable by the admin desk and nobody else.
+     3. Two card systems and two eyebrow systems had grown side by side.
+
+   So this defines the scales, promotes that vocabulary to shared classes, and
+   reconciles the duplicates without breaking either name.
+   =========================================================================== */
+
+:root {
+  /* ---- Spacing. A 4px base, named by role rather than by size, so a change
+          of scale does not require renaming every call site. ---- */
+  --ni-space-3xs: .25rem;   /* 4px  — icon gaps */
+  --ni-space-2xs: .5rem;    /* 8px  — chip padding, tight stacks */
+  --ni-space-xs:  .75rem;   /* 12px — control padding */
+  --ni-space-sm:  1rem;     /* 16px — inside a compact card */
+  --ni-space-md:  1.5rem;   /* 24px — inside a card, between fields */
+  --ni-space-lg:  2.25rem;  /* 36px — between cards */
+  --ni-space-xl:  3.5rem;   /* 56px — between page sections */
+  --ni-space-2xl: 5.5rem;   /* 88px — between major page bands */
+
+  /* ---- Type. A modular scale with the body size fixed at 1rem so a reader's
+          own browser setting is still honoured. ---- */
+  --ni-text-2xs: .68rem;
+  --ni-text-xs:  .78rem;
+  --ni-text-sm:  .875rem;
+  --ni-text-md:  1rem;
+  --ni-text-lg:  1.125rem;
+  --ni-text-xl:  1.375rem;
+  --ni-text-2xl: 1.75rem;
+  --ni-text-3xl: clamp(2rem, 3.6vw, 2.6rem);
+  --ni-text-4xl: clamp(2.4rem, 5vw, 3.4rem);
+
+  --ni-leading-tight: 1.2;
+  --ni-leading-snug:  1.45;
+  --ni-leading-body:  1.65;
+  --ni-tracking-label: .16em;
+
+  /* ---- Motion. Durations named by what they are for, so "fast" stays fast
+          everywhere even if the number changes. ---- */
+  --ni-dur-instant: 120ms;
+  --ni-dur-fast:    200ms;
+  --ni-dur-base:    280ms;
+  --ni-dur-slow:    420ms;
+  --ni-dur-enter:   560ms;
+
+  /* ---- Focus. One visible ring for the whole product. Gold on light, gold on
+          dark; it never disappears and never relies on colour alone, because it
+          also changes the outline width. ---- */
+  --ni-focus:        var(--ni-gold-mid);
+  --ni-focus-ring:   0 0 0 3px color-mix(in srgb, var(--ni-gold) 34%, transparent);
+  --ni-focus-width:  2px;
+  --ni-focus-offset: 2px;
+}
+
+/* One focus treatment, applied to anything keyboard-reachable that has not
+   already declared its own. Keyboard only — a mouse click does not draw it. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: var(--ni-focus-width) solid var(--ni-focus);
+  outline-offset: var(--ni-focus-offset);
+  border-radius: var(--ni-r-btn);
+}
+
+/* ---------------------------------------------------------------------------
+   Reconciliation, not replacement.
+
+   `.ni-card` (1.1rem radius, 3px lift) and `.ni-ed-card` (11px radius, 2px
+   lift) were two answers to the same question. Both names keep working — dozens
+   of screens use each — but `.ni-card` now takes its radius from the same token
+   as the editorial card, so the two stop disagreeing by a hair. The lift stays
+   different on purpose: `.ni-card` is used for clickable marketing tiles, which
+   should respond more than a dense data card.
+
+   Same for the eyebrow: `.ni-eyebrow` is the sans one used across public pages,
+   `.ni-label` the monospace one used in the desks. They are now explicitly two
+   roles rather than two accidents — `.ni-eyebrow` for editorial section labels,
+   `.ni-label` for data field labels — and both draw from one tracking token.
+   --------------------------------------------------------------------------- */
+.ni-card { border-radius: var(--ni-r-card); }
+.ni-eyebrow { letter-spacing: var(--ni-tracking-label); }
+
+/* ---------------------------------------------------------------------------
+   Form controls
+   --------------------------------------------------------------------------- */
+.ni-input, .ni-select, .ni-textarea {
+  width: 100%;
+  background: var(--ni-field);
+  color: var(--ni-ink);
+  border: 1px solid var(--ni-sage-line);
+  border-radius: var(--ni-r-btn);
+  padding: var(--ni-space-xs);
+  font-size: var(--ni-text-sm);
+  line-height: var(--ni-leading-snug);
+  font-family: inherit;
+  transition: border-color var(--ni-dur-fast) var(--ni-ease), box-shadow var(--ni-dur-fast) var(--ni-ease);
+}
+.ni-input::placeholder, .ni-textarea::placeholder { color: var(--ni-placeholder); }
+.ni-input:hover, .ni-select:hover, .ni-textarea:hover { border-color: var(--ni-sage-mid); }
+.ni-input:focus, .ni-select:focus, .ni-textarea:focus {
+  outline: none;
+  border-color: var(--ni-moss);
+  box-shadow: var(--ni-focus-ring);
+}
+.ni-input:disabled, .ni-select:disabled, .ni-textarea:disabled {
+  background: var(--ni-disabled-bg);
+  color: var(--ni-disabled-text);
+  cursor: not-allowed;
+}
+/* An invalid field is marked by more than colour: the border thickens too. */
+.ni-input[aria-invalid="true"], .ni-textarea[aria-invalid="true"] {
+  border-color: var(--ni-error);
+  border-width: 2px;
+}
+.ni-textarea { min-height: 6rem; resize: vertical; }
+.ni-select { appearance: none; padding-inline-end: 2rem; }
+
+.ni-field-label {
+  display: block;
+  font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, monospace;
+  font-size: var(--ni-text-2xs);
+  font-weight: 600;
+  letter-spacing: var(--ni-tracking-label);
+  text-transform: uppercase;
+  color: var(--ni-muted);
+  margin-bottom: var(--ni-space-3xs);
+}
+.ni-field-hint  { font-size: var(--ni-text-xs); line-height: 1.45; color: var(--ni-muted-soft); margin-top: var(--ni-space-3xs); }
+.ni-field-error { font-size: var(--ni-text-xs); line-height: 1.45; color: var(--ni-error); font-weight: 600; margin-top: var(--ni-space-3xs); }
+
+/* ---------------------------------------------------------------------------
+   Table. Hairline rules rather than borders, monospace numerics, and its own
+   horizontal scroll container so a wide table never scrolls the page sideways.
+   --------------------------------------------------------------------------- */
+.ni-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--ni-sage);
+  border-radius: var(--ni-r-card);
+  background: var(--ni-paper);
+}
+.ni-table { width: 100%; border-collapse: collapse; font-size: var(--ni-text-sm); }
+.ni-table th {
+  text-align: start;
+  white-space: nowrap;
+  padding: var(--ni-space-2xs) var(--ni-space-xs);
+  background: var(--ni-field);
+  border-bottom: 1px solid var(--ni-sage);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: var(--ni-text-2xs);
+  font-weight: 600;
+  letter-spacing: var(--ni-tracking-label);
+  text-transform: uppercase;
+  color: var(--ni-muted);
+}
+.ni-table td {
+  padding: var(--ni-space-xs);
+  border-bottom: 1px solid var(--ni-sage-soft);
+  vertical-align: top;
+  color: var(--ni-ink);
+}
+.ni-table tbody tr:last-child td { border-bottom: 0; }
+.ni-table tbody tr:hover td { background: var(--ni-sage-soft); }
+.ni-table .num { font-variant-numeric: tabular-nums; font-family: ui-monospace, Menlo, monospace; }
+
+/* ---------------------------------------------------------------------------
+   Dialog. The scrim carries the overlay token so it works on both grounds.
+   --------------------------------------------------------------------------- */
+.ni-scrim { position: fixed; inset: 0; background: var(--ni-overlay); }
+.ni-modal {
+  position: relative;
+  width: 100%;
+  max-width: 34rem;
+  background: var(--ni-paper);
+  border: 1px solid var(--ni-sage);
+  border-radius: var(--ni-r-card);
+  box-shadow: var(--ni-e3);
+  overflow: hidden;
+}
+.ni-modal__body { padding: var(--ni-space-md); display: grid; gap: var(--ni-space-sm); }
+.ni-modal__foot {
+  display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--ni-space-2xs);
+  padding: var(--ni-space-sm) var(--ni-space-md);
+  border-top: 1px solid var(--ni-sage);
+  background: var(--ni-field);
+}
+
+/* ---------------------------------------------------------------------------
+   Tabs. The active tab is marked by a gold underline AND a weight change, so it
+   is distinguishable without colour.
+   --------------------------------------------------------------------------- */
+.ni-tabs { display: flex; gap: var(--ni-space-sm); border-bottom: 1px solid var(--ni-sage); }
+.ni-tab {
+  position: relative;
+  padding: var(--ni-space-2xs) 0;
+  font-size: var(--ni-text-sm);
+  font-weight: 500;
+  color: var(--ni-muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: color var(--ni-dur-fast) var(--ni-ease);
+}
+.ni-tab:hover { color: var(--ni-ink); }
+.ni-tab[aria-selected="true"] { color: var(--ni-ink); font-weight: 700; }
+.ni-tab[aria-selected="true"]::after {
+  content: ""; position: absolute; inset-inline: 0; bottom: -1px; height: 2px;
+  background: var(--ni-gold);
+}
+
+/* ---------------------------------------------------------------------------
+   Progress. `--value` is a 0–100 number set inline; the bar reads it so no
+   per-instance CSS is needed.
+   --------------------------------------------------------------------------- */
+.ni-progress {
+  height: .5rem; border-radius: 999px; background: var(--ni-sage-soft);
+  overflow: hidden; border: 1px solid var(--ni-sage-line);
+}
+.ni-progress__bar {
+  height: 100%; width: calc(var(--value, 0) * 1%);
+  background: var(--ni-moss);
+  border-radius: inherit;
+  transition: width var(--ni-dur-slow) var(--ni-ease);
+}
+.ni-progress--gold .ni-progress__bar { background: var(--ni-gold); }
+
+/* ---------------------------------------------------------------------------
+   Breadcrumb and sidebar
+   --------------------------------------------------------------------------- */
+.ni-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ni-space-2xs); font-size: var(--ni-text-xs); }
+.ni-crumbs a { color: var(--ni-muted); text-decoration: none; }
+.ni-crumbs a:hover { color: var(--ni-ink); text-decoration: underline; }
+.ni-crumbs [aria-current="page"] { color: var(--ni-ink); font-weight: 600; }
+.ni-crumbs__sep { color: var(--ni-muted-soft); }
+
+.ni-side { background: var(--ni-field); border-inline-end: 1px solid var(--ni-sage); }
+.ni-side__item {
+  display: flex; align-items: center; gap: var(--ni-space-2xs);
+  padding: var(--ni-space-2xs) var(--ni-space-xs);
+  border-radius: var(--ni-r-btn);
+  font-size: var(--ni-text-sm);
+  color: var(--ni-muted);
+  text-decoration: none;
+  transition: background-color var(--ni-dur-fast) var(--ni-ease), color var(--ni-dur-fast) var(--ni-ease);
+}
+.ni-side__item:hover { background: var(--ni-sage-soft); color: var(--ni-ink); }
+/* Current page: tone, weight and a leading rule — three signals, not one. */
+.ni-side__item[aria-current="page"] {
+  background: var(--ni-sage-soft); color: var(--ni-moss-deep); font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--ni-gold);
+}
+
+/* ---------------------------------------------------------------------------
+   The seven shared states. These are containers only — the wording stays in
+   ResultState and the translation catalogue, where it belongs.
+   --------------------------------------------------------------------------- */
+.ni-state {
+  display: grid; gap: var(--ni-space-2xs); justify-items: center; text-align: center;
+  padding: var(--ni-space-lg) var(--ni-space-md);
+  border: 1px dashed var(--ni-sage-line);
+  border-radius: var(--ni-r-card);
+  background: var(--ni-field);
+  color: var(--ni-muted);
+  font-size: var(--ni-text-sm);
+  line-height: var(--ni-leading-body);
+}
+.ni-state__title { font-weight: 600; color: var(--ni-ink); font-size: var(--ni-text-md); }
+/* Each state keeps the dashed frame but takes its own edge colour, so the kind
+   of state is legible before the sentence is read. */
+.ni-state--error   { border-style: solid; border-color: var(--ni-error);   background: var(--ni-error-bg); }
+.ni-state--forbidden { border-style: solid; border-color: var(--ni-warning); background: var(--ni-warning-bg); }
+.ni-state--setup   { border-style: solid; border-color: var(--ni-gold-mid); background: var(--ni-gold-soft); }
+.ni-state--offline { border-style: solid; border-color: var(--ni-info);    background: var(--ni-info-bg); }
+
+.ni-banner {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--ni-space-2xs);
+  padding: var(--ni-space-2xs) var(--ni-space-sm);
+  border: 1px solid var(--ni-info);
+  background: var(--ni-info-bg);
+  color: var(--ni-ink);
+  font-size: var(--ni-text-sm);
+  border-radius: var(--ni-r-btn);
+}
+
+/* Loading placeholder. Sized by its container so it cannot cause a layout
+   shift when the real content replaces it. */
+.ni-skeleton {
+  background: linear-gradient(90deg, var(--ni-sage-soft) 25%, var(--ni-field) 37%, var(--ni-sage-soft) 63%);
+  background-size: 400% 100%;
+  border-radius: var(--ni-r-btn);
+  animation: ni-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes ni-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+
+/* ---------------------------------------------------------------------------
+   Motion primitives.
+
+   Every one is opt-in by class and every one is disabled wholesale under
+   `prefers-reduced-motion: reduce` at the end of this block. Nothing here
+   starts an element invisible without also making it visible again, so a failed
+   script or a blocked animation can never leave content unreadable.
+   --------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: no-preference) {
+  .ni-enter      { animation: ni-rise var(--ni-dur-enter) var(--ni-ease) both; }
+  .ni-enter-fade { animation: ni-fade var(--ni-dur-base) var(--ni-ease) both; }
+
+  /* Stagger: children arrive in sequence. Capped at eight so a long list does
+     not leave the last rows waiting seconds to appear. */
+  .ni-stagger > * { animation: ni-rise var(--ni-dur-base) var(--ni-ease) both; }
+  .ni-stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .ni-stagger > *:nth-child(2) { animation-delay: 45ms; }
+  .ni-stagger > *:nth-child(3) { animation-delay: 90ms; }
+  .ni-stagger > *:nth-child(4) { animation-delay: 135ms; }
+  .ni-stagger > *:nth-child(5) { animation-delay: 180ms; }
+  .ni-stagger > *:nth-child(6) { animation-delay: 225ms; }
+  .ni-stagger > *:nth-child(7) { animation-delay: 270ms; }
+  .ni-stagger > *:nth-child(n+8) { animation-delay: 300ms; }
+
+  .ni-modal      { animation: ni-pop var(--ni-dur-base) var(--ni-ease) both; }
+  .ni-scrim      { animation: ni-fade var(--ni-dur-fast) var(--ni-ease) both; }
+  .ni-panel-in   { animation: ni-slide-start var(--ni-dur-base) var(--ni-ease) both; }
+  .ni-state, .ni-banner { animation: ni-fade var(--ni-dur-base) var(--ni-ease) both; }
+}
+
+@keyframes ni-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ni-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes ni-pop  { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: none; } }
+/* Logical direction: the panel enters from the inline start, so it mirrors for
+   Urdu and Arabic without a second rule. */
+@keyframes ni-slide-start { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+[dir="rtl"] .ni-panel-in { animation-name: ni-slide-start-rtl; }
+@keyframes ni-slide-start-rtl { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ni-enter, .ni-enter-fade, .ni-stagger > *, .ni-modal, .ni-scrim,
+  .ni-panel-in, .ni-skeleton, .ni-state, .ni-banner {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+  .ni-progress__bar { transition: none !important; }
+}
+
+/* ---------------------------------------------------------------------------
+   Responsive breakpoints, named so a component can reference the same widths
+   the rest of the product uses. Tailwind's own sm/md/lg/xl still apply; these
+   exist for the hand-written CSS above.
+     sm 640 · md 768 · lg 1024 · xl 1280
+   --------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  .ni-modal { max-width: 100%; }
+  .ni-modal__body { padding: var(--ni-space-sm); }
+  .ni-tabs { overflow-x: auto; }
+  .ni-state { padding: var(--ni-space-md) var(--ni-space-sm); }
+}
+
+/* ---------------------------------------------------------------------------
+   RTL. The rules above use logical properties throughout, so Urdu and Arabic
+   mirror without a second layout. These two are the exceptions that cannot be
+   expressed logically.
+   --------------------------------------------------------------------------- */
+[dir="rtl"] .ni-side__item[aria-current="page"] { box-shadow: inset -2px 0 0 var(--ni-gold); }
+[dir="rtl"] .ni-crumbs__sep { transform: scaleX(-1); }
+
+/* Arabic and Urdu need more line height than Latin at the same size, or the
+   diacritics collide with the line above. */
+[lang="ar"] .ni-table td, [lang="ur"] .ni-table td,
+[lang="ar"] .ni-state, [lang="ur"] .ni-state { line-height: 1.9; }
+
+
+/* ===========================================================================
+   DARK THEME — component states the base palette does not reach on its own.
+
+   Everything above is a token, so most components change with the palette. The
+   rules below are the ones that had a light-theme assumption baked into them,
+   plus the interaction states the brief calls out by name: hover, focus,
+   active, selected, disabled, loading, success, warning, error and empty.
+   =========================================================================== */
+
+/* Progress is a gold voice on dark, per the brief. The emerald bar stays for
+   the success variant, where the colour is carrying a meaning. */
+[data-theme="dark"] .ni-progress__bar { background: var(--ni-gold); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ni-progress__bar { background: var(--ni-gold); } }
+[data-theme="dark"] .ni-progress--success .ni-progress__bar { background: var(--ni-moss-lift); }
+
+/* Table rows: the hover wash has to lift, not darken, or a row reads as a hole
+   punched in the surface. */
+[data-theme="dark"] .ni-table tbody tr:hover td { background: var(--ni-bg-lift); }
+[data-theme="dark"] .ni-table th { background: var(--ni-teal); }
+
+/* Selected and active. Gold carries both, and each also changes weight or adds
+   a rule so the state survives a greyscale screenshot. */
+[data-theme="dark"] .ni-tab[aria-selected="true"] { color: var(--ni-gold-ink); }
+[data-theme="dark"] .ni-side__item[aria-current="page"] {
+  background: var(--ni-bg-lift);
+  color: var(--ni-gold-ink);
+}
+
+/* Inputs: the field is a step above the page here, and focus is gold rather
+   than emerald so it belongs to the same accent family as everything else. */
+[data-theme="dark"] .ni-input:focus,
+[data-theme="dark"] .ni-select:focus,
+[data-theme="dark"] .ni-textarea:focus { border-color: var(--ni-gold-mid); }
+[data-theme="dark"] .ni-input:disabled,
+[data-theme="dark"] .ni-select:disabled,
+[data-theme="dark"] .ni-textarea:disabled { opacity: .62; }
+
+/* The loading placeholder shimmer needs its own dark ramp; the light one is
+   invisible against espresso. */
+[data-theme="dark"] .ni-skeleton {
+  background-image: linear-gradient(90deg, var(--ni-sage-soft) 25%, var(--ni-bg-lift) 37%, var(--ni-sage-soft) 63%);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .ni-skeleton {
+    background-image: linear-gradient(90deg, var(--ni-sage-soft) 25%, var(--ni-bg-lift) 37%, var(--ni-sage-soft) 63%);
+  }
+}
+
+/* Charts. SVG and canvas cannot inherit a text colour, so these are the hooks a
+   chart reads for its axis, grid and series. Declared for both themes in the
+   base layer, restated here only where dark needs a different value. */
+:root { --ni-chart-grid: var(--ni-sage); --ni-chart-axis: var(--ni-muted); --ni-chart-series-1: var(--ni-gold); --ni-chart-series-2: var(--ni-moss); --ni-chart-series-3: var(--ni-clay); }
+[data-theme="dark"] { --ni-chart-grid: #2E2820; --ni-chart-axis: var(--ni-muted); --ni-chart-series-1: var(--ni-gold); --ni-chart-series-2: var(--ni-moss-lift); --ni-chart-series-3: var(--ni-clay-ink); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --ni-chart-grid: #2E2820; --ni-chart-series-2: var(--ni-moss-lift); --ni-chart-series-3: var(--ni-clay-ink); } }
+
+/* Toast and notification surfaces sit above cards, so they take the lightest
+   surface plus the deepest elevation. */
+[data-theme="dark"] .ni-toast, [data-theme="dark"] .ni-popover {
+  background: var(--ni-paper);
+  border: 1px solid var(--ni-sage-line);
+  box-shadow: var(--ni-e3);
+  color: var(--ni-ink);
+}
+
+/* ============================================================================
+   Sign in and create account
+   ============================================================================
+
+   A split screen: a drawn Islamic panel on one side, the form on the other.
+   Both themes are composed here rather than one being derived from the other —
+   light is warm ivory over cream with a muted mustard-gold action, dark is deep
+   espresso with the same gold lifted to stay legible on it.
+
+   Every colour is a token or a token blend, so a mid-session system theme change
+   repaints correctly. Spacing and direction are logical (inline-start,
+   padding-inline), so Urdu and Arabic mirror with no separate rules.
+
+   Sizing note: the panel is capped rather than 100vh. A viewport-height hero
+   pushes the form itself off the first screen on a short laptop window, which on
+   a sign-in page is the one thing that must never happen. */
+
+.ni-auth {
+  display: grid;
+  grid-template-columns: 1fr;
+  min-height: calc(100vh - 80px);
+  background: var(--ni-bg);
+}
+@media (min-width: 1024px) {
+  .ni-auth { grid-template-columns: 1.02fr 1fr; }
+  .ni-auth--single { grid-template-columns: 1fr; }
+}
+
+/* ------------------------------------------------------------- the panel */
+
+.ni-auth__aside {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  min-height: 13rem;
+  padding: clamp(1.75rem, 4vw, 3.25rem);
+  /* Deep, warm and calm in both themes. Light gets a sage-to-teal descent;
+     dark deepens the same hues rather than switching to a different family. */
+  background:
+    radial-gradient(120% 90% at 78% 6%, color-mix(in srgb, var(--ni-gold) 22%, transparent) 0%, transparent 58%),
+    linear-gradient(168deg, var(--ni-teal) 0%, var(--ni-teal-deep) 100%);
+  color: var(--ni-paper);
+}
+[data-theme="dark"] .ni-auth__aside {
+  background:
+    radial-gradient(120% 90% at 78% 6%, color-mix(in srgb, var(--ni-gold) 18%, transparent) 0%, transparent 60%),
+    linear-gradient(168deg, #1B2A24 0%, #121C18 100%);
+}
+@media (min-width: 1024px) { .ni-auth__aside { min-height: auto; } }
+
+.ni-auth__art { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+
+/* The tessellating girih field. Low opacity so it reads as texture, never noise. */
+.ni-auth__field {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  color: var(--ni-gold-glow, var(--ni-gold));
+  opacity: .14;
+}
+[data-theme="dark"] .ni-auth__field { opacity: .1; }
+
+/* The lantern. One soft pool of warm light behind the arch, not a glow effect
+   scattered over the whole panel. */
+.ni-auth__lantern {
+  position: absolute;
+  inset-inline-start: 50%;
+  top: 14%;
+  width: min(30rem, 82%);
+  aspect-ratio: 1;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--ni-gold) 46%, transparent) 0%, transparent 66%);
+  filter: blur(38px);
+  opacity: .5;
+}
+[data-theme="dark"] .ni-auth__lantern { opacity: .38; }
+
+.ni-auth__arch {
+  position: absolute;
+  inset-inline-start: 50%;
+  bottom: 0;
+  width: min(21rem, 62%);
+  transform: translateX(-50%);
+  color: var(--ni-gold-glow, var(--ni-gold));
+  opacity: .5;
+}
+[data-theme="dark"] .ni-auth__arch { opacity: .42; }
+
+/* A very slow drift. Barely perceptible, and stopped outright for readers who
+   have asked for reduced motion. */
+.ni-auth__star { animation: ni-auth-drift 26s ease-in-out infinite; transform-origin: center; }
+@keyframes ni-auth-drift {
+  0%, 100% { transform: translate(120px, 168px) rotate(0deg); }
+  50%      { transform: translate(120px, 168px) rotate(11deg); }
+}
+
+.ni-auth__aside-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 34rem;
+  /* The words sit on their own scrim so contrast is guaranteed against the
+     pattern rather than hoped for. */
+  padding: clamp(1rem, 2vw, 1.4rem) clamp(1.1rem, 2.2vw, 1.6rem);
+  border-radius: 14px;
+  background: color-mix(in srgb, #0B1512 42%, transparent);
+  backdrop-filter: blur(3px);
+}
+.ni-auth__eyebrow {
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ni-gold-glow, var(--ni-gold));
+}
+.ni-auth__quote {
+  margin-top: .55rem;
+  font-family: var(--ni-font-display, inherit);
+  font-size: clamp(1.35rem, 2.4vw, 1.95rem);
+  line-height: 1.28;
+  text-wrap: balance;
+  color: #FBF7EC;
+}
+.ni-auth__quote-sub {
+  margin-top: .6rem;
+  font-size: .875rem;
+  line-height: 1.65;
+  color: color-mix(in srgb, #FBF7EC 82%, transparent);
+}
+
+/* -------------------------------------------------------------- the form */
+
+.ni-auth__form {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1.75rem, 4vw, 3.5rem) clamp(1.25rem, 4vw, 3rem);
+  background: var(--ni-bg);
+}
+.ni-auth__inner { width: 100%; max-width: 27.5rem; }
+
+.ni-auth__mark { display: inline-flex; align-items: center; gap: .6rem; text-decoration: none; }
+.ni-auth__mark-glyph {
+  display: grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 10px;
+  background: var(--ni-gold-soft);
+  border: 1px solid var(--ni-gold-mid);
+  color: var(--ni-gold-ink);
+  font-size: 1.15rem;
+  line-height: 1;
+}
+.ni-auth__mark-word { font-weight: 700; letter-spacing: -.01em; color: var(--ni-ink); }
+
+.ni-auth__title {
+  margin-top: 1.5rem;
+  font-family: var(--ni-font-display, inherit);
+  font-size: clamp(1.8rem, 3.4vw, 2.4rem);
+  line-height: 1.14;
+  letter-spacing: -.02em;
+  text-wrap: balance;
+  color: var(--ni-ink);
+}
+.ni-auth__lede { margin-top: .6rem; font-size: .9rem; line-height: 1.65; color: var(--ni-muted); }
+
+.ni-auth__stack { margin-top: 1.6rem; display: flex; flex-direction: column; gap: 1.05rem; }
+
+.ni-auth-label {
+  display: block;
+  margin-bottom: .4rem;
+  font-size: .74rem;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--ni-muted-soft);
+}
+
+/* ------------------------------------------------------------ role cards */
+
+.ni-auth__roles { border: 0; padding: 0; margin: 0; }
+.ni-auth__role-grid { display: grid; gap: .55rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ni-auth__role-grid--three { grid-template-columns: 1fr; }
+@media (min-width: 480px) { .ni-auth__role-grid--three { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+.ni-auth__role {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: .18rem;
+  padding: .7rem .75rem;
+  text-align: start;
+  border: 1px solid var(--ni-sage-line);
+  border-radius: 11px;
+  background: var(--ni-field);
+  cursor: pointer;
+  transition: border-color var(--ni-dur-2, .18s) ease, background-color var(--ni-dur-2, .18s) ease,
+              box-shadow var(--ni-dur-2, .18s) ease, transform var(--ni-dur-2, .18s) ease;
+}
+.ni-auth__role:hover { border-color: var(--ni-gold-mid); background: var(--ni-sage-soft); transform: translateY(-1px); }
+.ni-auth__role:focus-visible { outline: 2px solid var(--ni-focus, var(--ni-moss)); outline-offset: 2px; }
+/* Selection is carried by border, fill, a raised edge AND a tick — never by
+   colour alone, so it survives a monochrome or high-contrast rendering. */
+.ni-auth__role[data-selected="true"] {
+  border-color: var(--ni-gold);
+  background: var(--ni-gold-soft);
+  box-shadow: inset 0 0 0 1px var(--ni-gold);
+}
+/* The tick sits in the top inline-end corner, so the title reserves that corner
+   rather than wrapping underneath it. */
+.ni-auth__role-title { font-size: .82rem; font-weight: 700; color: var(--ni-ink); padding-inline-end: 1.25rem; }
+.ni-auth__role-copy { font-size: .69rem; line-height: 1.45; color: var(--ni-muted); }
+.ni-auth__role-tick {
+  position: absolute;
+  inset-block-start: .5rem;
+  inset-inline-end: .5rem;
+  display: grid;
+  place-items: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 50%;
+  background: var(--ni-gold);
+  color: var(--ni-on-primary, #26200F);
+  opacity: 0;
+  transform: scale(.6);
+  transition: opacity var(--ni-dur-2, .18s) ease, transform var(--ni-dur-2, .18s) ease;
+}
+.ni-auth__role[data-selected="true"] .ni-auth__role-tick { opacity: 1; transform: scale(1); }
+
+.ni-auth__note { margin-top: .55rem; font-size: .69rem; line-height: 1.5; color: var(--ni-muted-soft); }
+
+/* ---------------------------------------------------------------- inputs */
+
+.ni-auth__input {
+  width: 100%;
+  padding: .72rem .85rem;
+  border: 1px solid var(--ni-sage-line);
+  border-radius: 10px;
+  background: var(--ni-field);
+  color: var(--ni-ink);
+  font-size: .9rem;
+  transition: border-color var(--ni-dur-2, .18s) ease, box-shadow var(--ni-dur-2, .18s) ease;
+}
+.ni-auth__input::placeholder { color: var(--ni-muted-soft); opacity: 1; }
+.ni-auth__input:focus {
+  outline: none;
+  border-color: var(--ni-gold);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ni-gold) 26%, transparent);
+}
+.ni-auth__password { position: relative; }
+.ni-auth__input--password { padding-inline-end: 2.8rem; }
+.ni-auth__reveal {
+  position: absolute;
+  inset-inline-end: .5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 8px;
+  color: var(--ni-muted);
+  background: transparent;
+  transition: color var(--ni-dur-2, .18s) ease, background-color var(--ni-dur-2, .18s) ease;
+}
+.ni-auth__reveal:hover { color: var(--ni-ink); background: var(--ni-sage-soft); }
+.ni-auth__reveal:focus-visible { outline: 2px solid var(--ni-focus, var(--ni-moss)); outline-offset: 1px; }
+
+.ni-auth__row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem; }
+.ni-auth__check { display: inline-flex; align-items: flex-start; gap: .5rem; font-size: .82rem; line-height: 1.5; color: var(--ni-muted); cursor: pointer; }
+.ni-auth__check--block { display: flex; }
+.ni-auth__check input { margin-top: .18rem; accent-color: var(--ni-gold); flex: none; }
+
+.ni-auth__link { font-size: .82rem; font-weight: 600; color: var(--ni-link); text-decoration: none; }
+.ni-auth__link:hover { text-decoration: underline; }
+.ni-auth__link--strong { font-weight: 700; }
+
+/* --------------------------------------------------------------- actions */
+
+.ni-auth__submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  width: 100%;
+  padding: .8rem 1.1rem;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--ni-gold);
+  color: var(--ni-on-primary, #26200F);
+  font-size: .9rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: filter var(--ni-dur-2, .18s) ease, transform var(--ni-dur-2, .18s) ease, box-shadow var(--ni-dur-2, .18s) ease;
+}
+.ni-auth__submit:hover:not(:disabled) { filter: brightness(1.05); transform: translateY(-1px); box-shadow: var(--ni-e2, 0 6px 18px rgb(0 0 0 / .12)); }
+.ni-auth__submit:focus-visible { outline: 2px solid var(--ni-focus, var(--ni-moss)); outline-offset: 2px; }
+.ni-auth__submit:disabled { opacity: .68; cursor: progress; }
+
+.ni-auth__divider { display: flex; align-items: center; gap: .75rem; color: var(--ni-muted-soft); font-size: .72rem; }
+.ni-auth__divider::before, .ni-auth__divider::after { content: ""; flex: 1; height: 1px; background: var(--ni-sage-line); }
+
+.ni-auth__google {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .6rem;
+  width: 100%;
+  padding: .74rem 1.1rem;
+  border: 1px solid var(--ni-sage-mid);
+  border-radius: 10px;
+  background: var(--ni-paper);
+  color: var(--ni-ink);
+  font-size: .88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--ni-dur-2, .18s) ease, background-color var(--ni-dur-2, .18s) ease, transform var(--ni-dur-2, .18s) ease;
+}
+.ni-auth__google:hover:not(:disabled) { border-color: var(--ni-gold-mid); background: var(--ni-sage-soft); transform: translateY(-1px); }
+.ni-auth__google:focus-visible { outline: 2px solid var(--ni-focus, var(--ni-moss)); outline-offset: 2px; }
+.ni-auth__google:disabled { opacity: .68; cursor: progress; }
+
+/* --------------------------------------------------------------- states */
+
+.ni-auth__error {
+  padding: .65rem .8rem;
+  border: 1px solid var(--ni-clay-ink);
+  border-radius: 10px;
+  background: var(--ni-clay-soft);
+  color: var(--ni-clay-ink);
+  font-size: .82rem;
+  line-height: 1.55;
+}
+.ni-auth__seal {
+  display: inline-grid;
+  place-items: center;
+  width: 3.1rem;
+  height: 3.1rem;
+  border-radius: 50%;
+  background: var(--ni-sage-soft);
+  border: 1px solid var(--ni-moss);
+  color: var(--ni-moss-deep);
+}
+.ni-auth__seal--warn { background: var(--ni-gold-soft); border-color: var(--ni-gold-mid); color: var(--ni-gold-ink); }
+
+.ni-auth__foot { margin-top: 1.4rem; font-size: .85rem; color: var(--ni-muted); }
+
+.ni-auth__spin { animation: ni-auth-spin .9s linear infinite; }
+@keyframes ni-auth-spin { to { transform: rotate(360deg); } }
+
+/* Reduced motion: no drift, no entrance, and the sweep slowed to a crawl. The
+   hook also declines to build its timeline, so this is belt and braces for the
+   CSS-only pieces. */
+@media (prefers-reduced-motion: reduce) {
+  .ni-auth__star { animation: none; }
+  .ni-auth__spin { animation-duration: 2.4s; }
+  .ni-auth__role, .ni-auth__submit, .ni-auth__google, .ni-auth__input, .ni-auth__reveal { transition: none; }
+  .ni-auth__role:hover, .ni-auth__submit:hover, .ni-auth__google:hover { transform: none; }
+}
+
+/* ---- "How the LMS works" hero card ---------------------------------------
+
+   Compact and horizontal by construction: the four steps sit in a two-column
+   grid from the small breakpoint up, so the card stays shorter than the copy
+   beside it and the hero's height keeps being set by the left column.
+
+   Elevation is two soft layers rather than one hard shadow — a single dark
+   shadow at this size reads as a drop rather than a lift, and darkens the
+   patterned hero behind the card. The gold-and-ink strip along the top is the
+   existing `.ni-stripe`, reused rather than reinvented.
+
+   Both themes are carried by the tokens, so nothing here paints a literal
+   colour that would only work in one of them. */
+
+.ni-works {
+  box-shadow:
+    0 18px 45px color-mix(in srgb, var(--ni-ink) 12%, transparent),
+    0 4px 14px color-mix(in srgb, var(--ni-ink) 8%, transparent);
+}
+
+.ni-works__body { padding: 1.25rem 1.35rem 1.4rem; }
+@media (min-width: 640px) { .ni-works__body { padding: 1.5rem 1.6rem 1.65rem; } }
+
+.ni-works__title {
+  font-family: var(--ni-font-display, inherit);
+  font-size: 1.35rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--ni-ink);
+  padding-bottom: .9rem;
+  border-bottom: 1px solid var(--ni-sage);
+}
+
+.ni-works__grid {
+  display: grid;
+  gap: 0;
+  margin-top: .25rem;
+}
+@media (min-width: 560px) {
+  .ni-works__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 1.4rem; }
+}
+
+/* Hairlines between steps rather than around them: a divider under every step
+   except the last in its column, and one down the middle of the two columns. */
+.ni-works__step {
+  display: flex;
+  gap: .7rem;
+  padding: .85rem 0;
+  border-bottom: 1px solid var(--ni-sage);
+}
+.ni-works__step:last-child { border-bottom: 0; padding-bottom: 0; }
+@media (min-width: 560px) {
+  .ni-works__step:nth-last-child(-n+2) { border-bottom: 0; padding-bottom: 0; }
+  .ni-works__step:nth-child(odd) {
+    padding-inline-end: 1.4rem;
+    border-inline-end: 1px solid var(--ni-sage);
+    margin-inline-end: -.7rem;
+  }
+}
+
+.ni-works__num {
+  flex: none;
+  margin-top: .1rem;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ni-gold-ink);
+}
+
+.ni-works__step-title {
+  font-size: .88rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--ni-ink);
+}
+
+.ni-works__step-copy {
+  margin-top: .2rem;
+  font-size: .78rem;
+  line-height: 1.55;
+  color: var(--ni-muted);
+}
+
+/* ---- Named states, for the vocabulary the brand system asks for -----------
+
+   These are aliases, not a second palette. Every one resolves to a token that
+   already existed and is already in use across the app, so adding them changes
+   no rendered colour — it gives the same values the names a component author
+   would reach for, and gives the gold fill the hover/active/border steps it was
+   missing. Declared per theme through the tokens they point at, so both themes
+   follow automatically. */
+
+:root {
+  /* The gold fill and its interaction steps. */
+  --brand-gold: var(--ni-gold);
+  --brand-gold-soft: var(--ni-gold-soft);
+  --brand-gold-strong: var(--ni-gold-ink);
+  --brand-gold-hover: var(--ni-gold-hover);
+  --brand-gold-border: var(--ni-gold-border);
+
+  /* Surfaces and text, under the names the brief uses. */
+  --page-background: var(--ni-bg);
+  --surface: var(--ni-paper);
+  --surface-elevated: var(--ni-field);
+  --text-primary: var(--ni-ink);
+  --text-secondary: var(--ni-muted);
+  --text-muted: var(--ni-muted-soft);
+
+  /* Lines. `--border` is already defined above as var(--ni-sage) and is read
+     by `border-border`; it is NOT redeclared here, so it keeps that value. */
+  --divider: var(--ni-sage);
+
+  /* Form controls. */
+  --input-background: var(--ni-field);
+  --input-border: var(--ni-sage-line);
+
+  /* Actions and states. */
+  --button-background: var(--ni-gold);
+  --button-text: var(--ni-on-gold);
+  --selected-background: var(--ni-gold-soft);
+  --selected-border: var(--ni-gold);
+  --disabled-background: var(--ni-disabled-bg);
+  --disabled-text: var(--ni-disabled-text);
+
+  --focus-ring: var(--ni-focus);
+  --shadow: var(--ni-e2);
+}
+
+/* The gold hover/active/border steps themselves. Light values here, dark below,
+   because these are the only ones with no existing token to point at. */
+:root {
+  --ni-gold-hover: #A78526;
+  --ni-gold-active: #92731E;
+  --ni-gold-border: #C7A94A;
+}
+
+[data-theme="dark"] {
+  --ni-gold-hover: #D6B963;
+  --ni-gold-active: #B0913C;
+  --ni-gold-border: #9D8138;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ni-gold-hover: #D6B963;
+    --ni-gold-active: #B0913C;
+    --ni-gold-border: #9D8138;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Two-handle rate range.
+
+   Two native range inputs stacked over one drawn track, so keyboard support,
+   focus handling and assistive-technology semantics come from the platform
+   rather than from a hand-rolled widget. The inputs themselves ignore pointer
+   events; only their thumbs accept them, which lets the lower handle stay
+   reachable when both sit at the same value.
+   --------------------------------------------------------------------------- */
+.ni-range { position: relative; display: flex; align-items: center; height: 1.5rem; }
+.ni-range__track { position: absolute; inset-inline: 0; height: 6px; border-radius: 999px; background: var(--ni-sage); }
+.ni-range__fill { position: absolute; height: 6px; border-radius: 999px; background: var(--ni-moss); }
+.ni-range input[type="range"] {
+  position: absolute; inset-inline: 0; width: 100%; height: 1.5rem; margin: 0;
+  background: none; pointer-events: none; -webkit-appearance: none; appearance: none;
+}
+.ni-range input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; pointer-events: auto; height: 18px; width: 18px; border-radius: 50%;
+  background: var(--ni-moss); border: 2px solid var(--ni-paper); box-shadow: var(--ni-e1); cursor: pointer;
+}
+.ni-range input[type="range"]::-moz-range-thumb {
+  pointer-events: auto; height: 18px; width: 18px; border-radius: 50%;
+  background: var(--ni-moss); border: 2px solid var(--ni-paper); cursor: pointer;
+}
+.ni-range input[type="range"]:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--ni-moss); outline-offset: 2px; }
+.ni-range input[type="range"]:focus-visible::-moz-range-thumb { outline: 2px solid var(--ni-moss); outline-offset: 2px; }

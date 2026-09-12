@@ -14,9 +14,14 @@ describe("public instructor profile boundary", () => {
     expect(router).toContain("instructorBySlug: publicProcedure");
   });
 
-  it("keeps private profile data and messaging setup-needed", () => {
+  it("keeps private profile data private and messaging behind the relationship gate", () => {
     expect(source).toContain('t("tutorDetail.trustCopy")');
-    expect(source).toContain('t("messaging.setupNeeded")');
+    // This used to assert the disabled `messaging.setupNeeded` button. That placeholder existed
+    // only because nothing could open a thread; it is now the real action, which is a stronger
+    // guarantee than a dead control: startConversation refuses two accounts with no trial,
+    // booking, requirement response or enrolment between them.
+    expect(source).toContain('<MessageAction counterpartId={profile.user_id} tone="standard"/>');
+    expect(source).not.toContain('t("messaging.setupNeeded")');
     expect(source).toContain('t("common.loading")');
     const profileBody = source.slice(source.indexOf("export function PublicInstructorProfile"));
     expect(profileBody).not.toContain("publicCredentialsSummary");

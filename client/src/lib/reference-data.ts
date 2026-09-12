@@ -1,3 +1,8 @@
+/* The surah index lives in its own file because it is 114 rows, but it belongs
+   to the same reference layer as countries, languages and subjects. It carries
+   names and ayah counts only — never Quran text. */
+export { surahs, surahOptions, surahByNumber, surahReference, ayahCount, type Surah } from "./surah-index";
+
 /**
  * Shared reference lists for profile forms — one source for tutor and learner alike.
  *

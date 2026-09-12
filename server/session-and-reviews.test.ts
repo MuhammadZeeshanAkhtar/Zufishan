@@ -70,7 +70,11 @@ describe("reviews rest on a completed session, which now exists", () => {
   });
 
   it("computes the average from the rows themselves, so it cannot drift", () => {
-    expect(reviews).toContain("const average = rated.length ?");
+    // The arithmetic moved into `averageOf` when reviewsAboutMe needed it too; the guarantee is
+    // unchanged and now shared — the mean comes from the rows just returned, never a stored column.
+    expect(reviews).toContain("const rated = rows.map((row) => row.rating).filter((rating): rating is number => typeof rating === \"number\");");
+    expect(reviews).toContain("return rated.length ? Math.round((rated.reduce((sum, n) => sum + n, 0) / rated.length) * 10) / 10 : null;");
+    expect(reviews).toContain("average: averageOf(rows)");
     expect(reviews).not.toMatch(/average_rating|rating_cache/);
   });
 

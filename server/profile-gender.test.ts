@@ -61,7 +61,8 @@ describe("both roles save and reload gender through the same column", () => {
   it("writes profiles.gender from the learner and the tutor procedure alike", () => {
     expect(core).toContain("...optional(input.gender, () => ({ gender: input.gender!.trim() || null }))");
     expect(core.match(/optional\(input\.gender/g)).toHaveLength(2);
-    expect(routers.match(/gender: z\.enum\(\["male", "female"\]\)\.optional\(\)/g)).toHaveLength(3);
+    // Four now: the two profile writes, the tutor search, and the Find Students filter.
+    expect(routers.match(/gender: z\.enum\(\["male", "female"\]\)\.optional\(\)/g)).toHaveLength(4);
   });
 
   it("rejects anything outside the vocabulary at the API boundary", () => {

@@ -12,57 +12,18 @@
  * The relationship check is the authorisation; the admin client is only how the write is performed,
  * the same pattern already used for notifications and audit entries.
  *
- * A relationship means one of: a trial request, a booking, an instructor's response to the learner's
- * requirement, or an enrolment in the instructor's course. Any of those means the two have already
- * met through a deliberate action by one of them.
+ * A relationship means one of: a trial the instructor ACCEPTED, a booking that stands, a requirement
+ * response the learner ACCEPTED, or an active enrolment in the instructor's course. The statuses are
+ * the point — see connection-eligibility.ts, which owns them. A request that is merely pending, or
+ * one that was refused, is not a relationship and does not open a thread.
  */
 import { getSupabaseAdminClient } from "./supabase-admin-client";
 import type { SupabaseIdentity } from "./supabase-auth";
+// One implementation of "are these two connected", shared with the eligibility
+// query the screens use, so the button and the write can never disagree.
+import { relationshipExists } from "./connection-eligibility";
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string; code?: "FORBIDDEN" | "NOT_FOUND" | "SETUP_NEEDED" };
-
-/** Every way two accounts can already be connected. Any one of them permits a thread. */
-async function relationshipExists(
-  admin: ReturnType<typeof getSupabaseAdminClient>,
-  a: string,
-  b: string,
-): Promise<boolean> {
-  if (!admin) return false;
-  const pair = [a, b];
-
-  // Trials and bookings both name a learner and an instructor directly.
-  for (const table of ["trial_requests", "bookings"] as const) {
-    const { data } = await admin
-      .from(table).select("id").in("learner_id", pair).in("instructor_id", pair).limit(1);
-    if ((data ?? []).length) return true;
-  }
-
-  // An instructor who answered this learner's requirement.
-  const { data: responses } = await admin
-    .from("requirement_responses")
-    .select("id, instructor_id, learner_requirements!inner(learner_id)")
-    .in("instructor_id", pair)
-    .limit(50);
-  for (const row of responses ?? []) {
-    const learner = String(((row as Record<string, unknown>).learner_requirements as Record<string, unknown> | undefined)?.learner_id ?? "");
-    const instructor = String((row as { instructor_id: string }).instructor_id);
-    if (pair.includes(learner) && pair.includes(instructor) && learner !== instructor) return true;
-  }
-
-  // A learner enrolled in a course this instructor owns.
-  const { data: enrolments } = await admin
-    .from("enrolments")
-    .select("id, learner_id, courses!inner(instructor_id)")
-    .in("learner_id", pair)
-    .limit(50);
-  for (const row of enrolments ?? []) {
-    const learner = String((row as { learner_id: string }).learner_id);
-    const instructor = String(((row as Record<string, unknown>).courses as Record<string, unknown> | undefined)?.instructor_id ?? "");
-    if (pair.includes(learner) && pair.includes(instructor) && learner !== instructor) return true;
-  }
-
-  return false;
-}
 
 /** An existing two-party thread between exactly these accounts, if there is one. */
 async function findExistingThread(

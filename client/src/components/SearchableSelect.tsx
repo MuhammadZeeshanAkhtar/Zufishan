@@ -12,7 +12,7 @@ import { Check, ChevronDown, X } from "lucide-react";
 import { useLocale } from "../contexts/LocaleContextState";
 import type { Option } from "../lib/reference-data";
 
-const field = "w-full rounded-xl border border-[var(--ni-sage-line)] bg-[var(--ni-field)] px-4 py-2.5 text-sm text-[var(--ni-ink)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]";
+const field = "w-full rounded-xl border border-[var(--ni-sage-line)] bg-[var(--ni-field)] px-4 py-2.5 text-sm ni-t-ink outline-none focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]";
 
 function useFiltered(options: Option[], query: string) {
   return useMemo(() => {
@@ -70,11 +70,11 @@ export function SearchableSelect({ options, value, onChange, placeholder, id, re
           }}
           className={`${field} pe-9`}
         />
-        <ChevronDown size={16} aria-hidden="true" className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-[var(--ni-muted-soft)]" />
+        <ChevronDown size={16} aria-hidden="true" className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 ni-t-muted-soft" />
       </div>
       {open && (
         <ul id={listId} role="listbox" className="absolute z-40 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-[var(--ni-sage)] bg-[var(--ni-paper)] py-1 shadow-xl">
-          {filtered.length === 0 && <li className="px-4 py-2.5 text-sm text-[var(--ni-muted-soft)]">{t("reference.noMatches")}</li>}
+          {filtered.length === 0 && <li className="px-4 py-2.5 text-sm ni-t-muted-soft">{t("reference.noMatches")}</li>}
           {filtered.map((option, index) => (
             <li key={option.value} role="option" aria-selected={option.value === value}>
               <button
@@ -82,11 +82,11 @@ export function SearchableSelect({ options, value, onChange, placeholder, id, re
                 onMouseEnter={() => setActive(index)}
                 onClick={() => choose(option.value)}
                 className={`flex w-full items-center justify-between px-4 py-2 text-start text-sm ${
-                  index === active ? "bg-[var(--ni-sage-soft)] text-[var(--ni-moss-deep)]" : "text-[var(--ni-ink)]"
+                  index === active ? "bg-[var(--ni-sage-soft)] ni-t-moss-deep" : "ni-t-ink"
                 }`}
               >
                 <span className="truncate">{option.label}</span>
-                {option.value === value && <Check size={15} className="shrink-0 text-[var(--ni-moss)]" />}
+                {option.value === value && <Check size={15} className="shrink-0 ni-t-moss" />}
               </button>
             </li>
           ))}
@@ -121,13 +121,13 @@ export function SearchableMultiSelect({ options, values, onChange, placeholder, 
         <ul className="mb-2 flex flex-wrap gap-1.5">
           {values.map((selected) => (
             <li key={selected}>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--ni-sage-soft)] py-1 pe-1 ps-2.5 text-xs font-semibold text-[var(--ni-moss-deep)]">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--ni-sage-soft)] py-1 pe-1 ps-2.5 text-xs font-semibold ni-t-moss-deep">
                 {selected}
                 <button
                   type="button"
                   onClick={() => onChange(values.filter((v) => v !== selected))}
                   aria-label={`${t("reference.remove")} ${selected}`}
-                  className="rounded-full p-0.5 text-[var(--ni-sage-ink)] outline-none hover:bg-[var(--ni-sage)] focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]"
+                  className="rounded-full p-0.5 ni-t-sage-ink outline-none hover:bg-[var(--ni-sage)] focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]"
                 >
                   <X size={12} />
                 </button>
@@ -150,11 +150,11 @@ export function SearchableMultiSelect({ options, values, onChange, placeholder, 
           onKeyDown={(event) => { if (event.key === "Escape") { setOpen(false); setQuery(""); } }}
           className={`${field} pe-9`}
         />
-        <ChevronDown size={16} aria-hidden="true" className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-[var(--ni-muted-soft)]" />
+        <ChevronDown size={16} aria-hidden="true" className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 ni-t-muted-soft" />
       </div>
       {open && (
         <ul id={listId} role="listbox" aria-multiselectable="true" className="absolute z-40 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-[var(--ni-sage)] bg-[var(--ni-paper)] py-1 shadow-xl">
-          {filtered.length === 0 && <li className="px-4 py-2.5 text-sm text-[var(--ni-muted-soft)]">{t("reference.noMatches")}</li>}
+          {filtered.length === 0 && <li className="px-4 py-2.5 text-sm ni-t-muted-soft">{t("reference.noMatches")}</li>}
           {filtered.map((option) => {
             const selected = values.includes(option.value);
             return (
@@ -163,10 +163,10 @@ export function SearchableMultiSelect({ options, values, onChange, placeholder, 
                   type="button"
                   onClick={() => toggle(option.value)}
                   disabled={!selected && values.length >= max}
-                  className="flex w-full items-center justify-between px-4 py-2 text-start text-sm text-[var(--ni-ink)] hover:bg-[var(--ni-sage-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex w-full items-center justify-between px-4 py-2 text-start text-sm ni-t-ink hover:bg-[var(--ni-sage-soft)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <span className="truncate">{option.label}</span>
-                  {selected && <Check size={15} className="shrink-0 text-[var(--ni-moss)]" />}
+                  {selected && <Check size={15} className="shrink-0 ni-t-moss" />}
                 </button>
               </li>
             );

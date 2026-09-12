@@ -6,21 +6,32 @@ import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
 import { supabaseClient } from "./lib/supabase-client";
-import { startLogin } from "./const";
+import { goToSignIn } from "./const";
+import { assertJsonResponse } from "./lib/api-response";
+import { bootTheme } from "./lib/theme";
 import "./index.css";
 import { startHeaderScrollState, startRevealOnScroll } from "./lib/reveal-on-scroll";
 
 const queryClient = new QueryClient();
 
+/**
+ * Sends an unauthorised caller to sign in.
+ *
+ * This used to call `startLogin()`, which built the Manus OAuth portal URL
+ * unconditionally. That portal is not configured in this app — Supabase is the
+ * authentication provider — so the URL was constructed from the literal string
+ * "undefined" and threw. Because this runs from a react-query cache subscriber,
+ * the throw escaped into whatever screen had just made a request, and an expired
+ * token in the Course Builder read as "Failed to construct 'URL': Invalid URL".
+ *
+ * It now navigates to `/login`, which is the route this app actually has, and
+ * cannot throw: every URL it touches goes through the safe-url layer.
+ */
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;
   if (typeof window === "undefined") return;
-
-  const isUnauthorized = error.message === UNAUTHED_ERR_MSG;
-
-  if (!isUnauthorized) return;
-
-  startLogin();
+  if (error.message !== UNAUTHED_ERR_MSG) return;
+  goToSignIn();
 };
 
 queryClient.getQueryCache().subscribe(event => {
@@ -71,15 +82,23 @@ const trpcClient = trpc.createClient({
         }
         return {};
       },
-      fetch(input, init) {
-        return globalThis.fetch(input, {
+      // One guard for every procedure. A reply that is not JSON — an SPA fallback, a proxy error
+      // page, a login redirect — is turned into a readable failure here rather than reaching
+      // JSON.parse and surfacing as `Unexpected token '<'` with no route and no status.
+      async fetch(input, init) {
+        const response = await globalThis.fetch(input, {
           ...(init ?? {}),
           credentials: "include",
         });
+        return assertJsonResponse(response, input);
       },
     }),
   ],
 });
+
+// Before the first paint: otherwise the page renders light and corrects itself,
+// which is a flash seen worst by exactly the people who chose dark.
+bootTheme();
 
 // Presentation only: scroll reveal and the header glass state. Neither touches data,
 // routing or state, and both no-op under prefers-reduced-motion.
