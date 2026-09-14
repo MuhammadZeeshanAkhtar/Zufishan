@@ -40,3 +40,27 @@ describe("the invite is named as one", () => {
     expect(catalog).not.toContain('"tutorDetail.requestTrial": "Request a trial"');
   });
 });
+
+describe("each side sees what is waiting on them", () => {
+  it("splits the list by who must act next, not by status alone", () => {
+    // A trial the learner just sent is the instructor's to answer; a time the instructor
+    // proposed is the learner's to confirm. The two sides are deliberately different.
+    expect(scheduling).toContain('const awaitingStatuses = instructor ? ["pending", "requested"] : ["proposed", "proposed_new_time"];');
+    expect(scheduling).toContain("const awaiting = items.filter");
+    expect(scheduling).toContain("const settled = items.filter");
+    // Waiting items lead the list rather than being scattered through it.
+    expect(scheduling).toContain("[...awaiting, ...settled].map");
+  });
+
+  it("counts them where the teacher will see it", () => {
+    expect(scheduling).toContain("waiting for your answer");
+    expect(scheduling).toContain("waiting for you to confirm");
+  });
+
+  it("says what accepting did, and offers the thread it opened", () => {
+    expect(scheduling).toContain("Invite accepted. The lesson is booked, and your message thread with this learner is now open.");
+    expect(scheduling).toContain('feedback.startsWith("Invite accepted")');
+    // The old wording described the server's internals to a teacher.
+    expect(scheduling).not.toContain("the server created the next scheduling state");
+  });
+});
