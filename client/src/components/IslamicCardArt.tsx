@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 /**
  * The homepage card artwork: an Islamic composition, drawn rather than photographed.
  *
@@ -17,6 +19,56 @@
  * anything: the drawing is composed with its subject central and its margins expendable,
  * so a slice at the edges never cuts the arch, the crescent or the dome.
  */
+
+/**
+ * The homepage card's image.
+ *
+ * **Drop a file at `client/public/brand/noor-ilm-home-card.jpg` and it appears.** No code
+ * change is needed; until the file exists the card shows the drawing below instead of a
+ * blank frame.
+ *
+ * The dev server answers a missing asset with `200` and the SPA's index.html rather than
+ * a 404, so the element receives HTML — but HTML does not decode as an image, and the
+ * browser fires `error` regardless of the status code. That was measured against both a
+ * missing and a real asset before relying on it. `naturalWidth === 0` on load is checked
+ * too, for any host that manages to return a decodable-but-empty response.
+ *
+ * One file serves both themes: the gold border and per-theme shadow live on `.ni-works`,
+ * so the photograph itself needs no light/dark variant.
+ */
+/**
+ * Candidates, tried in order. Saving the file under any of these names works, so the
+ * card does not depend on getting the extension right — `.png` from a browser's "Save
+ * image as" is as good as `.jpg`.
+ */
+const PHOTOS = [
+  "/brand/noor-ilm-home-card.jpg",
+  "/brand/noor-ilm-home-card.jpeg",
+  "/brand/noor-ilm-home-card.png",
+  "/brand/noor-ilm-home-card.webp",
+];
+
+export function IslamicCardImage() {
+  const [index, setIndex] = useState(0);
+  // Past the end of the list means no file is present under any name.
+  if (index >= PHOTOS.length) return <IslamicCardArt />;
+
+  const advance = () => setIndex((current) => current + 1);
+  return (
+    <img
+      key={PHOTOS[index]}
+      src={PHOTOS[index]}
+      alt=""
+      decoding="async"
+      onError={advance}
+      onLoad={(event) => { if (event.currentTarget.naturalWidth === 0) advance(); }}
+      // `cover` fills the card at every width. The composition is centred, so a crop
+      // only ever takes the outer edges — the mosque, crescent and Quran stay whole.
+      className="h-full w-full object-cover"
+    />
+  );
+}
+
 export default function IslamicCardArt() {
   return (
     <svg

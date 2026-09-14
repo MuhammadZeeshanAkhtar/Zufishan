@@ -30,6 +30,12 @@ export function TrialDetail({ id, instructor = false }: { id: string; instructor
   const declineTrial = trpc.scheduling.declineTrial.useMutation();
   const confirmTime = trpc.scheduling.confirmTime.useMutation();
   const cancelTrial = trpc.scheduling.cancel.useMutation();
+  // The server has accepted a proposed time since scheduling was built; the button that
+  // reaches it was left disabled, so a teacher could only accept or decline. These two
+  // fields are the input it was waiting for.
+  const proposeTime = trpc.scheduling.proposeTime.useMutation();
+  const [proposedDate, setProposedDate] = useState("");
+  const [proposedTime, setProposedTime] = useState("");
   const [feedback, setFeedback] = useState("");
   const [reason, setReason] = useState("");
   const [confirmed, setConfirmed] = useState(false);
@@ -49,6 +55,41 @@ export function TrialDetail({ id, instructor = false }: { id: string; instructor
       retrying={detailQuery.isFetching}
     />
   </main></Shell>;
+  /**
+   * Offers the learner a different slot.
+   *
+   * The two inputs are read in the BROWSER's timezone and sent as a real offset timestamp,
+   * with that timezone named alongside — the learner's screen then shows it in theirs. The
+   * duration carries over from what the learner originally asked for, so proposing a new
+   * time moves the lesson without silently resizing it.
+   */
+  const propose = async () => {
+    setFeedback("");
+    const start = new Date(`${proposedDate}T${proposedTime}`);
+    if (Number.isNaN(start.getTime())) { setFeedback("Choose a valid date and time."); return; }
+    if (start <= new Date()) { setFeedback("Choose a time in the future."); return; }
+
+    const request = detailQuery.data?.ok ? (detailQuery.data.data as { requested_start_at?: string; requested_end_at?: string }) : null;
+    const spanMs = request?.requested_start_at && request?.requested_end_at
+      ? new Date(request.requested_end_at).getTime() - new Date(request.requested_start_at).getTime()
+      : 30 * 60_000;
+    const end = new Date(start.getTime() + (spanMs > 0 ? spanMs : 30 * 60_000));
+
+    try {
+      const result = await proposeTime.mutateAsync({
+        requestId: id,
+        startAt: start.toISOString(),
+        endAt: end.toISOString(),
+        instructorTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+      });
+      if (!result.ok) { setFeedback(result.error); return; }
+      setFeedback("New time proposed. The learner has been notified and can confirm it.");
+      await detailQuery.refetch();
+    } catch {
+      setFeedback("That time could not be proposed. Please try again.");
+    }
+  };
+
   const respond = async (action: "accept" | "reject") => { try { const result = action === "accept" ? await acceptTrial.mutateAsync({ requestId: id }) : await declineTrial.mutateAsync({ requestId: id, reason }); if (!result.ok) { setFeedback(result.error); return; } setFeedback(action === "accept" ? "Trial accepted and the server created the next scheduling state." : "Trial declined and the reason was recorded."); await detailQuery.refetch(); } catch { setFeedback("The scheduling service could not complete this action."); } };
   const safetyAction = async (action: "cancel" | "no-show" | "report") => { if (!reason || !confirmed) { setFeedback("Choose a reason and confirm this action before continuing."); return; } if (action === "report") { setFeedback("Reporting is not connected for this request. No report was created."); return; } try { const result = await cancelTrial.mutateAsync({ id, reason: `${action}: ${reason}` }); if (!result.ok) { setFeedback(result.error); return; } setFeedback("The cancellation was recorded by the scheduling service."); await detailQuery.refetch(); } catch { setFeedback("The scheduling service could not complete this action."); } };
   return <Shell eyebrow={instructor ? "Request detail" : "Trial detail"}><main className="mx-auto max-w-4xl px-5 py-12 lg:px-8 lg:py-16">
@@ -58,7 +99,7 @@ export function TrialDetail({ id, instructor = false }: { id: string; instructor
     <div className="mt-8"><Status status={request.status}/></div>
     <div className="mt-5"><TimeBlock start={request.proposedStartAt || request.requestedStartAt} end={request.proposedEndAt || request.requestedEndAt} learnerTimezone={request.learnerTimezone} instructorTimezone={request.instructorTimezone}/></div>
     <div className="mt-5 grid gap-5 sm:grid-cols-2"><Card><p className="text-xs font-bold uppercase tracking-[.16em] ni-t-gold">Learning context</p><p className="mt-3 text-sm leading-7 ni-t-muted">{request.learningGoal}<br/>{request.learnerMessage}</p></Card><Card><p className="text-xs font-bold uppercase tracking-[.16em] ni-t-gold">Timeline</p><p className="mt-3 text-sm leading-7 ni-t-muted">This timeline is loaded from the protected scheduling record.</p></Card></div>
-    <div className="mt-7 flex flex-wrap gap-3">{instructor ? <><button onClick={() => void respond("accept")} className="rounded-full bg-[var(--ni-moss)] px-5 py-3 text-sm font-bold text-white">Accept</button><button disabled className="rounded-full border border-[var(--ni-sage-mid)] px-5 py-3 text-sm font-bold ni-t-muted">Propose new time requires input</button><button onClick={() => { if (!reason || !confirmed) setFeedback("Choose a reason and confirm before rejecting."); else void respond("reject"); }} className="rounded-full bg-[var(--ni-clay-soft)] px-5 py-3 text-sm font-bold ni-t-clay">Reject</button></> : <><button onClick={() => void confirmTime.mutateAsync({ requestId: id }).then((result) => setFeedback(result.ok ? "Proposed time confirmed by the scheduling service." : result.error))} className="rounded-full bg-[var(--ni-moss)] px-5 py-3 text-sm font-bold text-white">Accept proposed time</button><button disabled className="rounded-full bg-[var(--ni-sage-soft)] px-5 py-3 text-sm font-bold ni-t-muted">Decline requires a reason</button></>}</div>
+    <div className="mt-7 flex flex-wrap gap-3">{instructor ? <><button onClick={() => void respond("accept")} className="rounded-full bg-[var(--ni-moss)] px-5 py-3 text-sm font-bold text-white">Accept</button><span className="inline-flex flex-wrap items-center gap-2"><input type="date" aria-label="Proposed date" value={proposedDate} onChange={(e) => setProposedDate(e.target.value)} className="rounded-xl border border-[var(--ni-sage-line)] bg-[var(--ni-field)] px-3 py-2 text-sm"/><input type="time" aria-label="Proposed time" value={proposedTime} onChange={(e) => setProposedTime(e.target.value)} className="rounded-xl border border-[var(--ni-sage-line)] bg-[var(--ni-field)] px-3 py-2 text-sm"/><button onClick={() => void propose()} disabled={!proposedDate || !proposedTime || proposeTime.isPending} className="rounded-full border border-[var(--ni-sage-mid)] px-5 py-3 text-sm font-bold ni-t-moss-deep disabled:opacity-50">{proposeTime.isPending ? "Proposing…" : "Propose new time"}</button></span><button onClick={() => { if (!reason || !confirmed) setFeedback("Choose a reason and confirm before rejecting."); else void respond("reject"); }} className="rounded-full bg-[var(--ni-clay-soft)] px-5 py-3 text-sm font-bold ni-t-clay">Reject</button></> : <><button onClick={() => void confirmTime.mutateAsync({ requestId: id }).then((result) => setFeedback(result.ok ? "Proposed time confirmed by the scheduling service." : result.error))} className="rounded-full bg-[var(--ni-moss)] px-5 py-3 text-sm font-bold text-white">Accept proposed time</button><button disabled className="rounded-full bg-[var(--ni-sage-soft)] px-5 py-3 text-sm font-bold ni-t-muted">Decline requires a reason</button></>}</div>
     {/* A trial request connects these two accounts, so a thread is permitted from here. */}
     <MessageAction counterpartId={request.counterpartId} viewerRole={instructor ? "instructor" : "learner"} subject={request.subject} tone="standard"/>
     <Card><p className="text-xs font-bold uppercase tracking-[.16em] ni-t-gold">Safety actions</p><h2 className="mt-3 font-display text-2xl ni-t-ink">Need to change or report something?</h2><select value={reason} onChange={(e) => setReason(e.target.value)} className="input mt-4 w-full"><option value="">Choose a reason</option><option value="schedule">Schedule problem</option><option value="technical">Technical issue</option><option value="missed">Missed class</option><option value="conduct">Inappropriate behaviour</option></select><label className="mt-4 flex gap-3 text-sm leading-6"><input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)}/>I understand this action is private and may require policy review.</label><div className="mt-4 flex flex-wrap gap-2"><button onClick={() => void safetyAction("cancel")} className="rounded-full bg-[var(--ni-clay-soft)] px-4 py-2 text-sm font-bold ni-t-clay">Cancel session</button><button disabled className="rounded-full border border-[var(--ni-gold-mid)] px-4 py-2 text-sm font-bold ni-t-gold">No-show requires attendance service</button><button onClick={() => void safetyAction("report")} className="rounded-full bg-[var(--ni-sage-soft)] px-4 py-2 text-sm font-bold ni-t-ink">Report / help</button></div></Card>

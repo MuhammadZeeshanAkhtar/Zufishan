@@ -2071,10 +2071,44 @@ main .group:hover img { transform: scale(1.035); filter: saturate(1.06) contrast
    Both themes are carried by the tokens, so nothing here paints a literal
    colour that would only work in one of them. */
 
+/* The homepage image card.
+ *
+ * The card holds a dark night photograph, and each theme has the opposite problem with
+ * it — so the frame and the shadow swap roles rather than just changing opacity.
+ *
+ * LIGHT: a gold outline, and a genuinely dark layered shadow. On an ivory page a pale
+ * shadow would vanish and the night image would look pasted on; the dark drop is what
+ * separates it from the paper.
+ *
+ * DARK: the outline becomes `--ni-ink`, which IS this theme's light foreground token
+ * (#F5F0E4), and the shadow becomes a light glow. A dark drop shadow on espresso is
+ * invisible by definition, so the same effect has to be made of light instead.
+ *
+ * Both are built from tokens the page already defines, and only colour changes between
+ * them — the border width, the radius and the geometry are identical, so switching theme
+ * cannot move or resize the card. */
 .ni-works {
+  border-width: 2px;
+  border-color: var(--ni-gold);
   box-shadow:
-    0 18px 45px color-mix(in srgb, var(--ni-ink) 12%, transparent),
-    0 4px 14px color-mix(in srgb, var(--ni-ink) 8%, transparent);
+    0 18px 40px color-mix(in srgb, var(--ni-ink) 34%, transparent),
+    0 6px 14px color-mix(in srgb, var(--ni-ink) 22%, transparent);
+}
+
+[data-theme="dark"] .ni-works {
+  border-color: var(--ni-ink);
+  box-shadow:
+    0 0 24px color-mix(in srgb, var(--ni-ink) 30%, transparent),
+    0 16px 38px color-mix(in srgb, var(--ni-ink) 20%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .ni-works {
+    border-color: var(--ni-ink);
+    box-shadow:
+      0 0 24px color-mix(in srgb, var(--ni-ink) 30%, transparent),
+      0 16px 38px color-mix(in srgb, var(--ni-ink) 20%, transparent);
+  }
 }
 
 .ni-works__body { padding: 1.25rem 1.35rem 1.4rem; }

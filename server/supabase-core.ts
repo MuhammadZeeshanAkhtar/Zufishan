@@ -372,9 +372,56 @@ export async function updateOwnCourse(identity: SupabaseIdentity, courseId: stri
   return safe(() => db.from("courses").update({ slug: input.slug.trim(), title: input.title.trim(), description: input.description.trim(), subject: input.subject.trim(), level: input.level.trim(), language: input.language.trim(), updated_at: new Date().toISOString() }).eq("id", courseId).eq("instructor_id", identity.id).neq("status", "published").select("*").single());
 }
 
+/**
+ * Sends one of the instructor's own courses to the review queue.
+ *
+ * The write is deliberately narrow: `instructor_id = identity.id` means an instructor can
+ * only submit their own course, and the `courses_status_guard` trigger from migration 0032
+ * independently refuses any transition to `published` by a non-reviewer — so this cannot
+ * become a way to self-publish even if the filter above were wrong.
+ *
+ * A submission nobody is told about waits forever, so every reviewer is notified.
+ */
 export async function submitOwnCourseForReview(identity: SupabaseIdentity, courseId: string) {
   const db = client(identity); if (!db) return failure("Supabase persistence unavailable.");
-  return safe(() => db.from("courses").update({ status: "in_review", updated_at: new Date().toISOString() }).eq("id", courseId).eq("instructor_id", identity.id).in("status", ["draft", "rejected"]).select("*").single());
+  const result = await safe(() => db.from("courses").update({ status: "in_review", updated_at: new Date().toISOString() }).eq("id", courseId).eq("instructor_id", identity.id).in("status", ["draft", "rejected"]).select("*").single());
+  if (result.ok) await notifyReviewersOfSubmission(courseId, (result.data as { title?: string } | null)?.title);
+  return result;
+}
+
+/**
+ * Tells the people who can act on it that a course is waiting.
+ *
+ * Recipients come from `user_roles`, not a configured address: the reviewers are whoever
+ * currently holds an administrating role, so a change of staff needs no change here. The
+ * ADMIN_EMAIL rule guarding the admin desk is untouched — this decides only who RECEIVES a
+ * notification, never who may approve.
+ *
+ * `notifyUser` upserts on `(user_id, idempotency_key)` and the key carries the course id,
+ * so pressing Publish twice does not produce two notifications. Failure is logged and
+ * swallowed: the course has already been submitted, and a lost notification must not be
+ * reported to the instructor as a failed submission.
+ */
+async function notifyReviewersOfSubmission(courseId: string, title?: string) {
+  const admin = getSupabaseAdminClient();
+  if (!admin) return;
+
+  const { data, error } = await admin.from("user_roles").select("user_id").in("role", ["admin", "super_admin", "moderator"]);
+  if (error) {
+    console.error("[supabase-core] reviewer lookup failed:", { code: error.code, message: error.message });
+    return;
+  }
+
+  const reviewers = Array.from(new Set((data ?? []).map((row) => String((row as { user_id: string }).user_id))));
+  await Promise.all(reviewers.map((reviewer) => notifyUser(
+    reviewer,
+    "course_submitted_for_review",
+    "A course is waiting for review",
+    `${title?.trim() || "A course"} has been submitted and is waiting for a decision.`,
+    "course",
+    courseId,
+    `course-review-${courseId}`,
+  )));
 }
 
 export async function createCourseModule(identity: SupabaseIdentity, input: { courseId: string; title: string; description?: string; sortOrder: number }) {

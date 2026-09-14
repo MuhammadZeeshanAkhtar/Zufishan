@@ -163,7 +163,52 @@ export async function setSessionStatus(
     if (error) console.error("[class-session] status write failed:", { code: error.code, message: error.message });
     return { ok: false, error: "This session changed and must be refreshed.", code: "CONFLICT" };
   }
+
+  await settleBookingWithSession(db, updated as SessionRow, input.status);
   return { ok: true, data: updated as SessionRow };
+}
+
+/**
+ * Carries a session's ending back onto the booking it belongs to.
+ *
+ * THE GAP THIS CLOSES. Ending a session wrote `class_sessions` and stopped there, so the
+ * booking behind it stayed `confirmed` for ever — a lesson that had finished still read as
+ * upcoming on both dashboards, and nothing keyed on a completed BOOKING could ever fire.
+ * Reviews were unaffected, because their eligibility policy reads the session, which is why
+ * the gap stayed invisible.
+ *
+ * Only terminal states are mirrored: `waiting_room` and `live` are moments inside a
+ * confirmed booking, not new outcomes for it.
+ *
+ * Deliberately not fatal. The session HAS ended by this point and the caller was told so;
+ * failing here would report a completed lesson as a failed one. A mismatch is logged
+ * instead, and the session remains the record of what happened.
+ */
+const BOOKING_OUTCOME: Partial<Record<SessionStatus, string>> = {
+  completed: "completed",
+  no_show: "no_show",
+  cancelled: "cancelled",
+};
+
+async function settleBookingWithSession(
+  db: NonNullable<ReturnType<typeof getSupabaseUserClient>>,
+  session: SessionRow,
+  status: SessionStatus,
+) {
+  const outcome = BOOKING_OUTCOME[status];
+  const bookingId = (session as { booking_id?: string | null }).booking_id;
+  if (!outcome || !bookingId) return;
+
+  // `confirmed` only: a booking already cancelled or disputed keeps the decision that was
+  // made about it rather than being overwritten by the room closing.
+  const { error } = await db
+    .from("bookings")
+    .update({ status: outcome, updated_at: new Date().toISOString() })
+    .eq("id", bookingId)
+    .eq("status", "confirmed");
+  if (error) {
+    console.error("[class-session] booking settle failed:", { code: error.code, message: error.message, outcome });
+  }
 }
 
 /**

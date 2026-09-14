@@ -32,7 +32,20 @@ import {
 } from "./admin-guard";
 
 export const COURSE_STATUSES = ["draft", "in_review", "published", "rejected", "archived"] as const;
-export const COURSE_FILTERS = ["all", ...COURSE_STATUSES] as const;
+
+/**
+ * The statuses an administrator's course desk deals with.
+ *
+ * `draft` is deliberately absent. A draft is the instructor's own unfinished work: it has
+ * not been submitted to anyone, and listing it here put every half-written course into the
+ * review queue, where it looked like something awaiting a decision. Work reaches this desk
+ * when the instructor submits it, and not before.
+ *
+ * `COURSE_STATUSES` still names all five, because that is the column's vocabulary — this
+ * list is only about what a reviewer is shown.
+ */
+export const REVIEWABLE_COURSE_STATUSES = ["in_review", "published", "rejected", "archived"] as const;
+export const COURSE_FILTERS = ["all", ...REVIEWABLE_COURSE_STATUSES] as const;
 export type CourseFilter = (typeof COURSE_FILTERS)[number];
 
 export const COURSE_ACTIONS = ["publish", "reject", "request_changes", "unpublish", "restore"] as const;
@@ -114,6 +127,9 @@ export async function listCourses(
     .from("courses")
     .select("id,slug,title,subject,level,language,status,instructor_id,updated_at,profiles:instructor_id(display_name,full_name)", { count: "exact" });
 
+  // Never a draft, on any filter: `all` means all of the reviewable statuses, not the
+  // instructor's unsubmitted work.
+  query = query.in("status", [...REVIEWABLE_COURSE_STATUSES]);
   if (input.status && input.status !== "all") query = query.eq("status", input.status);
   if (search) query = query.or(`title.ilike.${likeTerm(search)},slug.ilike.${likeTerm(search)},subject.ilike.${likeTerm(search)}`);
 
@@ -278,6 +294,14 @@ export async function decideCourse(
 
   const transition = TRANSITIONS[input.action];
   if (!transition) return invalid("Unknown course action.");
+
+  // A draft was never submitted, so there is nothing here to decide. Refusing it closes
+  // the direct-call route as well as the listing: hiding a row is presentation, and a
+  // reviewer must not be able to publish work its author has not handed over.
+  const { data: current } = await admin.from("courses").select("status").eq("id", input.courseId).maybeSingle();
+  if (current && String((current as { status: string }).status) === "draft") {
+    return invalid("That course has not been submitted for review yet.");
+  }
 
   // Publish and reject already have a hardened implementation, including the
   // concurrent-decision guard. Reuse it rather than writing a second one.

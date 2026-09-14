@@ -26,7 +26,7 @@ import { useLocale } from "../contexts/LocaleContextState";
 import ResultState from "./ResultState";
 import InstructorCard, { type DiscoveryInstructor } from "./InstructorCard";
 import { AITutorSection, BlogSection, ContactSection, HowItWorksSection } from "./HomeSections";
-import IslamicCardArt from "./IslamicCardArt";
+import { IslamicCardImage } from "./IslamicCardArt";
 import { resultError, resultState } from "../lib/result-state";
 import { useOnlineStatus } from "../lib/use-online-status";
 import { useGsapReveal } from "../lib/use-gsap-reveal";
@@ -165,8 +165,8 @@ export default function HomeExperience() {
               below the image. The 3:2 box keeps it landscape and stops it driving the
               hero's height, which is still set by the copy column on the left. */}
           <aside data-anim="intro" className="ni-ed-card ni-works overflow-hidden">
-            <div className="aspect-[3/2] w-full">
-              <IslamicCardArt />
+            <div className="aspect-[4/3] w-full sm:aspect-[3/2] lg:aspect-[4/3]">
+              <IslamicCardImage />
             </div>
           </aside>
         </div>
