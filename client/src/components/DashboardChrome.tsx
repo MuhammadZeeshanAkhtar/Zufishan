@@ -80,7 +80,9 @@ export default function DashboardChrome({ children }: { children: ReactNode }) {
           collapsed={collapsed}
           mobileOpen={mobileOpen}
           onCloseMobile={() => setMobileOpen(false)}
-          deskLabel={`${role} desk`}
+          // "instructor desk" was assembled from the role id, so it stayed English whatever the
+          // reader had chosen. One key per role instead.
+          deskLabel={t(role === "learner" ? "nav.desk.learner" : role === "instructor" ? "nav.desk.instructor" : "nav.desk.admin")}
         />
         <div className="dashboard-main flex min-w-0 flex-1 flex-col">
           <OfflineBanner />

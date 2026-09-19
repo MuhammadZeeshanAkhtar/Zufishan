@@ -11,12 +11,14 @@
  * server returned, and a fact with no value is dropped rather than rendered blank,
  * so a new instructor shows a short strip instead of a row of dashes and zeroes.
  *
- * There is no presence indicator here, because Noor Ilm records no presence.
+ * There is no presence indicator here, because Zufishan records no presence.
  * `lastActiveAt` is the last time the instructor joined a class, not a login and
  * not an online state.
  */
 import { Star } from "lucide-react";
 import { useLocale } from "../contexts/LocaleContextState";
+import { PRICING_BASE_CURRENCY, creditsPerHour } from "../lib/pricing-config";
+import type { CurrencyCode } from "../lib/relationship-ops-data";
 
 export type DiscoveryInstructor = {
   user_id?: string;
@@ -86,6 +88,24 @@ export function useRelativeTime(iso: string | null | undefined): string | null {
   return format.format(Math.round(seconds), "second");
 }
 
+/**
+ * One teacher rate, formatted once for the whole site.
+ *
+ * Four surfaces used to format this themselves and none of them agreed: the discovery card said
+ * "7 USD", the tutor listing said "7.00 USD", checkout said "$7.00" and the Pricing page said
+ * "USD 7.00" — one teacher, one rate, four spellings. They all come through here now, and the
+ * credits half is computed by `creditsPerHour` in `pricing-config`, which is where the credit rule
+ * is written down.
+ *
+ * Returns null when there is no rate to show, so a caller renders nothing rather than a zero.
+ */
+export function useHourlyRate(rateMinor: number | null | undefined, currency: string | null | undefined) {
+  const { formatCurrency } = useLocale();
+  if (typeof rateMinor !== "number" || !Number.isFinite(rateMinor)) return null;
+  const code = (currency || PRICING_BASE_CURRENCY) as CurrencyCode;
+  return { money: formatCurrency(rateMinor, code), credits: creditsPerHour(rateMinor, currency) };
+}
+
 export function Chip({ children }: { children: React.ReactNode }) {
   return (
     <span className="rounded-[5px] border border-[var(--ni-sage-line)] bg-[var(--ni-field)] px-2 py-0.5 text-xs ni-t-ink">
@@ -146,7 +166,7 @@ export type InstructorFact = { label: string; value: React.ReactNode; unit?: str
 
 /**
  * The bottom strip, in the reference's order: rate, sessions, activity, learners,
- * time zone, sect — then the two facts Noor Ilm carries that the reference does not.
+ * time zone, sect — then the two facts Zufishan carries that the reference does not.
  *
  * A zero count is treated as "nothing to say yet" rather than as a fact worth a cell:
  * an instructor who has taught no classes shows no Conducted figure instead of a
@@ -155,14 +175,15 @@ export type InstructorFact = { label: string; value: React.ReactNode; unit?: str
 export function useInstructorFacts(instructor: DiscoveryInstructor): InstructorFact[] {
   const { t, formatNumber } = useLocale();
   const lastActive = useRelativeTime(instructor.lastActiveAt);
-
-  const rate =
-    typeof instructor.hourly_rate_minor === "number"
-      ? `${formatNumber(instructor.hourly_rate_minor / 100)} ${instructor.currency || ""}`.trim()
-      : null;
+  const rate = useHourlyRate(instructor.hourly_rate_minor, instructor.currency);
 
   const facts: InstructorFact[] = [];
-  if (rate) facts.push({ label: t("marketplace.hourlyRate"), value: <span className="ltr-embed">{rate}</span> });
+  if (rate) facts.push({ label: t("marketplace.hourlyRate"), value: <span className="ltr-embed">{rate.money}</span> });
+  // The same hour, in the unit the Pricing page sells. Shown only when the stored currency is one
+  // the rate table knows, so nothing here guesses at a conversion.
+  if (rate?.credits !== null && rate?.credits !== undefined) {
+    facts.push({ label: t("pricing.creditsPerHour"), value: <span className="ltr-embed">{formatNumber(rate.credits)}</span> });
+  }
   if (instructor.sessionsConducted) {
     facts.push({ label: t("discovery.conducted"), value: formatNumber(instructor.sessionsConducted), unit: t("discovery.sessions") });
   }

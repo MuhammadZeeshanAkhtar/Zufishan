@@ -29,7 +29,10 @@ describe("protected instructor credential contracts", () => {
   it("updates only authenticated instructor-owned profile fields", () => {
     expect(coreSource).toContain("updateOwnInstructorProfile");
     expect(coreSource).toContain('from(\"instructor_profiles\").upsert');
-    expect(coreSource).toContain("public_profile_status: input.profileVisibility === \"public\" ? \"published\" : \"draft\"");
+    // Publishing is the teacher's own act; going live is the reviewer's (0036). The one condition
+    // in front of the write is the seven answers a learner cannot choose a teacher without.
+    expect(coreSource).toContain("public_profile_status: mayPublish ? \"published\" : \"draft\"");
+    expect(coreSource).toContain("const mayPublish = input.profileVisibility === \"public\" && missingRequiredFields.length === 0;");
   });
 
   it("keeps private learner course surfaces fail-closed and writes lesson progress through Supabase", () => {

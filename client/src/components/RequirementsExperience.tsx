@@ -40,6 +40,7 @@ import { Link, useLocation } from "wouter";
 import { ArrowRight, Check, Loader2, Search, ShieldCheck } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useLocale } from "../contexts/LocaleContextState";
+import { useHasDashboardChrome } from "../lib/use-dashboard-chrome";
 import { trpc } from "../lib/trpc";
 import ResultState from "./ResultState";
 import { resultError, resultRows, resultState, type ResultState as State } from "../lib/result-state";
@@ -63,6 +64,10 @@ const field = "mt-2 w-full rounded-xl border border-[var(--ni-sage-line)] bg-[va
 
 function Layout({ children }: { children: React.ReactNode }) {
   const { t } = useLocale();
+  // Requirements is both a public page and a dashboard module. The public marketplace bar is
+  // drawn only when there is no dashboard chrome already carrying navigation.
+  const hasChrome = useHasDashboardChrome();
+  if (hasChrome) return <div className={shell}>{children}</div>;
   return (
     <div className={shell}>
       <header className="border-b border-[var(--ni-sage)] bg-[var(--ni-field)]">
@@ -355,8 +360,7 @@ export function RequirementForm() {
   return (
     <Layout>
       <main className="mx-auto max-w-3xl px-5 py-14 lg:px-8 lg:py-20">
-        <p className="ni-eyebrow">{t("requirements.post")}</p>
-        <h1 className="mt-4 font-display text-[clamp(2rem,5vw,3rem)] leading-tight">{t("requirementsExp.describePath")}</h1>
+        <h1 className="sr-only">{t("requirements.post")}</h1>
 
         <form onSubmit={submit} className={`${panel} mt-8 space-y-5`}>
           <label className="block text-sm font-bold ni-t-moss-deep">{t("catalogue.subject")}
@@ -428,8 +432,7 @@ export function RequirementEditForm({ id }: { id: string }) {
   return (
     <Layout>
       <main className="mx-auto max-w-3xl px-5 py-14 lg:px-8 lg:py-20">
-        <p className="ni-eyebrow">{t("requirementsExp.editOwner")}</p>
-        <h1 className="mt-4 font-display text-[clamp(2rem,5vw,3rem)] leading-tight">{t("requirementsExp.keepCurrent")}</h1>
+        <h1 className="sr-only">{t("requirementsExp.editOwner")}</h1>
 
         {(state !== "ready" || !item) && (
           <div className="mt-8">
@@ -514,9 +517,7 @@ export function ResponseComparison({ id }: { id: string }) {
   return (
     <Layout>
       <main className="mx-auto max-w-6xl px-5 py-14 lg:px-8 lg:py-20">
-        <p className="ni-eyebrow">{t("requirementsExp.responseDesk")}</p>
-        <h1 className="mt-4 font-display text-[clamp(2rem,5vw,3rem)] leading-tight">{t("requirementsExp.responseCompare")}</h1>
-        <p className="mt-4 max-w-[62ch] ni-t-muted">{t("requirementsExp.responseBoundary")}</p>
+        <h1 className="sr-only">{t("requirementsExp.responseDesk")}</h1>
 
         {(requirementState !== "ready" || !item) && (
           <div className="mt-8">
@@ -631,9 +632,7 @@ export function InstructorRequirementsDesk() {
   return (
     <Layout>
       <main className="mx-auto max-w-6xl px-5 py-14 lg:px-8 lg:py-20">
-        <p className="ni-eyebrow">{t("requirementsExp.instructorDesk")}</p>
-        <h1 className="mt-4 font-display text-[clamp(2rem,5vw,3rem)] leading-tight">{t("requirementsExp.instructorFind")}</h1>
-        <p className="mt-4 max-w-[62ch] ni-t-muted">{t("requirementsExp.instructorBoundary")}</p>
+        <h1 className="sr-only">{t("requirementsExp.instructorDesk")}</h1>
 
         {/* 0020 lets a signed-in instructor read published requirements, so an empty list here is
             now genuinely empty rather than a permission being misreported. */}
@@ -713,8 +712,7 @@ export function InstructorResponse({ id }: { id: string }) {
   return (
     <Layout>
       <main className="mx-auto max-w-3xl px-5 py-14 lg:px-8 lg:py-20">
-        <p className="ni-eyebrow">{t("requirementsExp.instructorResponse")}</p>
-        <h1 className="mt-4 font-display text-[clamp(2rem,5vw,3rem)] leading-tight">{t("requirementsExp.respondThoughtfully")}</h1>
+        <h1 className="sr-only">{t("requirementsExp.instructorResponse")}</h1>
 
         {(state !== "ready" || !item) && (
           <div className="mt-8">

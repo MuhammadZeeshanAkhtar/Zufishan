@@ -19,7 +19,7 @@
  *
  * The menu therefore names a subject before anyone has published a course in it. That
  * is deliberate: a learner looking for Fiqh should find the category and be told the
- * shelf is empty, rather than conclude Noor Ilm does not teach it. The menu itself
+ * shelf is empty, rather than conclude Zufishan does not teach it. The menu itself
  * makes no claim about how full the catalogue is — picking a subject opens the courses
  * page, which lists only published courses and reports an empty result for itself.
  *
@@ -46,8 +46,6 @@ import { useLocale } from "../contexts/LocaleContextState";
 export type NavLink = { label: string; href: string };
 
 /** Homepage sections the navigation scrolls to, rather than routing away to a page. */
-export const HOW_IT_WORKS_ID = "how-it-works";
-export const CONTACT_ID = "contact";
 export const AI_TUTOR_ID = "ai-tutor";
 export const BLOG_ID = "blog";
 
@@ -194,7 +192,7 @@ function PanelLink({ href, children }: { href: string; children: React.ReactNode
 }
 
 /**
- * Every subject Noor Ilm teaches, for the Our Courses panel.
+ * Every subject Zufishan teaches, for the Our Courses panel.
  *
  * The subject travels as a query parameter rather than through one of the fixed
  * `/courses/category/...` routes, because those name only eight subjects by hand
@@ -225,15 +223,6 @@ export default function SiteNav() {
     <nav aria-label={t("nav.coursesMenu")} className="hidden items-center gap-6 text-sm font-semibold lg:flex xl:gap-7">
       <Disclosure label={t("nav.ourCourses")} listLabel={t("nav.coursesMenu")}>
         {categories.map((item) => <PanelLink key={item.href} href={item.href}>{item.label}</PanelLink>)}
-        <li className="mt-1 border-t border-[var(--ni-sage)] pt-1">
-          <Link
-            href="/courses"
-            data-nav-item=""
-            className="block rounded-[.6rem] px-3 py-2 text-sm font-semibold ni-t-moss outline-none transition-colors hover:bg-[var(--ni-sage-soft)] focus-visible:bg-[var(--ni-sage-soft)] focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]"
-          >
-            {t("nav.viewAllCourses")}
-          </Link>
-        </li>
       </Disclosure>
 
       <Disclosure label={t("nav.findTeachers")} listLabel={t("nav.teachersMenu")}>
@@ -246,20 +235,19 @@ export default function SiteNav() {
         {t("nav.aiTutor")}
       </button>
 
-      <button type="button" onClick={() => goToSection(HOW_IT_WORKS_ID)} className={triggerClass}>
-        {t("nav.howItWorks")}
-      </button>
-      <button type="button" onClick={() => goToSection(CONTACT_ID)} className={triggerClass}>
-        {t("nav.contact")}
-      </button>
-      {/* A real page now: the blog has its own route, so this navigates rather than scrolls. */}
+      {/* Real routes rather than homepage anchors, so they navigate instead of scrolling. Contact
+          joined them when its homepage section was removed; FAQs was reachable only from the
+          footer, which is why nobody could find it. */}
+      <Link href="/contact-lms" className={triggerClass}>{t("nav.contact")}</Link>
+      <Link href="/pricing" className={triggerClass}>{t("nav.pricing")}</Link>
+      <Link href="/faqs" className={triggerClass}>{t("nav.faqs")}</Link>
       <Link href="/blog" className={triggerClass}>{t("nav.blog")}</Link>
     </nav>
   );
 }
 
 /**
- * The same five items for the mobile sheet, flattened.
+ * The same items as the desktop rail, flattened for the mobile sheet.
  *
  * No hover and no floating panel: the sub-items are simply listed under their
  * heading, which is the behaviour a tap-driven menu wants.
@@ -277,7 +265,6 @@ export function SiteNavMobile({ onNavigate }: { onNavigate: () => void }) {
       {categories.map((item) => (
         <Link key={item.href} href={item.href} onClick={onNavigate} className={sub}>{item.label}</Link>
       ))}
-      <Link href="/courses" onClick={onNavigate} className="block ps-4 text-sm ni-t-moss">{t("nav.viewAllCourses")}</Link>
 
       <p className="ni-t-ink">{t("nav.findTeachers")}</p>
       <Link href="/teachers/male" onClick={onNavigate} className={sub}>{t("nav.maleTeachers")}</Link>
@@ -291,20 +278,9 @@ export function SiteNavMobile({ onNavigate }: { onNavigate: () => void }) {
         {t("nav.aiTutor")}
       </button>
 
-      <button
-        type="button"
-        onClick={() => { onNavigate(); goToSection(HOW_IT_WORKS_ID); }}
-        className="text-start ni-t-ink outline-none focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]"
-      >
-        {t("nav.howItWorks")}
-      </button>
-      <button
-        type="button"
-        onClick={() => { onNavigate(); goToSection(CONTACT_ID); }}
-        className="text-start ni-t-ink outline-none focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]"
-      >
-        {t("nav.contact")}
-      </button>
+      <Link href="/contact-lms" onClick={onNavigate} className="ni-t-ink">{t("nav.contact")}</Link>
+      <Link href="/faqs" onClick={onNavigate} className="ni-t-ink">{t("nav.faqs")}</Link>
+      <Link href="/pricing" onClick={onNavigate} className="ni-t-ink">{t("nav.pricing")}</Link>
       <Link href="/blog" onClick={onNavigate} className="ni-t-ink">{t("nav.blog")}</Link>
     </div>
   );

@@ -131,7 +131,7 @@ export type ArticleInput = z.infer<typeof articleInput>;
 /**
  * A cover must be a site-relative path.
  *
- * Noor Ilm has no public storage bucket, so there is nowhere to upload an image that
+ * Zufishan has no public storage bucket, so there is nowhere to upload an image that
  * anonymous readers could then load. Rather than invent an external URL, a cover is a
  * path under the site's own approved assets. Anything absolute, protocol-relative or
  * containing a traversal segment is refused — a cover ends up in an `<img src>`, and

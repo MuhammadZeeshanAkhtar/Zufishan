@@ -11,9 +11,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import type { LucideIcon } from "lucide-react";
 import {
-  Archive, Award, BadgeCheck, Banknote, Bell, BookMarked, BookOpen, CalendarCheck, CalendarClock, CalendarDays, ClipboardCheck, CreditCard, FileBarChart, GraduationCap, LayoutDashboard, MessageSquare, MonitorPlay, PanelLeft, Receipt, ScrollText, Settings, Sparkles, Star, Timer, TrendingUp, User, UserPlus, UserSearch, Users, Video, Wallet, X
+  Archive, Award, BadgeCheck, Banknote, Bell, BookMarked, BookOpen, BookText, CalendarCheck, ShieldCheck, CalendarClock, CalendarDays, ClipboardCheck, CreditCard, FileBarChart, GraduationCap, LayoutDashboard, MessageSquare, MonitorPlay, PanelLeft, Receipt, ScrollText, Settings, Sparkles, Star, Timer, TrendingUp, User, UserPlus, UserSearch, Users, Video, Wallet, X
 } from "lucide-react";
-import { routeGroups } from "../lib/lms-data";
+import { ChevronDown } from "lucide-react";
+import { moduleGroups, routeGroups } from "../lib/lms-data";
+import { useLocale } from "../contexts/LocaleContextState";
+import type { TranslationKey } from "@/i18n/catalog";
 
 export type DashboardRole = "learner" | "instructor" | "admin";
 
@@ -31,15 +34,52 @@ const MODULE_ICONS: Record<string, LucideIcon> = {
   "find quran teacher": GraduationCap, progress: TrendingUp, hifz: BookOpen,
   // instructor
   "find students": UserSearch, training: BookMarked, verification: BadgeCheck, invites: UserPlus, students: Users,
+  "trial requests": Timer, credentials: ScrollText,
   availability: CalendarClock, "classroom demo": Video, billing: CreditCard, withdrawals: Banknote,
   // admin
   users: Users, instructors: GraduationCap, classrooms: Video, "audit logs": ScrollText,
   // Learner modules that had real routes but no rail entry until now.
   "trial lessons": Timer, certificates: Award, archives: Archive, transactions: Receipt,
+  // Two modules the reference marketplace carries for a learner; both wait on a provider.
+  "parental watch": ShieldCheck, "quran revision": BookText,
+};
+
+/**
+ * The rail, in the reader's language.
+ *
+ * The labels in `routeGroups` are identifiers as much as words — they key the icon map, the href
+ * map and every test — so they stay English there and are translated on the way to the screen. A
+ * module with no entry here falls back to its own label rather than rendering blank.
+ */
+const MODULE_LABEL_KEYS: Record<string, TranslationKey> = {
+  "overview": "nav.module.overview", "lms overview": "nav.module.lmsOverview",
+  "courses": "nav.module.courses", "hifz": "nav.module.hifz", "quran revision": "nav.module.quranRevision",
+  "progress": "nav.module.progress", "certificates": "nav.module.certificates",
+  "requirements": "nav.module.requirements", "trial lessons": "nav.module.trialLessons",
+  "trial requests": "nav.module.trialRequests", "bookings": "nav.module.bookings",
+  "schedule": "nav.module.schedule", "availability": "nav.module.availability",
+  "classrooms": "nav.module.classrooms", "archives": "nav.module.archives",
+  "parental watch": "nav.module.parentalWatch", "training": "nav.module.training",
+  "verification": "nav.module.verification", "credentials": "nav.module.credentials",
+  "billing": "nav.module.billing", "withdrawals": "nav.module.withdrawals",
+  "transactions": "nav.module.transactions", "sessions": "nav.module.sessions",
+  "wallet": "nav.module.wallet", "reviews": "nav.module.reviews", "reports": "nav.module.reports",
+  "edit profile": "nav.module.editProfile", "users": "nav.module.users",
+  "instructors": "nav.module.instructors", "ai tutor": "nav.module.aiTutor",
+  "audit logs": "nav.module.auditLogs",
+};
+
+const GROUP_LABEL_KEYS: Record<string, TranslationKey> = {
+  learning: "nav.group.learning", lessons: "nav.group.lessons", classroom: "nav.group.classroom",
+  payments: "nav.group.payments", account: "nav.group.account", students: "nav.group.students",
+  teaching: "nav.group.teaching", approval: "nav.group.approval", earnings: "nav.group.earnings",
+  people: "nav.group.people", content: "nav.group.content", operations: "nav.group.operations",
+  money: "nav.group.money", system: "nav.group.system",
 };
 
 /** Account-level modules sit below a divider, away from the day-to-day learning modules. */
-const FOOTER_MODULES = new Set(["notifications", "reviews", "wallet", "settings", "audit logs"]);
+/** Which rail groups this viewer left open. Per-browser only; nothing is sent anywhere. */
+const GROUPS_KEY = "ni.dashboard-rail-groups";
 
 const iconFor = (label: string) => MODULE_ICONS[label.toLowerCase()] ?? LayoutDashboard;
 
@@ -48,17 +88,29 @@ function readCollapsed() {
   try { return window.localStorage.getItem(STORAGE_KEY) === "1"; } catch { return false; }
 }
 
-/** Compact Noor Ilm mark: the eight-point star that carries the brand in the collapsed rail. */
+/**
+ * The Zufishan mark, in the rail.
+ *
+ * Drawn rather than loaded because this one takes its colour from the theme: `--ni-gold` is a
+ * deeper gold on cream and a lighter one on espresso, so the same component reads correctly in
+ * both without a second file. The public-facing copy of the mark lives at
+ * `client/public/brand/zufishan-mark.svg`, where a static file is what an `<img>` needs.
+ */
 function BrandMark({ size = 34 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" className="shrink-0">
-      <g fill="none" stroke="var(--ni-moss)" strokeWidth="3" strokeLinejoin="round">
-        <rect x="15" y="15" width="34" height="34" rx="3" />
-        <rect x="15" y="15" width="34" height="34" rx="3" transform="rotate(45 32 32)" />
+      <g fill="none" stroke="var(--ni-gold)" strokeLinejoin="round">
+        <rect x="13" y="13" width="38" height="38" rx="4" strokeWidth="2" />
+        <rect x="13" y="13" width="38" height="38" rx="4" strokeWidth="2" transform="rotate(45 32 32)" opacity=".55" />
       </g>
-      <path d="M32 41c-3.4-2.8-7.5-4.1-11.8-4.1V24.6c4.3 0 8.4 1.3 11.8 4.1z" fill="var(--ni-teal)" />
-      <path d="M32 41c3.4-2.8 7.5-4.1 11.8-4.1V24.6c-4.3 0-8.4 1.3-11.8 4.1z" fill="var(--ni-moss-deep)" />
-      <circle cx="32" cy="19" r="3.2" fill="var(--ni-gold)" />
+      <path
+        d="M24.5 25.5h15l-15 13h15"
+        fill="none"
+        stroke="var(--ni-gold)"
+        strokeWidth="3.4"
+        strokeLinecap="square"
+        strokeLinejoin="miter"
+      />
     </svg>
   );
 }
@@ -66,14 +118,18 @@ function BrandMark({ size = 34 }: { size?: number }) {
 type NavItemProps = { label: string; href: string; active: boolean; collapsed: boolean; onNavigate?: () => void };
 
 function NavItem({ label, href, active, collapsed, onNavigate }: NavItemProps) {
+  const { t } = useLocale();
   const Icon = iconFor(label);
+  // `label` stays the English identifier — it keys the icon and the href; `text` is what is read.
+  const key = MODULE_LABEL_KEYS[label.toLowerCase()];
+  const text = key ? t(key) : label;
   return (
     <li className="relative group/nav">
       <Link
         href={href}
         onClick={onNavigate}
         aria-current={active ? "page" : undefined}
-        aria-label={collapsed ? label : undefined}
+        aria-label={collapsed ? text : undefined}
         title={collapsed ? label : undefined}
         className={[
           "flex items-center rounded-xl text-sm font-semibold outline-none transition-colors duration-150",
@@ -85,7 +141,7 @@ function NavItem({ label, href, active, collapsed, onNavigate }: NavItemProps) {
         ].join(" ")}
       >
         <Icon size={18} strokeWidth={active ? 2.2 : 1.8} className={active ? "ni-t-moss" : ""} />
-        {!collapsed && <span className="truncate">{label}</span>}
+        {!collapsed && <span className="truncate">{text}</span>}
       </Link>
       {/* Collapsed rail needs the module name on hover; hidden from AT since the link is already labelled. */}
       {collapsed && (
@@ -94,7 +150,7 @@ function NavItem({ label, href, active, collapsed, onNavigate }: NavItemProps) {
           aria-hidden="true"
           className="pointer-events-none absolute start-full top-1/2 z-50 ms-2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-[var(--ni-teal)] px-2.5 py-1.5 text-xs font-semibold text-[var(--ni-bg)] opacity-0 shadow-lg transition-opacity duration-150 group-hover/nav:opacity-100"
         >
-          {label}
+          {text}
         </span>
       )}
     </li>
@@ -134,10 +190,28 @@ export default function DashboardSidebar({ role, hrefFor, collapsed, mobileOpen,
   const [location] = useLocation();
   const items = routeGroups[role];
 
-  const { primary, footer } = useMemo(() => ({
-    primary: items.filter((item) => !FOOTER_MODULES.has(item.toLowerCase())),
-    footer: items.filter((item) => FOOTER_MODULES.has(item.toLowerCase())),
-  }), [items]);
+  const { t } = useLocale();
+  const layout = moduleGroups[role];
+
+  /*
+   * Which groups are open.
+   *
+   * The group holding the current page is always open — a reader must be able to see where they
+   * are — and the rest remember what this viewer last did, in this browser only. Storage can be
+   * unavailable or throw, so every access is guarded and an unreadable store simply means the
+   * defaults apply.
+   */
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
+    try { return JSON.parse(window.localStorage.getItem(GROUPS_KEY) || "{}") as Record<string, boolean>; }
+    catch { return {}; }
+  });
+  const toggleGroup = useCallback((key: string) => {
+    setOpenGroups((current) => {
+      const next = { ...current, [key]: !current[key] };
+      try { window.localStorage.setItem(GROUPS_KEY, JSON.stringify(next)); } catch { /* storage unavailable */ }
+      return next;
+    });
+  }, []);
 
   // Longest matching href wins, so /courses does not stay active on /courses/new.
   const activeHref = useMemo(() => {
@@ -147,29 +221,68 @@ export default function DashboardSidebar({ role, hrefFor, collapsed, mobileOpen,
     return matches.sort((a, b) => b.length - a.length)[0] ?? "";
   }, [items, hrefFor, location, role]);
 
-  const renderNav = (list: string[], onNavigate?: () => void) =>
+  const renderNav = (list: string[], onNavigate?: () => void, forceExpanded = false) =>
     list.map((item) => (
       <NavItem
         key={item}
         label={item}
         href={hrefFor(item)}
         active={hrefFor(item) === activeHref}
-        collapsed={collapsed}
+        collapsed={collapsed && !forceExpanded}
         onNavigate={onNavigate}
       />
     ));
+
+  /**
+   * The rail, grouped.
+   *
+   * Solo modules first with no heading, then one collapsible section per group. A group whose
+   * member is the current page is open whatever the stored preference says, so the rail can never
+   * hide the page you are on.
+   *
+   * `expanded` is passed by the mobile drawer, which is always full width even when the desktop
+   * rail is collapsed to icons.
+   */
+  const renderGrouped = (onNavigate?: () => void, expanded = false) => (
+    <>
+      <ul className="space-y-1">{renderNav(layout.solo, onNavigate, expanded)}</ul>
+      {layout.groups.map((group) => {
+        const holdsActive = group.modules.some((item) => hrefFor(item) === activeHref);
+        const open = holdsActive || Boolean(openGroups[group.key]);
+        const labelKey = GROUP_LABEL_KEYS[group.key];
+        const heading = labelKey ? t(labelKey) : group.key;
+        return (
+          <div key={group.key} className="mt-2">
+            <button
+              type="button"
+              onClick={() => toggleGroup(group.key)}
+              aria-expanded={open}
+              className="flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-[11px] font-bold uppercase tracking-[.14em] ni-t-muted outline-none transition hover:bg-[var(--ni-sage-soft)] hover:text-[var(--ni-moss-deep)] focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]"
+            >
+              <span className="truncate">{heading}</span>
+              <ChevronDown
+                size={14}
+                aria-hidden="true"
+                className={`shrink-0 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
+              />
+            </button>
+            {open && <ul className="mt-1 space-y-1">{renderNav(group.modules, onNavigate, expanded)}</ul>}
+          </div>
+        );
+      })}
+    </>
+  );
 
   const brand = (compact: boolean) => (
     <Link
       href="/"
       className="flex items-center gap-3 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]"
-      aria-label="Noor Ilm home"
+      aria-label="Zufishan home"
     >
       <BrandMark />
       {!compact && (
         <span className="min-w-0">
-          <span className="block truncate font-display text-xl leading-none ni-t-ink">Noor Ilm</span>
-          <span lang="ur" dir="rtl" className="mt-1 block truncate text-sm leading-none ni-t-gold">نورِ علم</span>
+          <span className="block truncate font-display text-xl leading-none ni-t-ink">Zufishan</span>
         </span>
       )}
     </Link>
@@ -192,13 +305,9 @@ export default function DashboardSidebar({ role, hrefFor, collapsed, mobileOpen,
         <div className={collapsed ? "flex justify-center" : ""}>{brand(collapsed)}</div>
         {collapsed ? <div className="mt-8" /> : sectionLabel}
         <nav aria-label={`${deskLabel} navigation`} className="min-h-0 flex-1 overflow-y-auto">
-          <ul className="space-y-1">{renderNav(primary)}</ul>
-          {footer.length > 0 && (
-            <>
-              <hr className="my-3 border-t border-[var(--ni-sage)]" />
-              <ul className="space-y-1">{renderNav(footer)}</ul>
-            </>
-          )}
+          {/* Collapsed to icons there is no room for a heading, so the rail falls back to one flat
+              list — every module, in registry order, exactly as it was before grouping. */}
+          {collapsed ? <ul className="space-y-1">{renderNav(items)}</ul> : renderGrouped()}
         </nav>
       </aside>
 
@@ -230,13 +339,8 @@ export default function DashboardSidebar({ role, hrefFor, collapsed, mobileOpen,
             </div>
             <p className="mb-2 mt-7 px-3 text-[10px] font-bold uppercase tracking-[.2em] ni-t-gold">{deskLabel}</p>
             <nav aria-label={`${deskLabel} navigation`} className="min-h-0 flex-1 overflow-y-auto">
-              <ul className="space-y-1">{renderNav(primary, onCloseMobile)}</ul>
-              {footer.length > 0 && (
-                <>
-                  <hr className="my-3 border-t border-[var(--ni-sage)]" />
-                  <ul className="space-y-1">{renderNav(footer, onCloseMobile)}</ul>
-                </>
-              )}
+              {/* The drawer is full width even when the desktop rail is collapsed. */}
+              {renderGrouped(onCloseMobile, true)}
             </nav>
           </aside>
         </div>

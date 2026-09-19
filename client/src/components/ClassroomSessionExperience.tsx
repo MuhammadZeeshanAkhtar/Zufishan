@@ -66,8 +66,8 @@ function Shell({ backHref, eyebrow, title, children }: { backHref: string; eyebr
         </div>
       </header>
       <main className="mx-auto w-full min-w-0 max-w-4xl px-5 py-12 lg:px-8 lg:py-16">
-        <p className="ni-eyebrow">{eyebrow}</p>
-        <h1 className="mt-3 font-display text-[clamp(2rem,5vw,3rem)] leading-tight">{title}</h1>
+        {/* `eyebrow` is still accepted so no caller changed; nothing prints it. */}
+        <h1 className="sr-only">{title}</h1>
         {children}
       </main>
     </div>

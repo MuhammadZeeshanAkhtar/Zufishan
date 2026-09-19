@@ -7,10 +7,10 @@
  * header. Blog keeps its anchor but the navigation now links to `/blog`, which is a
  * real page — this section is a three-article preview of it.
  *
- * Contact still describes something Noor Ilm does not have, and says so rather than
+ * Contact still describes something Zufishan does not have, and says so rather than
  * filling the space. See it for why.
  *
- * **The contact form does not claim to send anything.** Noor Ilm has no contact table,
+ * **The contact form does not claim to send anything.** Zufishan has no contact table,
  * no support procedure and no mail service — nothing in the schema or the router could
  * deliver a message. The form therefore validates properly, and then says plainly that
  * delivery is not configured, rather than showing a success state for a message that
@@ -20,24 +20,16 @@
  * Colour comes only from theme tokens, so light, dark and system all follow the existing
  * provider without this file knowing which is active.
  */
-import { useState } from "react";
 import { Link } from "wouter";
 import { BookMarked, BookOpen, Gauge, Languages, MessageCircle, Newspaper, ShieldCheck, Sparkles } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "../contexts/AuthContext";
 import { useLocale } from "../contexts/LocaleContextState";
-import { AI_TUTOR_ID, BLOG_ID, CONTACT_ID, HOW_IT_WORKS_ID } from "./SiteNav";
+import { AI_TUTOR_ID, BLOG_ID } from "./SiteNav";
 import type { PublicArticle } from "./BlogExperience";
 import type { TranslationKey } from "../i18n/catalog";
 
 /** A real sequence, so it is numbered: each step only makes sense after the one before. */
-const STEPS: Array<{ titleKey: TranslationKey; copyKey: TranslationKey }> = [
-  { titleKey: "howWorks.s1", copyKey: "howWorks.s1Copy" },
-  { titleKey: "howWorks.s2", copyKey: "howWorks.s2Copy" },
-  { titleKey: "howWorks.s3", copyKey: "howWorks.s3Copy" },
-  { titleKey: "howWorks.s4", copyKey: "howWorks.s4Copy" },
-];
-
 /** The existing learner AI Tutor. This section explains it; it does not embed it. */
 const AI_TUTOR_ROUTE = "/dashboard/learner/ai-tutor";
 
@@ -125,51 +117,6 @@ export function AITutorSection() {
   );
 }
 
-export function HowItWorksSection() {
-  const { t } = useLocale();
-
-  return (
-    <section
-      id={HOW_IT_WORKS_ID}
-      data-anim="section"
-      aria-labelledby="how-it-works-title"
-      /* `ni-linework` is the existing girih overlay — the geometric accent the rest of
-         the page already uses, rather than a new decoration invented for this section. */
-      className="ni-linework relative scroll-mt-24 border-y border-[var(--ni-sage)] bg-[var(--ni-field)]"
-    >
-      <div className="relative z-[1] mx-auto max-w-7xl px-5 py-14 lg:px-8 lg:py-16">
-        <h2 id="how-it-works-title" className="max-w-2xl font-display text-[clamp(1.6rem,2.8vw,2.2rem)] leading-[1.15] ni-t-ink text-balance">
-          {t("howWorks.title")}
-        </h2>
-        <p className="mt-3 max-w-2xl text-sm leading-7 ni-t-muted">{t("howWorks.intro")}</p>
-
-        <ol className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {STEPS.map((step, index) => (
-            <li key={step.titleKey} className="ni-ed-card h-full p-5">
-              <span aria-hidden="true" className="ni-works__num">{String(index + 1).padStart(2, "0")}</span>
-              <p className="ni-works__step-title mt-2">{t(step.titleKey)}</p>
-              <p className="ni-works__step-copy mt-1.5">{t(step.copyKey)}</p>
-            </li>
-          ))}
-        </ol>
-
-        <div className="ni-ed-card mt-4 flex items-start gap-4 p-5">
-          <span
-            aria-hidden="true"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--ni-gold-soft)]"
-          >
-            <Sparkles size={17} className="ni-t-gold-ink" />
-          </span>
-          <div className="min-w-0">
-            <p className="font-display text-base ni-t-ink">{t("howWorks.aiTitle")}</p>
-            <p className="mt-1 text-sm leading-6 ni-t-muted">{t("howWorks.aiCopy")}</p>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 /**
  * The homepage blog preview: the three most recent published articles.
  *
@@ -226,123 +173,6 @@ export function BlogSection() {
             <Link href="/blog" className="ni-btn ni-btn--outline mt-6">{t("blog.viewAll")}</Link>
           </>
         )}
-      </div>
-    </section>
-  );
-}
-
-type ContactDraft = { name: string; email: string; subject: string; message: string };
-type ContactErrors = Partial<Record<keyof ContactDraft, string>>;
-
-const EMPTY: ContactDraft = { name: "", email: "", subject: "", message: "" };
-
-export function ContactSection() {
-  const { t } = useLocale();
-  const [draft, setDraft] = useState<ContactDraft>(EMPTY);
-  const [errors, setErrors] = useState<ContactErrors>({});
-  const [attempted, setAttempted] = useState(false);
-
-  const set = (field: keyof ContactDraft, value: string) => {
-    setDraft((current) => ({ ...current, [field]: value }));
-    // Clearing on edit, so an error never outlives the thing it described.
-    setErrors((current) => (current[field] ? { ...current, [field]: undefined } : current));
-    setAttempted(false);
-  };
-
-  const validate = (): ContactErrors => {
-    const found: ContactErrors = {};
-    if (!draft.name.trim()) found.name = t("contactHome.nameRequired");
-    if (!draft.email.trim()) found.email = t("contactHome.emailRequired");
-    // Deliberately loose: a stricter pattern rejects valid addresses more often than
-    // it catches typos. The real check is whether a reply ever arrives.
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim())) found.email = t("contactHome.emailInvalid");
-    if (!draft.subject.trim()) found.subject = t("contactHome.subjectRequired");
-    if (!draft.message.trim()) found.message = t("contactHome.messageRequired");
-    return found;
-  };
-
-  const submit = (event: React.FormEvent) => {
-    event.preventDefault();
-    const found = validate();
-    setErrors(found);
-    // A valid form reaches the honest dead end rather than a success state: there is
-    // no procedure to call. This is the single place to change once one exists.
-    setAttempted(Object.keys(found).length === 0);
-  };
-
-  const field = (name: keyof ContactDraft, label: string, type: "text" | "email" = "text") => (
-    <label className="block">
-      <span className="mb-1.5 block text-sm font-semibold ni-t-ink">{label}</span>
-      <input
-        id={`contact-${name}`}
-        name={name}
-        type={type}
-        value={draft[name]}
-        onChange={(event) => set(name, event.target.value)}
-        aria-invalid={Boolean(errors[name])}
-        aria-describedby={errors[name] ? `contact-${name}-error` : undefined}
-        className="w-full rounded-xl border border-[var(--ni-sage-line)] bg-[var(--ni-field)] px-4 py-2.5 text-sm ni-t-ink outline-none focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]"
-      />
-      {errors[name] && (
-        <span id={`contact-${name}-error`} role="alert" className="mt-1 block text-xs ni-t-clay">{errors[name]}</span>
-      )}
-    </label>
-  );
-
-  return (
-    <section
-      id={CONTACT_ID}
-      data-anim="section"
-      aria-labelledby="contact-title"
-      className="scroll-mt-24 border-t border-[var(--ni-sage)]"
-    >
-      <div className="mx-auto max-w-7xl px-5 py-14 lg:px-8 lg:py-16">
-        <div className="grid gap-8 lg:grid-cols-[.85fr_1.15fr] lg:items-start">
-          <div className="min-w-0">
-            <h2 id="contact-title" className="font-display text-[clamp(1.6rem,2.8vw,2.2rem)] leading-[1.15] ni-t-ink text-balance">
-              {t("contactHome.title")}
-            </h2>
-            <p className="mt-3 max-w-md text-sm leading-7 ni-t-muted">{t("contactHome.intro")}</p>
-
-            {/* Said before the reader types, not after they press send. */}
-            <div className="mt-5 rounded-[1rem] border border-[var(--ni-gold-border)] bg-[var(--ni-gold-soft)] p-4">
-              <p className="text-sm font-semibold ni-t-gold-ink">{t("contactHome.unavailableTitle")}</p>
-              <p className="mt-1.5 text-xs leading-5 ni-t-gold-ink">{t("contactHome.unavailableCopy")}</p>
-            </div>
-          </div>
-
-          <form noValidate onSubmit={submit} className="ni-ed-card grid gap-4 p-6">
-            <div className="grid gap-4 sm:grid-cols-2">
-              {field("name", t("contactHome.name"))}
-              {field("email", t("contactHome.email"), "email")}
-            </div>
-            {field("subject", t("contactHome.subject"))}
-
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-semibold ni-t-ink">{t("contactHome.message")}</span>
-              <textarea
-                id="contact-message"
-                name="message"
-                rows={5}
-                value={draft.message}
-                onChange={(event) => set("message", event.target.value)}
-                aria-invalid={Boolean(errors.message)}
-                aria-describedby={errors.message ? "contact-message-error" : undefined}
-                className="w-full rounded-xl border border-[var(--ni-sage-line)] bg-[var(--ni-field)] px-4 py-2.5 text-sm ni-t-ink outline-none focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]"
-              />
-              {errors.message && (
-                <span id="contact-message-error" role="alert" className="mt-1 block text-xs ni-t-clay">{errors.message}</span>
-              )}
-            </label>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <button type="submit" className="ni-btn ni-btn--primary">{t("contactHome.send")}</button>
-              {attempted && (
-                <p role="alert" className="text-xs leading-5 ni-t-clay">{t("contactHome.notSent")}</p>
-              )}
-            </div>
-          </form>
-        </div>
       </div>
     </section>
   );

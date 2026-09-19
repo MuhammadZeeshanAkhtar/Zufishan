@@ -8,14 +8,14 @@
  * lists only what published listings carry. Subject and spoken language instead offer the whole
  * list the profile forms use, because a learner looking for Fiqh, or for a teacher who speaks
  * Bengali, should be able to ask for it and be told plainly that nobody matches yet — rather than
- * not find the option and conclude Noor Ilm does not cover it. Any value a listing carries that is
+ * not find the option and conclude Zufishan does not cover it. Any value a listing carries that is
  * not on the curated list is appended, so a reachable result is never unreachable through filters.
  *
  * Both lists are built with the profile forms' own call — `languageOptions()` with no locale
  * argument — so the values sent to the query are the same canonical English names the profiles
  * store. Passing the reader's locale here would send a translated label that matches no row.
  *
- * **No Status filter.** The reference panel opens with an Online/Offline pair. Noor Ilm records
+ * **No Status filter.** The reference panel opens with an Online/Offline pair. Zufishan records
  * no presence anywhere — no `last_seen_at`, no heartbeat, no realtime presence channel — so that
  * control would filter on a value that does not exist. It is left out rather than shown as a
  * checkbox that quietly does nothing.
@@ -29,7 +29,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { SlidersHorizontal, X } from "lucide-react";
 import { useLocale } from "../contexts/LocaleContextState";
-import { countryOptions, genderLabelKeys, genderValues, languageOptions, sectValues, subjectOptions, timezoneOptionsForCountry } from "../lib/reference-data";
+import { countryOptions, genderLabelKeys, genderValues, languageOptions, levelOptions, sectValues, subjectOptions, timezoneOptionsForCountry } from "../lib/reference-data";
 
 export type MarketplaceFilterState = {
   query: string;
@@ -66,7 +66,7 @@ const toggle = (list: string[], value: string) =>
   list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
 
 /**
- * Every subject Noor Ilm offers, in the same curated order the learner and instructor profile
+ * Every subject Zufishan offers, in the same curated order the learner and instructor profile
  * forms use, so what a student can put on their profile is exactly what they can search for.
  *
  * `subjectOptions` re-exports the one `categories` list, so this adds no second vocabulary.
@@ -89,6 +89,20 @@ function subjectFilterOptions(fromListings: string[] | undefined): string[] {
 function languageFilterOptions(fromListings: string[] | undefined): string[] {
   const canonical = languageOptions().map((option) => option.value);
   const extra = (fromListings ?? []).filter((language) => !canonical.includes(language)).sort();
+  return [...canonical, ...extra];
+}
+
+/**
+ * Every level a teacher can claim, by the same list the instructor profile form offers.
+ *
+ * Derived from facets this showed only the levels someone already teaches, so a catalogue
+ * with one beginner tutor offered one checkbox — and a learner looking for Advanced could
+ * not even ask. "All Levels" is included because it is a value a teacher can actually set;
+ * leaving it out would make those teachers unreachable through this filter.
+ */
+function levelFilterOptions(fromListings: string[] | undefined): string[] {
+  const canonical = [...levelOptions] as string[];
+  const extra = (fromListings ?? []).filter((level) => !canonical.includes(level)).sort();
   return [...canonical, ...extra];
 }
 
@@ -130,6 +144,9 @@ function CheckList({ options, selected, onToggle, name, scroll = false }: {
   );
 }
 
+/** Top of the rate scale unless a real rate exceeds it. Whole currency units. */
+const RATE_CEILING = 50;
+
 /**
  * Two-handle rate range.
  *
@@ -145,8 +162,17 @@ function RateRange({ bounds, value, onChange }: {
   const { t, formatNumber } = useLocale();
   // Whole currency units: a slider stepping through minor units would need 2,500 stops to
   // cover a $25 range, and no one is dragging for one cent of precision.
-  const min = Math.floor(bounds.min / 100);
-  const max = Math.max(Math.ceil(bounds.max / 100), min + 1);
+  //
+  // The scale starts at 1 and runs to a usable ceiling rather than hugging the rates that
+  // happen to exist today. Derived bounds collapsed the moment the catalogue was small:
+  // with a single instructor charging 7-8 the slider had two stops and could not filter
+  // anything, while reading like a broken control. A learner also thinks in absolute
+  // money — "under 10" — not in the range the current teachers occupy.
+  //
+  // The ceiling still grows past RATE_CEILING if someone charges more, so a high rate is
+  // never unreachable.
+  const min = 1;
+  const max = Math.max(Math.ceil(bounds.max / 100), RATE_CEILING);
   const low = typeof value.minRateMinor === "number" ? Math.round(value.minRateMinor / 100) : min;
   const high = typeof value.maxRateMinor === "number" ? Math.round(value.maxRateMinor / 100) : max;
   const span = max - min || 1;
@@ -333,11 +359,10 @@ function PanelBody({ value, onChange, facets, sortOptions, showRate, showExperie
         </select>
       </Group>
 
-      {facets.levels !== undefined && (
-        <Group title={t("marketplace.level")}>
-          <CheckList name="level" options={facets.levels ?? []} selected={value.levels} onToggle={(v) => set({ levels: toggle(value.levels, v) })} />
-        </Group>
-      )}
+      {/* Always rendered: the curated list exists whether or not anyone teaches at that level yet. */}
+      <Group title={t("marketplace.level")}>
+        <CheckList name="level" options={levelFilterOptions(facets.levels)} selected={value.levels} onToggle={(v) => set({ levels: toggle(value.levels, v) })} />
+      </Group>
 
       {showExperience && (
         <Group title={t("marketplace.minExperience")}>

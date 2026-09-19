@@ -6,7 +6,7 @@
  * traced back to rows a real person created.
  *
  * **Presence is deliberately absent.** The discovery reference also carries an
- * online/offline state. Noor Ilm tracks no presence anywhere: there is no
+ * online/offline state. Zufishan tracks no presence anywhere: there is no
  * last_seen_at column, no heartbeat and no realtime presence channel. There is
  * therefore nothing truthful to return, and this module offers no such field.
  * lastActiveAt is NOT presence -- it is the last time the instructor actually

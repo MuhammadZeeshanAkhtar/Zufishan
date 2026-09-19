@@ -1,5 +1,6 @@
 import { getSupabaseAdminClient } from "./supabase-admin-client";
 import { getSupabasePublicClient, getSupabaseUserClient } from "./supabase-user-client";
+import { PRIVATE_BUCKETS, signPublicObject } from "./supabase-storage";
 import type { SupabaseIdentity } from "./supabase-auth";
 import { atomicallyConfirmTrial } from "./scheduling-atomic";
 import { attachInstructorStats, instructorIdsWithMinRating, ratingBucketCounts } from "./discovery-stats";
@@ -94,9 +95,13 @@ export async function createAvailabilityInterval(identity: SupabaseIdentity, inp
   if (!(await hasRole(identity, ["instructor", "admin", "super_admin"]))) return fail("Only an authorised instructor can manage availability.", "FORBIDDEN");
   if (!Number.isInteger(input.weekday) || input.weekday < 0 || input.weekday > 6 || input.startLocal >= input.endLocal) return fail("Choose a valid interval with a start time before its end time.");
   if (!validTimezone(input.timezone)) return fail("Choose a valid instructor timezone.");
-  if (input.exceptionType !== "weekly" && !input.availableOn) return fail("A date is required for an exception or break interval.");
+  // The insert below defaults a missing type to "weekly", so the guard has to read it the same way.
+  // While it did not, every caller that left the type off — which is every weekly interval the
+  // availability page saves — was refused with a message about a date it had no reason to send.
+  const exceptionType = input.exceptionType ?? "weekly";
+  if (exceptionType !== "weekly" && !input.availableOn) return fail("A date is required for an exception or break interval.");
   if (input.availableOn && new Date(`${input.availableOn}T23:59:59Z`) < new Date()) return fail("Past date-specific availability cannot be created.");
-  const { data, error } = await client.from("instructor_availability").insert({ instructor_id: identity.id, weekday: input.weekday, start_local: input.startLocal, end_local: input.endLocal, timezone: input.timezone, active: input.active ?? true, buffer_minutes: input.bufferMinutes ?? 0, minimum_notice_minutes: input.minimumNoticeMinutes ?? 60, available_on: input.availableOn ?? null, exception_type: input.exceptionType ?? "weekly", is_break: input.isBreak ?? input.exceptionType === "break", course_id: input.courseId ?? null }).select("*").single();
+  const { data, error } = await client.from("instructor_availability").insert({ instructor_id: identity.id, weekday: input.weekday, start_local: input.startLocal, end_local: input.endLocal, timezone: input.timezone, active: input.active ?? true, buffer_minutes: input.bufferMinutes ?? 0, minimum_notice_minutes: input.minimumNoticeMinutes ?? 60, available_on: input.availableOn ?? null, exception_type: exceptionType, is_break: input.isBreak ?? exceptionType === "break", course_id: input.courseId ?? null }).select("*").single();
   if (error) return fail(error.code === "23505" ? "This availability interval already exists." : "Availability could not be saved.", error.code === "23505" ? "CONFLICT" : "VALIDATION");
   await audit(identity.id, "availability.created", "instructor_availability", data.id);
   return { ok: true as const, data };
@@ -106,7 +111,24 @@ export async function updateAvailabilityInterval(identity: SupabaseIdentity, id:
   const client = db(identity); if (!client) return fail("Scheduling persistence is not configured.", "SETUP_NEEDED");
   const { data: existing } = await client.from("instructor_availability").select("*").eq("id", id).eq("instructor_id", identity.id).maybeSingle();
   if (!existing) return fail("Availability interval not found.", "NOT_FOUND");
-  const next = { ...existing, ...input };
+  // `input` arrives in camelCase and `existing` is the database row, so spreading one over the other
+  // only ever added properties nothing reads: every edit wrote the stored values back unchanged and
+  // still answered ok. Each field is mapped across by name instead.
+  const next = {
+    ...existing,
+    ...(input.weekday !== undefined ? { weekday: input.weekday } : {}),
+    ...(input.startLocal !== undefined ? { start_local: input.startLocal } : {}),
+    ...(input.endLocal !== undefined ? { end_local: input.endLocal } : {}),
+    ...(input.timezone !== undefined ? { timezone: input.timezone } : {}),
+    ...(input.active !== undefined ? { active: input.active } : {}),
+    ...(input.bufferMinutes !== undefined ? { buffer_minutes: input.bufferMinutes } : {}),
+    ...(input.minimumNoticeMinutes !== undefined ? { minimum_notice_minutes: input.minimumNoticeMinutes } : {}),
+    ...(input.availableOn !== undefined ? { available_on: input.availableOn } : {}),
+    ...(input.exceptionType !== undefined ? { exception_type: input.exceptionType } : {}),
+    ...(input.isBreak !== undefined ? { is_break: input.isBreak } : {}),
+    ...(input.courseId !== undefined ? { course_id: input.courseId } : {}),
+  };
+  if (!Number.isInteger(next.weekday) || next.weekday < 0 || next.weekday > 6) return fail("Choose a valid weekday.");
   if (next.start_local >= next.end_local || !validTimezone(next.timezone)) return fail("Choose a valid interval and timezone.");
   const { data, error } = await client.from("instructor_availability").update({ weekday: next.weekday, start_local: next.start_local, end_local: next.end_local, timezone: next.timezone, active: next.active, buffer_minutes: next.buffer_minutes, minimum_notice_minutes: next.minimum_notice_minutes, available_on: next.available_on, exception_type: next.exception_type, is_break: next.is_break, course_id: next.course_id, updated_at: new Date().toISOString() }).eq("id", id).eq("instructor_id", identity.id).select("*").single();
   if (error) return fail("Availability could not be updated.");
@@ -122,34 +144,127 @@ export async function deleteAvailabilityInterval(identity: SupabaseIdentity, id:
   return { ok: true as const, data: { id } };
 }
 
-export async function getAvailableSlots(identity: SupabaseIdentity, input: { instructorId: string; startDate: string; endDate: string; learnerTimezone: string; durationMinutes?: number }) {
-  const client = db(identity); if (!client) return fail("Scheduling persistence is not configured.", "SETUP_NEEDED");
-  if (!validTimezone(input.learnerTimezone)) return fail("Choose a valid learner timezone.");
-  const start = new Date(`${input.startDate}T00:00:00Z`); const end = new Date(`${input.endDate}T23:59:59Z`); if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return fail("Choose a valid date range.");
-  const [{ data: instructorProfile }, { data: profile }, { data: availability }, { data: sessions }, { data: bookings }] = await Promise.all([
-    client.from("instructor_profiles").select("user_id,public_slug,public_profile_status,verification_status").eq("user_id", input.instructorId).maybeSingle(),
-    client.from("profiles").select("timezone").eq("id", input.instructorId).maybeSingle(),
-    client.from("instructor_availability").select("*").eq("instructor_id", input.instructorId).eq("active", true),
-    client.from("class_sessions").select("scheduled_start_at,scheduled_end_at,status").eq("instructor_id", input.instructorId).in("status", ["scheduled", "waiting_room", "live", "completed", "no_show"]),
-    client.from("bookings").select("scheduled_start_at,scheduled_end_at,status").eq("instructor_id", input.instructorId).in("status", [...ACTIVE_BOOKING_STATUSES]),
+/**
+ * Every start time a lesson of `durationMinutes` can take inside one availability interval.
+ *
+ * The earlier generator emitted a single window per interval — the one beginning at `start_local` —
+ * so an instructor open 18:00–21:00 could only ever be offered at 18:00, while the check that runs
+ * on submit accepts any window that fits inside the interval. Exported so that rule is tested
+ * directly rather than inferred from a listing.
+ *
+ * Steps are taken in wall-clock terms through `localDateTimeToUtc`, so a day that gains or loses an
+ * hour produces the times the instructor's calendar shows rather than a UTC-arithmetic drift.
+ */
+export function slotStartsInInterval(date: string, startLocal: string, endLocal: string, timezone: string, durationMinutes: number): Date[] {
+  const step = Math.max(15, durationMinutes);
+  const [startHour, startMinute] = startLocal.split(":").map(Number);
+  const end = localDateTimeToUtc(date, endLocal, timezone);
+  if (!Number.isFinite(startHour) || !Number.isFinite(startMinute) || Number.isNaN(end.getTime())) return [];
+
+  const starts: Date[] = [];
+  // A day holds at most 96 quarter-hours; the bound stops a bad interval from looping.
+  for (let index = 0; index < 96; index += 1) {
+    const minutes = startHour * 60 + startMinute + index * step;
+    const clock = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+    if (minutes >= 24 * 60) break;
+    const slotStart = localDateTimeToUtc(date, clock, timezone);
+    if (new Date(slotStart.getTime() + durationMinutes * 60_000) > end) break;
+    starts.push(slotStart);
+  }
+  return starts;
+}
+
+type SlotWindow = { startDate: string; endDate: string; learnerTimezone: string; durationMinutes?: number };
+export type OpenSlot = { startAt: string; endAt: string; instructorTimezone: string; learnerTimezone: string; durationMinutes: number };
+
+/** A whole week of half-hours is already 336 cells; this is the ceiling before a response is trimmed. */
+const SLOT_CAP = 2000;
+/** A profile shows an introduction and a recitation; this is the ceiling, not a target. */
+const PUBLIC_MEDIA_CAP = 6;
+
+/**
+ * Every open slot inside an instructor's published availability for a date range.
+ *
+ * Each interval is walked in `duration` steps rather than yielding only the window that begins at
+ * `start_local`. That was the earlier behaviour, and it meant an instructor who opened 18:00–21:00
+ * could be offered at 18:00 and at no other time — while `slotWithinAvailability`, which validates
+ * the request on submit, accepts ANY window that sits inside the interval. The two now agree.
+ *
+ * A slot is dropped when it runs past the interval, falls inside the minimum notice period, or
+ * overlaps an existing session or booking once each side's buffer is applied.
+ */
+async function openSlotsWithin(client: NonNullable<ReturnType<typeof db>>, instructorId: string, input: SlotWindow) {
+  const start = new Date(`${input.startDate}T00:00:00Z`);
+  const end = new Date(`${input.endDate}T23:59:59Z`);
+  const duration = Math.max(15, input.durationMinutes ?? 30);
+  const [{ data: availability }, { data: sessions }, { data: bookings }] = await Promise.all([
+    client.from("instructor_availability").select("*").eq("instructor_id", instructorId).eq("active", true),
+    client.from("class_sessions").select("scheduled_start_at,scheduled_end_at,status").eq("instructor_id", instructorId).in("status", ["scheduled", "waiting_room", "live", "completed", "no_show"]),
+    client.from("bookings").select("scheduled_start_at,scheduled_end_at,status").eq("instructor_id", instructorId).in("status", [...ACTIVE_BOOKING_STATUSES]),
   ]);
-  if (!instructorProfile || instructorProfile.public_profile_status !== "published" || instructorProfile.verification_status !== "approved") return fail("This instructor's availability is not public.", "FORBIDDEN");
-  const slots: Array<{ startAt: string; endAt: string; instructorTimezone: string; learnerTimezone: string; durationMinutes: number }> = [];
-  const duration = input.durationMinutes ?? 30;
-  for (let cursor = new Date(start); cursor <= end; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
-    const date = cursor.toISOString().slice(0, 10); const weekday = cursor.getUTCDay();
-    for (const interval of (availability ?? []).filter((row) => (row.exception_type === "weekly" ? row.weekday === weekday : row.available_on === date) && !row.is_break)) {
-      const slotStart = localDateTimeToUtc(date, String(interval.start_local).slice(0, 5), interval.timezone); const slotEnd = new Date(slotStart.getTime() + duration * 60_000);
-      if (slotEnd > localDateTimeToUtc(date, String(interval.end_local).slice(0, 5), interval.timezone)) continue;
-      if (slotStart <= new Date(Date.now() + Number(interval.minimum_notice_minutes ?? 60) * 60_000)) continue;
+
+  const taken = [...(sessions ?? []), ...(bookings ?? [])].filter((row) => !["cancelled", "expired"].includes(String(row.status)));
+  const slots: OpenSlot[] = [];
+
+  for (let cursor = new Date(start); cursor <= end && slots.length < SLOT_CAP; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+    const date = cursor.toISOString().slice(0, 10);
+    const weekday = cursor.getUTCDay();
+    const open = (availability ?? []).filter((row) => (row.exception_type === "weekly" ? row.weekday === weekday : row.available_on === date) && !row.is_break);
+    for (const interval of open) {
+      const notBefore = new Date(Date.now() + Number(interval.minimum_notice_minutes ?? 60) * 60_000);
       const buffer = Number(interval.buffer_minutes ?? 0) * 60_000;
-      const bufferedStart = new Date(slotStart.getTime() - buffer);
-      const bufferedEnd = new Date(slotEnd.getTime() + buffer);
-      const overlaps = [...(sessions ?? []), ...(bookings ?? [])].some((session) => new Date(session.scheduled_start_at) < bufferedEnd && new Date(session.scheduled_end_at) > bufferedStart && !["cancelled", "expired"].includes(session.status));
-      if (!overlaps) slots.push({ startAt: slotStart.toISOString(), endAt: slotEnd.toISOString(), instructorTimezone: interval.timezone, learnerTimezone: input.learnerTimezone, durationMinutes: duration });
+
+      for (const slotStart of slotStartsInInterval(date, String(interval.start_local).slice(0, 5), String(interval.end_local).slice(0, 5), interval.timezone, duration)) {
+        if (slots.length >= SLOT_CAP) break;
+        if (slotStart <= notBefore) continue;
+        const slotEnd = new Date(slotStart.getTime() + duration * 60_000);
+        const bufferedStart = new Date(slotStart.getTime() - buffer);
+        const bufferedEnd = new Date(slotEnd.getTime() + buffer);
+        const overlaps = taken.some((row) => new Date(row.scheduled_start_at) < bufferedEnd && new Date(row.scheduled_end_at) > bufferedStart);
+        if (!overlaps) slots.push({ startAt: slotStart.toISOString(), endAt: slotEnd.toISOString(), instructorTimezone: interval.timezone, learnerTimezone: input.learnerTimezone, durationMinutes: duration });
+      }
     }
   }
-  return { ok: true as const, data: slots };
+  // Two intervals can cover the same half hour; a reader should see one cell, not two.
+  const seen = new Set<string>();
+  return slots.filter((slot) => (seen.has(slot.startAt) ? false : (seen.add(slot.startAt), true)))
+    .sort((left, right) => left.startAt.localeCompare(right.startAt));
+}
+
+/** Shared by both callers: the range must parse, be ordered, and stay inside the window cap. */
+function checkSlotWindow(input: SlotWindow, maxDays: number) {
+  if (!validTimezone(input.learnerTimezone)) return fail("Choose a valid learner timezone.");
+  const start = new Date(`${input.startDate}T00:00:00Z`);
+  const end = new Date(`${input.endDate}T23:59:59Z`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return fail("Choose a valid date range.");
+  if (end.getTime() - start.getTime() > maxDays * 86_400_000) return fail(`Choose a range of ${maxDays} days or fewer.`);
+  return { ok: true as const, data: null };
+}
+
+export async function getAvailableSlots(identity: SupabaseIdentity, input: { instructorId: string; startDate: string; endDate: string; learnerTimezone: string; durationMinutes?: number }) {
+  const client = db(identity); if (!client) return fail("Scheduling persistence is not configured.", "SETUP_NEEDED");
+  const window = checkSlotWindow(input, 62); if (!window.ok) return window;
+  const { data: instructorProfile } = await client.from("instructor_profiles").select("user_id,public_slug,public_profile_status,verification_status").eq("user_id", input.instructorId).maybeSingle();
+  if (!instructorProfile || instructorProfile.public_profile_status !== "published" || instructorProfile.verification_status !== "approved") return fail("This instructor's availability is not public.", "FORBIDDEN");
+  return { ok: true as const, data: await openSlotsWithin(client, input.instructorId, input) };
+}
+
+/**
+ * The same open slots, for a visitor who is reading a public profile.
+ *
+ * Free/busy is only truthful if the bookings that fill the calendar can be counted, and a visitor
+ * cannot read `bookings` — RLS scopes that table to its two participants. So the count is made
+ * server-side with the service client, exactly as the discovery aggregates are, and what leaves
+ * this function is only the list of times that are still open: no booking, learner or session is
+ * named or exposed. The published-and-approved gate is the same one the profile itself passes.
+ */
+export async function getPublicInstructorSchedule(slug: string, input: SlotWindow) {
+  const client = db(); if (!client) return fail("Scheduling persistence is not configured.", "SETUP_NEEDED");
+  const window = checkSlotWindow(input, 31); if (!window.ok) return window;
+  const { data, error } = await client.from("instructor_profiles").select("user_id,public_profile_status,verification_status").eq("public_slug", slug).maybeSingle();
+  if (error) return fail("Instructor availability could not be loaded.");
+  if (!data || data.public_profile_status !== "published" || data.verification_status !== "approved") return fail("This instructor's availability is not public.", "FORBIDDEN");
+  return { ok: true as const, data: await openSlotsWithin(client, String(data.user_id), input) };
 }
 
 export async function createTrialRequest(identity: SupabaseIdentity, input: { instructorId: string; courseId?: string; requirementId?: string; subject: string; learnerTimezone: string; instructorTimezone: string; requestedStartAt: string; requestedEndAt: string; learnerMessage: string; idempotencyKey: string; learnerLocale?: "en" | "ur" | "ar" }) {
@@ -561,6 +676,96 @@ export async function getPublicInstructorBySlug(slug: string) {
     ok: true as const,
     data: { ...presented, timezone: presented.timezone || "UTC", display_name: presented.displayName || data.public_slug },
   };
+}
+
+/**
+ * The introduction a visitor can play on a public profile.
+ *
+ * Three conditions have to hold before a file is named here, and all three are checked in this
+ * function rather than trusted from the request: the slug resolves to a profile that is published
+ * AND approved, and the media row itself is marked public. Only then is a URL signed, and the URL
+ * expires. A private file never reaches this list, so there is nothing to leak by guessing a slug.
+ *
+ * `kind` is derived from the mime type the upload recorded, so the profile can place the video and
+ * the recitation without a column that could drift away from the file it describes.
+ */
+export async function getPublicInstructorMedia(slug: string) {
+  const client = db(); if (!client) return fail("Scheduling persistence is not configured.", "SETUP_NEEDED");
+  const { data: profile, error } = await client.from("instructor_profiles").select("user_id,public_profile_status,verification_status").eq("public_slug", slug).maybeSingle();
+  if (error) return fail("Instructor media could not be loaded.");
+  if (!profile || profile.public_profile_status !== "published" || profile.verification_status !== "approved") return { ok: true as const, data: [] };
+
+  const { data: rows, error: mediaError } = await client
+    .from("instructor_media")
+    .select("id,object_path,mime_type,visibility,created_at")
+    .eq("instructor_id", profile.user_id)
+    .eq("visibility", "public")
+    .order("created_at", { ascending: false })
+    .limit(PUBLIC_MEDIA_CAP);
+  if (mediaError) return fail("Instructor media could not be loaded.");
+
+  const signed = await Promise.all((rows ?? []).map(async (row) => {
+    const mime = String(row.mime_type ?? "");
+    const url = await signPublicObject(PRIVATE_BUCKETS.instructorMedia, String(row.object_path));
+    if (!url.ok) return null;
+    return { id: String(row.id), kind: mime.startsWith("video/") ? "video" as const : mime.startsWith("audio/") ? "audio" as const : "image" as const, mimeType: mime, url: url.data.signedUrl };
+  }));
+  // A file whose URL could not be signed is dropped, not rendered as a player that will not play.
+  return { ok: true as const, data: signed.filter((item): item is NonNullable<typeof item> => item !== null) };
+}
+
+/**
+ * The teachers this learner is actually working with, split into current and past.
+ *
+ * Their own dashboard needs to answer "who am I learning with", which no existing procedure did:
+ * `learnerBookings` returns booking rows carrying an `instructor_id` and no name, so a dashboard
+ * built on it would print identifiers at people.
+ *
+ * Read-only, and scoped by the caller's own token — `bookings` is RLS-scoped to its two
+ * participants, so a learner sees their own rows and nothing else. Nothing here is written, no
+ * table is added, and the instructor and admin desks do not call it.
+ *
+ * "Current" means a booking that is still confirmed. Everything else — completed, cancelled, a
+ * no-show — is past. A teacher who appears in both stays current, because the live booking is the
+ * one that matters to the reader.
+ */
+export async function listLearnerTutors(identity: SupabaseIdentity) {
+  const client = db(identity); if (!client) return fail("Scheduling persistence is not configured.", "SETUP_NEEDED");
+  const { data: rows, error } = await client
+    .from("bookings").select("instructor_id,status,scheduled_start_at").eq("learner_id", identity.id);
+  if (error) return fail("Your teachers could not be loaded.");
+
+  const grouped = new Map<string, { current: boolean; lastLessonAt: string | null }>();
+  for (const row of rows ?? []) {
+    const id = String((row as { instructor_id?: string }).instructor_id ?? "");
+    if (!id) continue;
+    const entry = grouped.get(id) ?? { current: false, lastLessonAt: null };
+    if (String((row as { status?: string }).status ?? "") === "confirmed") entry.current = true;
+    const when = (row as { scheduled_start_at?: string }).scheduled_start_at ?? null;
+    if (when && (!entry.lastLessonAt || when > entry.lastLessonAt)) entry.lastLessonAt = when;
+    grouped.set(id, entry);
+  }
+
+  const ids = Array.from(grouped.keys());
+  if (ids.length === 0) return { ok: true as const, data: { current: [], past: [] } };
+
+  // The same columns and the same two helpers discovery uses, so a teacher reads identically
+  // here and in the marketplace.
+  const { data: profiles, error: profileError } = await client
+    .from("instructor_profiles")
+    .select("user_id,public_slug,subjects,teaching_levels,teaching_languages,years_experience,teaching_approach,hourly_rate_minor,currency,availability_summary,verification_status,sect,has_ijazah")
+    .in("user_id", ids);
+  if (profileError) return fail("Your teachers could not be loaded.");
+  const presented = await attachInstructorStats(await attachPublicPresentation(profiles ?? []));
+
+  const current: unknown[] = [];
+  const past: unknown[] = [];
+  for (const row of presented) {
+    const entry = grouped.get(String(row.user_id));
+    const withLesson = { ...row, lastLessonAt: entry?.lastLessonAt ?? null };
+    (entry?.current ? current : past).push(withLesson);
+  }
+  return { ok: true as const, data: { current, past } };
 }
 
 export async function listTrialRequests(identity: SupabaseIdentity, role: "learner" | "instructor") {

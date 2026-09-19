@@ -25,7 +25,7 @@ import { trpc } from "@/lib/trpc";
 import { useLocale } from "../contexts/LocaleContextState";
 import ResultState from "./ResultState";
 import InstructorCard, { type DiscoveryInstructor } from "./InstructorCard";
-import { AITutorSection, BlogSection, ContactSection, HowItWorksSection } from "./HomeSections";
+import { AITutorSection, BlogSection } from "./HomeSections";
 import { IslamicCardImage } from "./IslamicCardArt";
 import { resultError, resultState } from "../lib/result-state";
 import { useOnlineStatus } from "../lib/use-online-status";
@@ -269,31 +269,9 @@ export default function HomeExperience() {
         </div>
       </section>
 
-      {/* -------------------------------------------------- how it works --- */}
-      <section data-anim="section" className="mx-auto max-w-7xl px-5 py-16 lg:px-8 lg:py-20">
-        <SectionHead
-          eyebrow={t("home.noorWay")}
-          title={t("home.stepsTitle")}
-          copy={t("home.stepsCopy")}
-          action={<Link href="/how-it-works" className="ni-btn ni-btn--quiet text-sm">{t("home.seeHow")}</Link>}
-        />
-        {/* Numbered because these genuinely are a sequence — you cannot track
-            progress before you have started learning. */}
-        <ol data-anim="stagger" className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {steps.map((step, index) => (
-            <li key={step.titleKey} className="ni-ed-card p-5">
-              <span aria-hidden="true" className="ni-label tabular-nums">{String(index + 1).padStart(2, "0")}</span>
-              <h3 className="mt-3 font-display text-lg ni-t-ink">{t(step.titleKey)}</h3>
-              <p className="mt-2 text-sm leading-7 ni-t-muted">{t(step.copyKey)}</p>
-            </li>
-          ))}
-        </ol>
-      </section>
 
       {/* The two sections the header navigates to, rather than routing away. */}
       <AITutorSection />
-      <HowItWorksSection />
-      <ContactSection />
       <BlogSection />
 
       {/* ----------------------------------------------------------- cta --- */}
@@ -311,7 +289,6 @@ export default function HomeExperience() {
                 <Sparkles size={15} aria-hidden="true" />
                 {t("home.createAccount")}
               </Link>
-              <Link href="/how-it-works" className="ni-btn ni-btn--outline">{t("home.seeHow")}</Link>
             </div>
           </div>
         </div>

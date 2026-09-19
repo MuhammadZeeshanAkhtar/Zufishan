@@ -10,7 +10,8 @@ describe("public instructor discovery boundary", () => {
     expect(scheduling).toContain("getSupabasePublicClient");
     expect(scheduling).toContain("listPublicInstructors");
     expect(scheduling).toContain('.eq("public_profile_status", "published")');
-    expect(scheduling).toContain('.eq("verification_status", "approved")');
+    // 0035: listed on publication; the Verified mark is awarded afterwards and gates nothing.
+    expect(scheduling).toContain('.eq("public_profile_status", "published")');
     expect(router).toContain("instructors: publicProcedure");
   });
 

@@ -12,7 +12,9 @@ export const PRIVATE_BUCKETS = {
 const LIMITS = { [PRIVATE_BUCKETS.credentials]: 10 * 1024 * 1024, [PRIVATE_BUCKETS.instructorMedia]: 25 * 1024 * 1024, [PRIVATE_BUCKETS.courseMedia]: 50 * 1024 * 1024, [PRIVATE_BUCKETS.classroomResources]: 25 * 1024 * 1024 } as const;
 const MIME = {
   [PRIVATE_BUCKETS.credentials]: new Set(["application/pdf", "image/jpeg", "image/png"]),
-  [PRIVATE_BUCKETS.instructorMedia]: new Set(["image/jpeg", "image/png", "image/webp", "video/mp4"]),
+  // Audio belongs here too: a teacher introduces themselves with a short recitation as often as
+  // with a video, and the profile offers both.
+  [PRIVATE_BUCKETS.instructorMedia]: new Set(["image/jpeg", "image/png", "image/webp", "video/mp4", "audio/mpeg", "audio/wav"]),
   [PRIVATE_BUCKETS.courseMedia]: new Set(["image/jpeg", "image/png", "image/webp", "application/pdf", "audio/mpeg", "audio/wav"]),
   [PRIVATE_BUCKETS.classroomResources]: new Set(["image/jpeg", "image/png", "image/webp", "application/pdf", "audio/mpeg", "audio/wav", "video/mp4"]),
 } as const;
@@ -91,6 +93,22 @@ export async function createSignedDownloadUrl(identity: SupabaseIdentity, input:
   const expiresInSeconds = Math.max(60, Math.min(input.expiresInSeconds ?? 300, 900));
   const { data, error } = await storage.storage.from(input.bucket).createSignedUrl(input.objectPath, expiresInSeconds);
   return error || !data?.signedUrl ? { ok: false, error: "Storage operation failed." } : { ok: true, data: { signedUrl: data.signedUrl, expiresInSeconds } };
+}
+
+/**
+ * A signed URL for an object whose audience has ALREADY been decided by the caller.
+ *
+ * `createSignedDownloadUrl` is the one to reach for: it checks who is asking. This one does not,
+ * and exists for the single case where the asker may be nobody at all — a visitor reading a public
+ * profile. The gate then lives with the record: only media the instructor marked public, on a
+ * profile that is published and approved, reaches this function. Do not call it anywhere that has
+ * not made that check first.
+ */
+export async function signPublicObject(bucket: PrivateBucket, objectPath: string, expiresInSeconds = 3600): Promise<StorageResult<{ signedUrl: string; expiresInSeconds: number }>> {
+  const storage = storageClient(); if (!storage) return { ok: false, error: "Storage unavailable." };
+  const expires = Math.max(60, Math.min(expiresInSeconds, 24 * 3600));
+  const { data, error } = await storage.storage.from(bucket).createSignedUrl(objectPath, expires);
+  return error || !data?.signedUrl ? { ok: false, error: "Storage operation failed." } : { ok: true, data: { signedUrl: data.signedUrl, expiresInSeconds: expires } };
 }
 
 export async function deletePrivateObject(identity: SupabaseIdentity, input: { bucket: PrivateBucket; objectPath: string }): Promise<StorageResult<{ deleted: true }>> {

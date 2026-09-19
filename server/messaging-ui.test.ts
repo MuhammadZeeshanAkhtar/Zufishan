@@ -31,10 +31,27 @@ describe("read receipts, which the client could not write", () => {
 });
 
 describe("the conversation list reads under the caller's own policies", () => {
-  it("uses the caller's client, so a mistake here cannot leak another thread", () => {
+  it("reads every thread, member and message on the caller's client", () => {
     const list = messaging.slice(messaging.indexOf("export async function listConversationSummaries"), messaging.indexOf("export async function markConversationRead"));
     expect(list).toContain("getSupabaseUserClient(identity.accessToken)");
-    expect(list).not.toContain("getSupabaseAdminClient");
+    // Conversations, messages and membership are all read as the caller, so a mistake in this
+    // function cannot reach a thread they do not belong to.
+    for (const table of ['db.from("conversations")', 'db.from("messages")', 'db.from("conversation_members")']) {
+      expect(list, table).toContain(table);
+    }
+  });
+
+  it("uses the admin client for one thing only: the counterpart's name", () => {
+    const list = messaging.slice(messaging.indexOf("export async function listConversationSummaries"), messaging.indexOf("export async function markConversationRead"));
+    // `profiles_select_own_or_admin` lets an account read only its own profile, so the name could
+    // never arrive on the caller's client and every conversation was headed "Private messages".
+    // The lookup is elevated rather than the policy widened — bounded by `otherIds`, which the
+    // caller's own client produced, and reading nothing but the display name.
+    const adminUses = list.match(/getSupabaseAdminClient\(\)/g) ?? [];
+    expect(adminUses, "exactly one elevated read in this function").toHaveLength(1);
+    expect(list).toContain('admin');
+    expect(list).toContain('.from("profiles").select("id,display_name,full_name").in("id", otherIds);');
+    expect(list).not.toMatch(/admin[\s\S]{0,120}\.from\("(conversations|messages|conversation_members)"\)/);
   });
 
   it("counts unread as messages from the other person that carry no receipt", () => {

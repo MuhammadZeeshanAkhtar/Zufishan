@@ -1,4 +1,4 @@
-# Noor Ilm — deployment
+# Zufishan — deployment
 
 ## What this project actually is
 

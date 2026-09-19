@@ -16,6 +16,7 @@ import { Link } from "wouter";
 import { ArrowLeft, MessageCircle, Send } from "lucide-react";
 import { trpc } from "../lib/trpc";
 import { useLocale } from "../contexts/LocaleContextState";
+import { useHasDashboardChrome } from "../lib/use-dashboard-chrome";
 import { useAuth } from "@/contexts/AuthContext";
 import ResultState from "./ResultState";
 import { resultError, resultState } from "../lib/result-state";
@@ -28,6 +29,10 @@ const wrap = "mx-auto max-w-4xl px-5 py-10 lg:px-8 lg:py-14";
 
 function Head({ role, title }: { role: Role; title: string }) {
   const { t } = useLocale();
+  const hasChrome = useHasDashboardChrome();
+  // Inside the dashboard the sidebar already names Messages and offers the way back, so the strip
+  // would only repeat it. The heading stays for screen readers.
+  if (hasChrome) return <h1 className="sr-only">{title}</h1>;
   return (
     <header className="border-b border-[var(--ni-sage)] bg-[var(--ni-paper)]">
       <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-5 py-4 lg:px-8">
@@ -38,6 +43,26 @@ function Head({ role, title }: { role: Role; title: string }) {
       </div>
     </header>
   );
+}
+
+/**
+ * What a conversation is called.
+ *
+ * Every thread used to be headed "Private messages" — the label of the *page*, reached because the
+ * counterpart's name was always null (see `listConversationSummaries`). A list where every row has
+ * the same title tells the reader nothing. The name now leads; a conversation that carries an
+ * explicit subject keeps it, and when there is genuinely no name to show the wording says who the
+ * thread is with by role rather than falling back to the page's own title.
+ */
+function useChatTitle(role: Role) {
+  const { t } = useLocale();
+  return (name: string | null | undefined, subject?: string | null) => {
+    const named = name?.trim();
+    if (named) return t("messaging.chatWith", { name: named });
+    const subjectText = subject?.trim();
+    if (subjectText) return subjectText;
+    return role === "learner" ? t("messaging.chatWithTeacher") : t("messaging.chatWithStudent");
+  };
 }
 
 const when = (value: string | null) => {
@@ -52,6 +77,7 @@ export function ConversationListPage({ role }: { role: Role }) {
   const { t } = useLocale();
   const online = useOnlineStatus();
   const conversations = trpc.supabaseCore.conversationSummaries.useQuery(undefined, { retry: false });
+  const chatTitle = useChatTitle(role);
   const state = resultState(conversations as never, online);
   const rows = conversations.data?.ok ? conversations.data.data : [];
 
@@ -59,8 +85,6 @@ export function ConversationListPage({ role }: { role: Role }) {
     <div className={shell}>
       <Head role={role} title={t("messaging.title")} />
       <main className={wrap}>
-        <p className="max-w-[60ch] text-sm leading-6 ni-t-muted">{t("messaging.protectedCopy")}</p>
-
         <div className="mt-8">
           {state !== "ready" && (
             <ResultState
@@ -92,7 +116,7 @@ export function ConversationListPage({ role }: { role: Role }) {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className={`block truncate ${row.unread > 0 ? "font-bold ni-t-ink" : "font-semibold ni-t-muted"}`}>
-                        {row.counterpart?.name || row.subject || t("messaging.title")}
+                        {chatTitle(row.counterpart?.name, row.subject)}
                       </span>
                       {row.lastMessage && (
                         <span className="mt-1 block truncate text-xs ni-t-muted">
@@ -126,6 +150,14 @@ export function ConversationThreadPage({ conversationId, role }: { conversationI
   const markRead = trpc.supabaseCore.markConversationRead.useMutation();
   const send = trpc.supabaseCore.createMessage.useMutation();
 
+  /* The thread knew only its messages, so it was headed "Private messages" like every other one.
+     The summaries the list already fetched carry the counterpart; this reads that same cached
+     answer rather than adding a procedure, and a thread opened directly simply fetches it once. */
+  const summaries = trpc.supabaseCore.conversationSummaries.useQuery(undefined, { retry: false, staleTime: 60_000 });
+  const summary = summaries.data?.ok ? summaries.data.data.find((row) => row.id === conversationId) : undefined;
+  const chatTitle = useChatTitle(role);
+  const heading = chatTitle(summary?.counterpart?.name, summary?.subject);
+
   const state = resultState(messages as never, online);
   const rows = (messages.data?.ok ? messages.data.data : []) as Record<string, unknown>[];
 
@@ -155,12 +187,15 @@ export function ConversationThreadPage({ conversationId, role }: { conversationI
 
   return (
     <div className={shell}>
-      <Head role={role} title={t("messaging.title")} />
+      <Head role={role} title={heading} />
       <main className={wrap}>
-        <div className="mb-4">
+        {/* Inside the dashboard `Head` is screen-reader only, so the name is drawn here too —
+            otherwise the one place you most need to know who you are writing to would not say. */}
+        <div className="mb-5">
           <Link href={`/dashboard/${role}/messages`} className="text-sm font-bold ni-t-moss">
             ← {t("messaging.allThreads")}
           </Link>
+          <p className="mt-2 font-display text-xl ni-t-ink">{heading}</p>
         </div>
 
         {state !== "ready" && (

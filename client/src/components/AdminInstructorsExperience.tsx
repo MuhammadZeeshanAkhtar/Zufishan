@@ -26,6 +26,7 @@ import { objectData, pagedMeta, pagedRows, pagedState } from "../lib/admin-paged
 import { useOnlineStatus } from "../lib/use-online-status";
 import { useDebounced } from "../lib/use-debounced";
 import type { TranslationKey } from "@/i18n/catalog";
+import { COMPLETION_LABEL_KEYS } from "../lib/use-instructor-completion";
 
 type Row = {
   id: string; displayName: string | null; slug: string; subjects: string[]; languages: string[];
@@ -199,6 +200,8 @@ export default function AdminInstructorsExperience() {
 
 type Detail = {
   id: string;
+  /* What the reviewer is deciding about: how much of the profile exists, field by field. */
+  completion: { percent: number; fields: Array<{ key: string; done: boolean }>; missingRequired: string[] };
   profile: {
     displayName: string | null; fullName: string | null; country: string | null; city: string | null;
     timezone: string | null; preferredLanguage: string | null; supportedLanguages: string[];
@@ -319,6 +322,40 @@ export function AdminInstructorDetailExperience({ instructorId }: { instructorId
               <StatusBadge status={detail.instructor.publicProfileStatus} label={statusLabel(t, detail.instructor.publicProfileStatus)} />
               <StatusBadge status={detail.profile.accountStatus} label={statusLabel(t, detail.profile.accountStatus)} />
             </div>
+          </AdminPanel>
+
+          {/* Approving makes the profile live, so what is in it is shown before the button, not
+              behind a visit to the public page. Same score the teacher sees, same field list. */}
+          <AdminPanel title={t("adminInstructors.completion")} description={t("adminInstructors.completionCopy")}>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="font-display text-3xl ni-t-ink tabular-nums">{formatNumber(detail.completion.percent)}%</span>
+              <span className="text-sm ni-t-muted">
+                {t("adminInstructors.filledCount", {
+                  done: formatNumber(detail.completion.fields.filter((field) => field.done).length),
+                  total: formatNumber(detail.completion.fields.length),
+                })}
+              </span>
+            </div>
+            <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-[var(--ni-sage-line)]">
+              <div className="h-full rounded-full bg-[var(--ni-moss)]" style={{ width: `${detail.completion.percent}%` }} />
+            </div>
+
+            <p className="mt-4 text-sm font-semibold ni-t-ink">
+              {detail.completion.missingRequired.length === 0
+                ? t("adminInstructors.allRequiredDone")
+                : `${t("adminInstructors.missingRequired")}: ${detail.completion.missingRequired.map((key) => COMPLETION_LABEL_KEYS[key] ? t(COMPLETION_LABEL_KEYS[key]) : key).join(" · ")}`}
+            </p>
+
+            <ul className="mt-3 grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
+              {detail.completion.fields.map((field) => (
+                <li key={field.key} className="flex items-center gap-2 text-sm">
+                  <span aria-hidden="true" className={field.done ? "ni-t-moss" : "ni-t-muted-soft"}>{field.done ? "✓" : "—"}</span>
+                  <span className={field.done ? "ni-t-ink" : "ni-t-muted"}>
+                    {COMPLETION_LABEL_KEYS[field.key] ? t(COMPLETION_LABEL_KEYS[field.key]) : field.key}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </AdminPanel>
 
           <div className="grid gap-6 lg:grid-cols-2">

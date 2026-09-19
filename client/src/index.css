@@ -10,7 +10,7 @@
 :root { --radius: 0.85rem; }  /* colour now comes from the dual-theme block below */
 
 /* ---------------------------------------------------------------------------
-   Noor Ilm — dual theme.
+   Zufishan — dual theme.
 
    Two complete identities, one token contract. Every surface, border and text
    colour in the app resolves through the `--ni-*` names below, so a theme is
@@ -968,7 +968,7 @@ main .group:hover img { transform: scale(1.035); filter: saturate(1.06) contrast
 .brand-button.bg-\[var\(--ni-moss\)\], a.brand-button.bg-\[var\(--ni-moss\)\] { color: var(--ni-on-primary); }
 
 /* ===========================================================================
-   Editorial pass — the reference's design principles, in Noor Ilm's own terms.
+   Editorial pass — the reference's design principles, in Zufishan's own terms.
 
    What the reference actually does, as distinct from what it looks like:
 
@@ -1161,6 +1161,30 @@ main .group:hover img { transform: scale(1.035); filter: saturate(1.06) contrast
 /* Inline text link, same discipline. */
 [data-theme="light"] .ni-link, [data-theme="light"] a.ni-link { color: #0A5344; }
 [data-theme="dark"]  .ni-link, [data-theme="dark"]  a.ni-link { color: #E8CE8A; }
+
+/* The call to action inside the gold "complete your profile" notice.
+   It used `--ni-teal` over `--ni-paper`, and both of those flip with the theme: in dark they land
+   on #1F1A14 and #241F19, near-identical dark browns, so the label disappeared into its own button.
+   `--ni-paper` was the wrong partner in the first place — it names a *surface*, not text on a dark
+   fill; `--ni-on-dark` is that partner. Declared per theme, like every other button here: dark
+   takes the gold fill with `--ni-on-gold`, the pair the palette declares for exactly this and the
+   one `.ni-btn--primary` already uses, so the notice's button matches every other primary button
+   in the dark theme. Light keeps the deep green it has always had. */
+.ni-nudge-cta { transition: background-color .15s ease, color .15s ease; }
+[data-theme="light"] .ni-nudge-cta { background: #0A2E2C; color: var(--ni-on-dark); }
+[data-theme="dark"]  .ni-nudge-cta { background: var(--ni-gold); color: var(--ni-on-gold); }
+[data-theme="light"] .ni-nudge-cta:hover { background: #123F3A; }
+[data-theme="dark"]  .ni-nudge-cta:hover { background: var(--ni-gold-mid); }
+.ni-nudge-cta:focus-visible { outline: 2px solid var(--ni-gold-ink); outline-offset: 2px; }
+
+/* The percentage bar under it, same fault read the other way round. In dark the fill was
+   near-black on a light gold track, so the *unfilled* part looked like the progress. It now takes
+   the same gold as the button above it, on the deepest gold in the palette, so the filled part is
+   the one that carries in dark; light keeps its green fill on a pale gold track. */
+.ni-nudge-bar { background: var(--ni-gold-glow); }
+[data-theme="dark"]  .ni-nudge-bar { background: var(--ni-gold-tint); }
+.ni-nudge-bar-fill { background: #0A2E2C; }
+[data-theme="dark"]  .ni-nudge-bar-fill { background: var(--ni-gold); }
 
 /* ---- Faint geometric line-art, as in the reference's upper right ---- */
 .ni-linework::after {
@@ -2268,3 +2292,87 @@ main .group:hover img { transform: scale(1.035); filter: saturate(1.06) contrast
 }
 .ni-range input[type="range"]:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--ni-moss); outline-offset: 2px; }
 .ni-range input[type="range"]:focus-visible::-moz-range-thumb { outline: 2px solid var(--ni-moss); outline-offset: 2px; }
+
+/* ---------------------------------------------------------------- timetable */
+/* The week of open hours on a teacher's public profile.
+   The fill is `--ni-gold` with `--ni-on-gold` on top: that pair exists precisely because the text
+   colour has to stay dark on gold in BOTH themes, so one rule serves light and dark without a
+   second palette. Borders come from `--ni-sage`, which is a real edge on sand and a quiet one on
+   espresso, so the grid reads as a grid either way. */
+.ni-timetable { border-collapse: collapse; width: 100%; }
+.ni-timetable th, .ni-timetable td { border: 1px solid var(--ni-sage); padding: 0; }
+.ni-timetable thead th {
+  background: var(--ni-field); padding: .55rem .5rem;
+  font-size: .72rem; font-weight: 700; color: var(--ni-ink);
+}
+.ni-timetable tbody th {
+  background: var(--ni-field); padding: 0 .5rem;
+  font-size: .7rem; font-weight: 600; font-variant-numeric: tabular-nums;
+  color: var(--ni-muted); text-align: start; white-space: nowrap;
+}
+/* Both states carry the same box so a row keeps one height whether it is open or empty. An empty
+   span has no line of text to give it height, so the minimum is stated rather than inherited
+   from content — otherwise a quiet hour sat shorter than a busy one and the grid stepped. */
+.ni-slot, .ni-slot-empty { display: block; width: 100%; min-height: 1.65rem; padding: .34rem .3rem; line-height: 1.25; font-size: .7rem; }
+.ni-slot {
+  background: var(--ni-gold); color: var(--ni-on-gold);
+  font-weight: 600; text-align: center;
+  transition: background 160ms var(--ni-ease);
+}
+.ni-slot:hover { background: color-mix(in srgb, var(--ni-gold) 84%, var(--ni-on-gold)); }
+/* The chosen cell keeps the gold and gains a dark inset edge — `--ni-on-gold` again, so the ring
+   is visible on the fill in either theme without introducing a colour that flips. */
+.ni-slot[aria-expanded="true"] { box-shadow: inset 0 0 0 2px var(--ni-on-gold); font-weight: 800; }
+.ni-slot:focus-visible { outline: 2px solid var(--ni-on-gold); outline-offset: -3px; }
+
+/* ------------------------------------------------------------ pricing panel */
+/* The plan panel and its action, in Zufishan's two strongest colours: gold behind, green in front.
+   Both are stated as fixed values rather than theme tokens, for the same reason `--ni-on-gold` is
+   fixed — the panel is gold in BOTH themes, so a control that flipped light in the dark theme would
+   sit on the wrong ground half the time. Measured against both gold values: the green clears 3:1
+   against the panel it sits on, and its label clears 8:1 against the green. */
+.ni-plan-panel { background: var(--ni-gold); color: var(--ni-on-gold); }
+.ni-btn--go { background: #0B4A41; border-color: #0B4A41; color: #F5F0E4; box-shadow: var(--ni-e1); }
+.ni-btn--go:hover:not(:disabled) { background: #0E5F53; border-color: #0E5F53; }
+.ni-btn--go:disabled { opacity: .72; cursor: not-allowed; }
+.ni-btn--go:focus-visible { outline: 2px solid var(--ni-on-gold); outline-offset: 2px; }
+
+/* ------------------------------------------------------ pricing calculator */
+/* A single-value slider.
+   `.ni-range` next door is NOT this: it is the marketplace's two-thumb rate filter, whose wrapper is
+   a 1.5rem flex row with its inputs positioned absolutely over separate track and fill elements.
+   Borrowing it for one slider laid the thumb straight across the label and left no visible bar,
+   because there was no track element to draw one. This is an ordinary stacked input instead: label
+   above, bar below, track painted on the input's own runnable track in both engines. */
+.ni-price-card { box-shadow: var(--ni-e2); }
+.ni-price-slider {
+  -webkit-appearance: none; appearance: none;
+  display: block; width: 100%; height: 1.375rem; margin: 0;
+  background: transparent; cursor: pointer;
+}
+.ni-price-slider::-webkit-slider-runnable-track { height: 6px; border-radius: 999px; background: var(--ni-sage); }
+.ni-price-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; margin-top: -6px;
+  height: 18px; width: 18px; border-radius: 50%;
+  background: var(--ni-moss); border: 2px solid var(--ni-paper); box-shadow: var(--ni-e1);
+}
+.ni-price-slider::-moz-range-track { height: 6px; border-radius: 999px; background: var(--ni-sage); }
+.ni-price-slider::-moz-range-thumb {
+  height: 18px; width: 18px; border-radius: 50%; border: 2px solid var(--ni-paper);
+  background: var(--ni-moss); box-shadow: var(--ni-e1);
+}
+.ni-price-slider:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--ni-moss); outline-offset: 2px; }
+.ni-price-slider:focus-visible::-moz-range-thumb { outline: 2px solid var(--ni-moss); outline-offset: 2px; }
+
+/* ------------------------------------------------------------ header brand */
+/* Between the point the desktop navigation appears (1024px) and the point there is room for
+   everything (1280px), the row asks for about 140px more than it has: brand, seven items, theme,
+   locale, and two account controls. The compact logo is what that gap is for — the mark alone
+   carries the brand in the rail, and the wordmark returns as soon as the width does.
+   Scoped to the header, so the footer and the auth pages keep the full lockup. */
+@media (min-width: 1024px) and (max-width: 1279.98px) {
+  .site-header .brand-logo span { display: none; }
+  /* Hiding the wordmark recovers most of the gap; closing the last of it is a tighter rhythm
+     between the seven items, which returns to normal above 1280px. */
+  .site-header nav { gap: 1rem; }
+}

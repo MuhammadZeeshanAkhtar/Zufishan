@@ -93,7 +93,7 @@ describe("article content cannot inject markup", () => {
   });
 
   it("refuses a cover that is not a site asset path", () => {
-    for (const good of ["/brand/hero-geometry.svg", "/brand/noor-ilm-mark.svg", ""]) {
+    for (const good of ["/brand/hero-geometry.svg", "/brand/zufishan-mark.svg", ""]) {
       expect(isSafeCoverPath(good), `${good} should be allowed`).toBe(true);
     }
     for (const bad of ["javascript:alert(1)", "//evil.example/x.png", "https://evil.example/x.png", "/brand/../../etc/passwd.png", "/brand/script.js", "data:image/svg+xml;base64,AAA"]) {

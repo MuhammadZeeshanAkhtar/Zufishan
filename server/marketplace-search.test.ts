@@ -44,7 +44,8 @@ describe("marketplace search", () => {
   it("never lets a filter reach an unpublished or unverified profile", () => {
     // The visibility gate is unconditional and precedes any caller-supplied filter.
     expect(instructorFn).toContain('.eq("public_profile_status", "published")');
-    expect(instructorFn).toContain('.eq("verification_status", "approved")');
+    // Publication is the gate now (0035); verification is a mark, not a filter.
+    expect(instructorFn).toContain('.eq("public_profile_status", "published")');
     expect(courseFn).toContain('.eq("status", "published")');
     // No filter field can target those columns.
     const inputBlock = routers.slice(routers.indexOf("instructors: publicProcedure"), routers.indexOf("instructorFacets"));

@@ -9,7 +9,7 @@ export { surahs, surahOptions, surahByNumber, surahReference, ayahCount, type Su
  * Nothing here duplicates the database: the project has no country/timezone/language lookup tables,
  * and `profiles.country`, `profiles.timezone` and `profiles.supported_languages` are plain columns.
  * Subjects are NOT redefined here — they are re-exported from `categories` in lms-data, which is the
- * list Noor Ilm already recommends across course discovery and instructor profiles.
+ * list Zufishan already recommends across course discovery and instructor profiles.
  *
  * Names come from `Intl.DisplayNames` rather than a hand-typed table, so they stay canonical and can
  * be localised; only the stable identifiers (ISO 3166-1 alpha-2, ISO 639-1, IANA) live in this file.
@@ -18,7 +18,7 @@ import { categories } from "./lms-data";
 
 export type Option = { value: string; label: string };
 
-/** Subjects Noor Ilm already supports. Re-exported so there is exactly one list in the project. */
+/** Subjects Zufishan already supports. Re-exported so there is exactly one list in the project. */
 export const subjectOptions: string[] = [...categories];
 
 /** Learner and teaching levels already used across the project. */
@@ -43,6 +43,9 @@ export const isGender = (value: unknown): value is Gender =>
  * the column is on the tutor listing, not the shared profile. Null or "" means not stated.
  */
 export const sectValues = ["Sunni", "Shia", "Other", "Prefer not to say"] as const;
+/* The school of fiqh a teacher teaches within. Separate from sect: the two answer different
+   questions, and a learner filtering for one is not filtering for the other. */
+export const fiqhValues = ["Hanafi", "Shafii", "Maliki", "Hanbali", "Other", "Prefer not to say"] as const;
 export type Sect = (typeof sectValues)[number];
 
 // ISO 3166-1 alpha-2. Identifiers only — display names are resolved at runtime.

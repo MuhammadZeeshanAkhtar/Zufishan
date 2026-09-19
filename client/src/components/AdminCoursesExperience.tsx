@@ -34,7 +34,7 @@ type Row = {
   moduleCount: number; lessonCount: number; updatedAt: string;
 };
 
-type Action = "publish" | "reject" | "request_changes" | "unpublish" | "restore";
+type Action = "publish" | "reject" | "request_changes" | "unpublish" | "restore" | "verify" | "unverify";
 
 /** Which actions the server will accept for a course in this status. */
 export function actionsForStatus(status: string): Action[] {
@@ -50,6 +50,8 @@ const ACTION_LABEL: Record<Action, TranslationKey> = {
   request_changes: "adminCourses.requestChanges",
   unpublish: "adminCourses.unpublish",
   restore: "adminCourses.restore",
+  verify: "adminUI.verifyCourse",
+  unverify: "adminUI.unverifyCourse",
 };
 
 const FILTERS = ["all", "draft", "in_review", "published", "rejected", "archived"] as const;
@@ -58,6 +60,9 @@ const PAGE = 25;
 function useCourseDecision(onDone: () => void) {
   const { t } = useLocale();
   const decide = trpc.admin.decideCourse.useMutation();
+  /* The mark is a second, separate decision (0035): status is the author's, the mark is the
+     reviewer's. It goes through the same confirmation dialog as every other admin write. */
+  const verify = trpc.admin.verifyCourse.useMutation();
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [outcome, setOutcome] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -68,10 +73,13 @@ function useCourseDecision(onDone: () => void) {
       confirmLabel: t(ACTION_LABEL[action]),
       // Anything that sends a course back or removes it from discovery has to be
       // explainable afterwards, so those require a written reason.
-      requireReason: action !== "publish" && action !== "restore",
+      requireReason: action !== "publish" && action !== "restore" && action !== "verify" && action !== "unverify",
       destructive: action === "reject" || action === "unpublish",
       onConfirm: async (reason) => {
-        const result = (await decide.mutateAsync({ courseId, action, note: reason || undefined })) as { ok: boolean; error?: string };
+        // The mark and the status are different writes; the dialog is the same.
+        const result = (action === "verify" || action === "unverify")
+          ? (await verify.mutateAsync({ courseId, status: action === "verify" ? "approved" : "verification_pending" })) as { ok: boolean; error?: string }
+          : (await decide.mutateAsync({ courseId, action, note: reason || undefined })) as { ok: boolean; error?: string };
         setOutcome({ ok: result.ok, text: result.ok ? t("adminCourses.saved") : result.error ?? t("common.error") });
         setConfirm(null);
         onDone();
@@ -79,7 +87,7 @@ function useCourseDecision(onDone: () => void) {
     });
   };
 
-  return { ask, confirm, setConfirm, outcome, pending: decide.isPending };
+  return { ask, confirm, setConfirm, outcome, pending: decide.isPending || verify.isPending };
 }
 
 export default function AdminCoursesExperience() {
@@ -199,6 +207,8 @@ export default function AdminCoursesExperience() {
 type Detail = {
   id: string; slug: string; title: string; description: string; subject: string; level: string;
   language: string; status: string; passMark: number | null; createdAt: string; updatedAt: string;
+  /* The reviewer's mark on the course itself (0035), separate from the instructor's below. */
+  verificationStatus: string;
   instructor: { id: string; name: string | null; verificationStatus: string | null };
   modules: Array<{ id: string; title: string; status: string; sortOrder: number; lessons: Array<{ id: string; title: string; status: string; sortOrder: number; durationSeconds: number | null; isPreview: boolean }> }>;
   assessments: { assignments: Array<{ id: string; title: string }>; quizzes: Array<{ id: string; title: string; questionCount: number }> };
@@ -213,6 +223,9 @@ export function AdminCourseDetailExperience({ courseId }: { courseId: string }) 
 
   const query = trpc.admin.course.useQuery({ courseId }, { retry: false });
   const { ask, confirm, setConfirm, outcome, pending } = useCourseDecision(() => query.refetch());
+  /* Separate from the decision above: status is the author's, the mark is the reviewer's (0035). */
+  const verify = trpc.admin.verifyCourse.useMutation();
+  const [verifyNotice, setVerifyNotice] = useState("");
 
   const state = pagedState<never>(query as never, online);
   const detail = objectData<Detail>(query as never);
@@ -263,6 +276,28 @@ export function AdminCourseDetailExperience({ courseId }: { courseId: string }) 
               {detail.instructor.verificationStatus && (
                 <StatusBadge status={detail.instructor.verificationStatus} label={`${t("adminCourses.instructorIs")} ${statusLabel(t, detail.instructor.verificationStatus)}`} />
               )}
+            </div>
+          </AdminPanel>
+
+          {/* The Verified mark. It changes nothing about who can see the course — that is the
+              teacher's publication — and everything about what a learner is told. It is asked for
+              through the same dialog as every other admin write, never fired straight from a click. */}
+          <AdminPanel
+            title={t("adminUI.verifyCourse")}
+            description={detail.verificationStatus === "approved" ? t("course.verifiedCopy") : t("course.liveNotVerified")}
+            actions={[
+              <RowAction
+                key="verify"
+                onClick={() => ask(detail.id, detail.title, detail.verificationStatus === "approved" ? "unverify" : "verify")}
+                tone={detail.verificationStatus === "approved" ? "quiet" : "primary"}
+                disabled={pending}
+              >
+                {t(detail.verificationStatus === "approved" ? "adminUI.unverifyCourse" : "adminUI.verifyCourse")}
+              </RowAction>,
+            ]}
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge status={detail.verificationStatus} label={statusLabel(t, detail.verificationStatus)} />
             </div>
           </AdminPanel>
 

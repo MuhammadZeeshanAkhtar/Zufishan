@@ -71,14 +71,38 @@ export async function listConversationSummaries(identity: SupabaseIdentity): Pro
     db.from("conversation_members").select("conversation_id,user_id").in("conversation_id", ids).neq("user_id", identity.id),
   ]);
 
-  // Counterpart names are a separate read; a missing profile must not drop the thread.
+  /*
+   * Counterpart names.
+   *
+   * This read used to run on the caller's own client, and could never return a row:
+   *
+   *   profiles_select_own_or_admin ... using (auth.uid() = id or public.is_admin_user())
+   *
+   * A learner may read exactly one profile — their own. So every name came back null and every
+   * conversation in the list was headed "Private messages", whoever it was with.
+   *
+   * Widening that policy is not the fix; it would let any signed-in account read every profile in
+   * the project. The name is resolved here instead, on the admin client, the same shape the read
+   * receipt below already uses — and it is bounded by what the caller's *own* client already
+   * proved: `ids` are conversations RLS let them list, `others` are the members RLS let them see
+   * inside those conversations. Nobody outside that set is looked up, and only the display name
+   * leaves this function. A missing profile must not drop the thread, so failure stays null.
+   */
   const otherIds = Array.from(new Set((others ?? []).map((row) => String((row as { user_id: string }).user_id))));
   const names = new Map<string, string | null>();
   if (otherIds.length) {
-    const { data: profiles } = await db.from("profiles").select("id,display_name,full_name").in("id", otherIds);
-    for (const row of profiles ?? []) {
-      const profile = row as { id: string; display_name: string | null; full_name: string | null };
-      names.set(String(profile.id), profile.display_name ?? profile.full_name ?? null);
+    const admin = getSupabaseAdminClient();
+    if (admin) {
+      const { data: profiles, error: profileError } = await admin
+        .from("profiles").select("id,display_name,full_name").in("id", otherIds);
+      if (profileError) {
+        console.error("[messaging] counterpart names failed:", { code: profileError.code, message: profileError.message });
+      }
+      for (const row of profiles ?? []) {
+        const profile = row as { id: string; display_name: string | null; full_name: string | null };
+        const name = (profile.display_name ?? profile.full_name ?? "").trim();
+        names.set(String(profile.id), name || null);
+      }
     }
   }
 

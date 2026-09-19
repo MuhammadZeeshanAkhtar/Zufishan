@@ -1,6 +1,6 @@
-# Noor Ilm LMS
+# Zufishan LMS
 
-Noor Ilm is a web-first Islamic learning management system and tutor marketplace foundation built around the **Quiet Geometry** design system: warm ivory surfaces, forest and moss greens, charcoal ink, restrained saffron accents, precise editorial typography, and subtle geometric motifs. The product remains strictly LMS-focused and does not add general religious modules.
+Zufishan is a web-first Islamic learning management system and tutor marketplace foundation built around the **Quiet Geometry** design system: warm ivory surfaces, forest and moss greens, charcoal ink, restrained saffron accents, precise editorial typography, and subtle geometric motifs. The product remains strictly LMS-focused and does not add general religious modules.
 
 ## Current stable release
 

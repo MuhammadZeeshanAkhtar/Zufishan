@@ -3,7 +3,7 @@
  *
  * Section order and grouping follow the reference student profile screen: Change Password first,
  * then Personal Info, then Subjects with the tutor-messaging consent note, then Location. Rendered
- * in Noor Ilm's own tokens and typography rather than the reference's colours.
+ * in Zufishan's own tokens and typography rather than the reference's colours.
  *
  * Password changes go through Supabase Auth; profile fields go through the server-owned
  * updateLearnerProfile procedure, which scopes both writes to the caller's own id.
@@ -18,7 +18,7 @@ import GenderSelect from "./GenderSelect";
 import { SearchableMultiSelect, SearchableSelect } from "./SearchableSelect";
 import { countryOptions, languageOptions, nextTimezoneForCountry, subjectOptions, timezoneOptionsForCountry } from "../lib/reference-data";
 
-// Subjects come from the list Noor Ilm already recommends (categories in lms-data).
+// Subjects come from the list Zufishan already recommends (categories in lms-data).
 const SUBJECT_OPTIONS = subjectOptions;
 
 type CoreProfiles = {

@@ -191,6 +191,21 @@ export async function listOwnTransactions(identity: SupabaseIdentity): Promise<R
 }
 
 /** The payment provider's status, plus whether a platform fee exists. Both are setup facts, not money. */
+/**
+ * What a visitor on the public Pricing page may know about payments: whether a provider is
+ * connected, and which currencies it can actually take money in.
+ *
+ * Deliberately narrower than `getPaymentsSetup`. That one names the provider and lists the
+ * environment variables still missing, which is operational detail for a signed-in administrator
+ * and nobody else. This returns two facts and no vendor, so the Pricing page can say "not yet"
+ * honestly without anyone having to hardcode the answer — and can stop saying it, by itself, the
+ * day a provider is configured.
+ */
+export function getPublicPaymentAvailability(): Result<{ configured: boolean; chargeableCurrencies: string[] }> {
+  const status = paymentProviderStatus();
+  return { ok: true, data: { configured: status.configured, chargeableCurrencies: [...status.supportedCurrencies] } };
+}
+
 export async function getPaymentsSetup(): Promise<Result<{ provider: PaymentProviderStatus; feeConfigured: boolean }>> {
   return { ok: true, data: { provider: paymentProviderStatus(), feeConfigured: (await readFeeConfig()) !== null } };
 }

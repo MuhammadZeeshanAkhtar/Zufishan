@@ -41,7 +41,7 @@ describe("reference data", () => {
   it("reuses the project's own subject list instead of inventing one", () => {
     expect(ref).toContain('import { categories } from "./lms-data"');
     expect(ref).toContain("export const subjectOptions: string[] = [...categories];");
-    // The canonical list still lives in lms-data and still holds the Noor Ilm subjects.
+    // The canonical list still lives in lms-data and still holds the Zufishan subjects.
     for (const subject of ["Quran Recitation", "Tajweed", "Hifz", "Arabic", "Noorani Qaida"]) {
       expect(lmsData).toContain(subject);
     }

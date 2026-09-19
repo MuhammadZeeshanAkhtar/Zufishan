@@ -54,7 +54,19 @@ export function learnerProfileCompletion(profile: ProfileRow, learnerProfile: Pr
   ]);
 }
 
-/** Recommended tutor fields. Currency and the review statuses a tutor cannot set are excluded. */
+/**
+ * Recommended tutor fields.
+ *
+ * DEPRECATED FOR THE TUTOR SCORE. This counted fifteen fields, seven of which onboarding fills in,
+ * so a nearly-empty profile read 67% — and it could not see the hours, media or background that
+ * live in other tables. `scoreInstructorProfile` in `shared/instructor-publication` is the list now,
+ * and `useInstructorCompletion` is how a screen reads it: one list, shared with the server, so the
+ * number on screen is the number the publish gate applies.
+ *
+ * Kept because the learner banner still calls `profileCompletionFor`, which needs a tutor branch,
+ * and because a caller with no access to the counts is better served by an understated score than
+ * by no score at all.
+ */
 export function instructorProfileCompletion(profile: ProfileRow, instructorProfile: ProfileRow): CompletionResult {
   const p = profile ?? {};
   const i = instructorProfile ?? {};

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { routeGroups } from "../client/src/lib/lms-data";
+import { moduleGroups, routeGroups } from "../client/src/lib/lms-data";
 import { hrefForModule } from "../client/src/components/DashboardChrome";
 
 const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
@@ -91,9 +91,18 @@ describe("dashboard navigation is role-specific", () => {
   });
 
   it("carries no student-only module in the tutor sidebar", () => {
-    const studentOnly = ["AI Tutor", "Tutors", "Progress", "Wallet", "Requirements", "Bookings"];
+    // Requirements and Bookings left this list, because they were never student-only: each has its
+    // own instructor route and its own instructor page — the desk where a tutor answers a published
+    // learning request, and the lessons they have had confirmed. Keeping them out left both with no
+    // entry point at all. What remains here is genuinely student-side: a tutor has no wallet, no
+    // memorisation progress of their own, and the tutor AI page is still a placeholder.
+    const studentOnly = ["AI Tutor", "Tutors", "Progress", "Wallet"];
     for (const item of studentOnly) {
       expect(routeGroups.instructor, `${item} is student-only`).not.toContain(item);
+    }
+    for (const item of ["Requirements", "Bookings"] as const) {
+      expect(routeGroups.instructor, `${item} is a tutor module too`).toContain(item);
+      expect(app, `${item} needs its own instructor route`).toContain(`path="/dashboard/instructor/${item.toLowerCase()}"`);
     }
   });
 
@@ -136,7 +145,17 @@ describe("dashboard navigation is role-specific", () => {
       "Billing", "Withdrawals"]) {
       expect(routeGroups.instructor, `${item} must remain for tutors`).toContain(item);
     }
-    expect(routeGroups.instructor).toHaveLength(8);
+    // Availability, Requirements, Trial Requests, Bookings, Verification, Credentials, Archives,
+    // Transactions, Sessions, Reports and Reviews came back: each had a route and a page and no way
+    // in from anywhere. Availability was the one that showed: the public timetable is built from it,
+    // so every profile advertised an empty week and no tutor could open the screen that fills it.
+    for (const item of ["Availability", "Requirements", "Trial Requests", "Bookings", "Verification",
+      "Credentials", "Archives", "Transactions", "Sessions", "Reports", "Reviews"]) {
+      expect(routeGroups.instructor, `${item} must be reachable`).toContain(item);
+    }
+    // The guarantee is that nothing named here is dropped, not a fixed count — pinning the length
+    // turns every future addition into a failure, as it did for this one.
+    expect(new Set(routeGroups.instructor).size).toBe(routeGroups.instructor.length);
     // Find Students, Schedule and Messages moved to the quick-links strip, not away.
     for (const label of ["Find Students", "Schedule", "Messages"]) {
       expect(quickLinks, `${label} must be promoted, not dropped`).toContain(`label: "${label}"`);
@@ -151,15 +170,30 @@ describe("navigation cannot drift out of sync", () => {
   });
 
   it("renders desktop rail and mobile drawer from the same list", () => {
-    // Both call renderNav over the same primary/footer split, so a removed module cannot linger
-    // in the drawer after being dropped from the rail.
-    expect(sidebar.match(/renderNav\(primary/g)).toHaveLength(2);
-    expect(sidebar.match(/renderNav\(footer/g)).toHaveLength(2);
+    /*
+     * Both rails render from one source, so a module cannot linger in the drawer after leaving the
+     * rail — or, now that the rail is grouped, be quietly grouped out of sight.
+     *
+     * The grouping is presentation only: `routeGroups` stays the registry of what exists, and this
+     * holds `moduleGroups` to it. Every module appears in exactly one place, and no group invents a
+     * module that is not in the registry. That is a stronger guarantee than counting render calls,
+     * and it is the one that actually matters — nothing may be dropped.
+     */
     expect(sidebar).toContain("const items = routeGroups[role];");
+    expect(sidebar).toContain("renderGrouped(onCloseMobile, true)");
+    for (const role of ["learner", "instructor", "admin"] as const) {
+      const layout = moduleGroups[role];
+      const shown = [...layout.solo, ...layout.groups.flatMap((group) => group.modules)];
+      expect(new Set(shown).size, `${role}: a module is listed twice`).toBe(shown.length);
+      expect([...shown].sort(), `${role}: rail and registry disagree`).toEqual([...routeGroups[role]].sort());
+      for (const group of layout.groups) {
+        expect(group.modules.length, `${role}/${group.key} is empty`).toBeGreaterThan(0);
+      }
+    }
   });
 
   it("gives every remaining module its own icon", () => {
-    const icons = sidebar.slice(sidebar.indexOf("MODULE_ICONS"), sidebar.indexOf("FOOTER_MODULES"));
+    const icons = sidebar.slice(sidebar.indexOf("MODULE_ICONS"), sidebar.indexOf("MODULE_LABEL_KEYS"));
     for (const role of ["learner", "instructor", "admin"] as const) {
       for (const item of routeGroups[role]) {
         expect(icons, `${item} needs an icon`).toContain(`${item.toLowerCase().includes(" ") ? `"${item.toLowerCase()}"` : item.toLowerCase()}:`);

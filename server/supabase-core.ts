@@ -1,6 +1,15 @@
 import type { SupabaseIdentity } from "./supabase-auth";
 import { getSupabasePublicClient, getSupabaseUserClient } from "./supabase-user-client";
 import { getSupabaseAdminClient } from "./supabase-admin-client";
+import { notifyReviewersOfPublication, notifyTeacherOfMissingFields } from "./review-queue";
+import { missingRequired } from "@shared/instructor-publication";
+
+/** Plain English for the notice a teacher receives; the screens translate their own copy. */
+const REQUIRED_FIELD_LABELS: Record<string, string> = {
+  displayName: "your name", subjects: "what you can teach", languages: "teaching language",
+  gender: "gender", rate: "hourly rate", currency: "currency (so credits per hour can be shown)",
+  timezone: "timezone",
+};
 import { summarizeHifzProgress } from "./hifz-progress-utils";
 import { statusAfterSave } from "@shared/learner-publication";
 
@@ -56,15 +65,68 @@ export async function updateOwnProfile(identity: SupabaseIdentity, input: { full
   return safe(() => db.from("profiles").update({ full_name: input.fullName.trim(), display_name: input.displayName.trim(), preferred_language: input.preferredLanguage, onboarding_completed: true, ...(input.preferredLocale ? { preferred_locale: input.preferredLocale } : {}) }).eq("id", identity.id).select("*").single());
 }
 
-export async function updateOwnInstructorProfile(identity: SupabaseIdentity, input: { publicDisplayName: string; publicSlug: string; subjects: string[]; levels: string[]; teachingLanguages: string[]; yearsExperience?: number; teachingApproach?: string; hourlyRateMinor?: number; currency?: string; availabilitySummary?: string; profileVisibility: "public" | "private"; preferredLanguage: string; fullName?: string; country?: string; city?: string; timezone?: string; bio?: string; gender?: string; sect?: string; hasIjazah?: boolean }) {
+export async function updateOwnInstructorProfile(identity: SupabaseIdentity, input: { publicDisplayName: string; publicSlug: string; subjects: string[]; levels: string[]; teachingLanguages: string[]; yearsExperience?: number; teachingApproach?: string; hourlyRateMinor?: number; currency?: string; availabilitySummary?: string; profileVisibility: "public" | "private"; preferredLanguage: string; fullName?: string; country?: string; city?: string; timezone?: string; bio?: string; gender?: string; sect?: string; fiqh?: string; hasIjazah?: boolean }) {
   const db = client(identity); if (!db) return failure("Supabase persistence unavailable.");
+
+  /*
+   * Publishing says "I am ready"; a reviewer's approval is what makes it visible (0036).
+   *
+   * There is no completeness *percentage* in front of it — that is guidance, and a number computed
+   * in a browser could never gate anything anyway. There are seven answers, though, that a learner
+   * cannot choose a teacher without, and the owner named them: a name, what they can teach, the
+   * language, gender, the rate, the credits that rate works out to, and the timezone. Publishing
+   * without one of those does not fail the save; the edit is kept as a draft and the teacher is
+   * told exactly which are missing, so a reviewer is never handed a profile that cannot be judged.
+   *
+   * Recomputed here from the values being written rather than trusted from the client, for the
+   * ordinary reason: the anon key and a session token are both in the page.
+   */
+  let missingRequiredFields: string[] = [];
+  if (input.profileVisibility === "public") {
+    const { data: storedInstructor } = await db
+      .from("instructor_profiles").select("currency").eq("user_id", identity.id).maybeSingle();
+    missingRequiredFields = missingRequired({
+      profile: { display_name: input.publicDisplayName, gender: input.gender, timezone: input.timezone },
+      instructorProfile: {
+        subjects: input.subjects,
+        teaching_languages: input.teachingLanguages,
+        hourly_rate_minor: input.hourlyRateMinor,
+        currency: input.currency ?? (storedInstructor as { currency?: unknown } | null)?.currency,
+      },
+    });
+  }
+  const mayPublish = input.profileVisibility === "public" && missingRequiredFields.length === 0;
+
   // country / timezone / bio live on `profiles` and were previously collected by the tutor form but
   // never written, so a tutor's location could not be stored at all. Optional columns are only sent
   // when the caller supplied them, so a partial edit never blanks a stored value.
   const optional = <T,>(value: T | undefined, mapped: () => unknown) => (value === undefined ? {} : { ...(mapped() as object) });
   const profileUpdate = db.from("profiles").update({ display_name: input.publicDisplayName.trim(), preferred_language: input.preferredLanguage.trim(), ...optional(input.fullName, () => ({ full_name: input.fullName!.trim() })), ...optional(input.country, () => ({ country: input.country!.trim() || null })), ...optional(input.city, () => ({ city: input.city!.trim() || null })), ...optional(input.timezone, () => ({ timezone: input.timezone!.trim() || null })), ...optional(input.bio, () => ({ bio: input.bio!.trim() || null })), ...optional(input.gender, () => ({ gender: input.gender!.trim() || null })) }).eq("id", identity.id);
-  const instructorUpdate = db.from("instructor_profiles").upsert({ user_id: identity.id, public_slug: input.publicSlug.trim(), subjects: input.subjects, teaching_levels: input.levels, teaching_languages: input.teachingLanguages, years_experience: input.yearsExperience ?? null, teaching_approach: input.teachingApproach?.trim() || null, hourly_rate_minor: input.hourlyRateMinor ?? null, currency: input.currency?.trim() || null, availability_summary: input.availabilitySummary?.trim() || null, ...optional(input.sect, () => ({ sect: input.sect!.trim() || null })), ...optional(input.hasIjazah, () => ({ has_ijazah: input.hasIjazah })), public_profile_status: input.profileVisibility === "public" ? "published" : "draft" }, { onConflict: "user_id" });
-  return safe(() => Promise.all([profileUpdate, instructorUpdate]).then(([profile, instructor]) => ({ data: { profile: profile.data, instructorProfile: instructor.data }, error: profile.error ?? instructor.error })), "updateOwnInstructorProfile");
+  const instructorUpdate = db.from("instructor_profiles").upsert({ user_id: identity.id, public_slug: input.publicSlug.trim(), subjects: input.subjects, teaching_levels: input.levels, teaching_languages: input.teachingLanguages, years_experience: input.yearsExperience ?? null, teaching_approach: input.teachingApproach?.trim() || null, hourly_rate_minor: input.hourlyRateMinor ?? null, currency: input.currency?.trim() || null, availability_summary: input.availabilitySummary?.trim() || null, ...optional(input.sect, () => ({ sect: input.sect!.trim() || null })), ...optional(input.fiqh, () => ({ fiqh: input.fiqh!.trim() || null })), ...optional(input.hasIjazah, () => ({ has_ijazah: input.hasIjazah })), public_profile_status: mayPublish ? "published" : "draft" }, { onConflict: "user_id" });
+  const saved = await safe(() => Promise.all([profileUpdate, instructorUpdate]).then(([profile, instructor]) => ({ data: { profile: profile.data, instructorProfile: instructor.data }, error: profile.error ?? instructor.error })), "updateOwnInstructorProfile");
+  /*
+   * A published profile is listed immediately now (migration 0035), so the reviewer has to be told
+   * rather than being the one who switches it on. The notice is raised after the write succeeded,
+   * is idempotent on the teacher's id, and cannot fail the save: a teacher publishing must not be
+   * blocked because a notification could not be written.
+   */
+  if (saved.ok && mayPublish) {
+    await notifyReviewersOfPublication({
+      kind: "instructor_profile",
+      subjectId: identity.id,
+      title: input.publicDisplayName?.trim() || input.publicSlug,
+    });
+  }
+  /* Told, not left guessing: the notice names the fields, and the editor shows the same list. */
+  if (saved.ok && missingRequiredFields.length > 0) {
+    await notifyTeacherOfMissingFields({
+      instructorId: identity.id,
+      missing: missingRequiredFields,
+      labels: missingRequiredFields.map((key) => REQUIRED_FIELD_LABELS[key] ?? key),
+    });
+    return { ok: true as const, data: { ...(saved.data as object), publication: { published: false, missingRequired: missingRequiredFields } } };
+  }
+  return saved;
 }
 
 /**
@@ -270,6 +332,43 @@ export async function deleteOwnCredential(identity: SupabaseIdentity, credential
   });
 }
 
+/**
+ * The intro media a teacher chooses to show on their public profile.
+ *
+ * There is no "kind" column and none is needed: the mime type already says whether a file is the
+ * introduction video or the recitation sample, and the profile reads it that way. Visibility is the
+ * teacher's own switch — a file stays private until they say otherwise, and a private file is
+ * readable only by them and an administrator, which is what the table policy already enforces.
+ */
+export async function listOwnInstructorMedia(identity: SupabaseIdentity) {
+  const db = client(identity); if (!db) return failure("Supabase persistence unavailable.");
+  return safe(() => db.from("instructor_media").select("*").eq("instructor_id", identity.id).order("created_at", { ascending: false }));
+}
+
+export async function createInstructorMedia(identity: SupabaseIdentity, input: { objectPath: string; mimeType: string; sizeBytes: number; visibility: "public" | "private" }) {
+  const db = client(identity); if (!db) return failure("Supabase persistence unavailable.");
+  // The path is built from the caller's own id by the storage layer; refusing anything else here
+  // means a forged path cannot attach a stranger's object to this profile.
+  if (!input.objectPath.startsWith(`${identity.id}/`) || input.sizeBytes <= 0 || input.sizeBytes > 25 * 1024 * 1024) return failure("Supabase operation failed.");
+  return safe(() => db.from("instructor_media").insert({ instructor_id: identity.id, object_path: input.objectPath, mime_type: input.mimeType, size_bytes: input.sizeBytes, visibility: input.visibility }).select("*").single());
+}
+
+export async function setOwnInstructorMediaVisibility(identity: SupabaseIdentity, input: { mediaId: string; visibility: "public" | "private" }) {
+  const db = client(identity); if (!db) return failure("Supabase persistence unavailable.");
+  return safe(() => db.from("instructor_media").update({ visibility: input.visibility }).eq("id", input.mediaId).eq("instructor_id", identity.id).select("*").single());
+}
+
+export async function deleteOwnInstructorMedia(identity: SupabaseIdentity, mediaId: string) {
+  const db = client(identity); if (!db) return failure("Supabase persistence unavailable.");
+  return safe(async () => {
+    const existing = await db.from("instructor_media").select("id, object_path").eq("id", mediaId).eq("instructor_id", identity.id).maybeSingle();
+    if (existing.error || !existing.data) return { data: null, error: existing.error ?? { message: "Media not found" } };
+    const removed = await db.from("instructor_media").delete().eq("id", mediaId).eq("instructor_id", identity.id).select("id").single();
+    if (removed.error) return removed;
+    return { data: { id: removed.data.id, objectPath: existing.data.object_path }, error: null };
+  });
+}
+
 export async function listPublishedCourses(identity?: SupabaseIdentity) {
   if (!identity) return failure("Supabase persistence unavailable.");
   const db = client(identity); if (!db) return failure("Supabase persistence unavailable.");
@@ -382,6 +481,33 @@ export async function updateOwnCourse(identity: SupabaseIdentity, courseId: stri
  *
  * A submission nobody is told about waits forever, so every reviewer is notified.
  */
+/**
+ * The teacher publishes their own course, and the reviewer is told.
+ *
+ * Migration 0035 moved publication back to the author: a course appears in the catalogue when its
+ * teacher says it is ready, and a reviewer's decision afterwards adds the Verified mark rather than
+ * switching the listing on. The database enforces the same boundary — the owner may reach 'draft',
+ * 'in_review' or 'published' and nothing else; 'rejected' and 'archived' stay a reviewer's.
+ *
+ * `verification_status` is not touched here and could not be: the trigger added in 0035 refuses any
+ * non-reviewer write to it. Publishing never marks a course verified.
+ */
+export async function publishOwnCourse(identity: SupabaseIdentity, courseId: string) {
+  const db = client(identity); if (!db) return failure("Supabase persistence unavailable.");
+  const result = await safe(() => db.from("courses").update({ status: "published", updated_at: new Date().toISOString() }).eq("id", courseId).eq("instructor_id", identity.id).in("status", ["draft", "in_review", "rejected", "published"]).select("*").single());
+  if (result.ok) {
+    const row = result.data as { id?: string; title?: string } | null;
+    await notifyReviewersOfPublication({ kind: "course", subjectId: String(row?.id ?? courseId), title: row?.title || "A course" });
+  }
+  return result;
+}
+
+/** And takes it down again. Unpublishing is the author's too, and raises no notice. */
+export async function unpublishOwnCourse(identity: SupabaseIdentity, courseId: string) {
+  const db = client(identity); if (!db) return failure("Supabase persistence unavailable.");
+  return safe(() => db.from("courses").update({ status: "draft", updated_at: new Date().toISOString() }).eq("id", courseId).eq("instructor_id", identity.id).in("status", ["published", "in_review"]).select("*").single());
+}
+
 export async function submitOwnCourseForReview(identity: SupabaseIdentity, courseId: string) {
   const db = client(identity); if (!db) return failure("Supabase persistence unavailable.");
   const result = await safe(() => db.from("courses").update({ status: "in_review", updated_at: new Date().toISOString() }).eq("id", courseId).eq("instructor_id", identity.id).in("status", ["draft", "rejected"]).select("*").single());
@@ -597,7 +723,7 @@ type HifzReference = { surah?: number; ayahFrom?: number; ayahTo?: number; juz?:
 type HifzPlanInput = { title: string; startDate?: string; targetDate?: string; currentReference?: HifzReference; dailyTarget?: { ayahs: number }; weeklyTarget?: { ayahs?: number; sessions?: number }; preferredDays?: string[]; reminderTime?: string; timezone?: string; instructorId?: string | null };
 type HifzRecordInput = { planId: string; recordDate: string; reference: HifzReference; sessionType: "new_memorisation" | "revision" | "assessment"; sectionType: "sabaq" | "sabqi" | "manzil"; status?: "planned" | "practiced" | "needs_revision" | "paused"; selfRating?: number; mistakeCount?: number; practiceMinutes?: number; learnerNote?: string };
 
-function validIsoDate(value: string) { return /^\\d{4}-\\d{2}-\\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`)); }
+function validIsoDate(value: string) { return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`)); }
 function validReference(reference: HifzReference) { return (reference.surah === undefined || (Number.isInteger(reference.surah) && reference.surah >= 1 && reference.surah <= 114)) && (reference.ayahFrom === undefined || (Number.isInteger(reference.ayahFrom) && reference.ayahFrom >= 1)) && (reference.ayahTo === undefined || (Number.isInteger(reference.ayahTo) && reference.ayahTo >= (reference.ayahFrom ?? 1))) && (reference.juz === undefined || (Number.isInteger(reference.juz) && reference.juz >= 1 && reference.juz <= 30)); }
 
 export async function createAdvancedHifzPlan(identity: SupabaseIdentity, input: HifzPlanInput) {

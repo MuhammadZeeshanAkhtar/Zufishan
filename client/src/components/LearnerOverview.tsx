@@ -31,8 +31,8 @@ import { trpc } from "@/lib/trpc";
 import { useLocale } from "../contexts/LocaleContextState";
 import ResultState from "./ResultState";
 import ProfileCompletionBanner from "./ProfileCompletionBanner";
+import LearnerTutorDesk from "./LearnerTutorDesk";
 import { resultState } from "../lib/result-state";
-import { profileCompletionFor } from "../lib/profile-completion";
 import { useOnlineStatus } from "../lib/use-online-status";
 import { useGsapReveal } from "../lib/use-gsap-reveal";
 import type { TranslationKey } from "@/i18n/catalog";
@@ -84,7 +84,6 @@ export default function LearnerOverview() {
   // The same three procedures the previous overview called. Nothing new.
   const enrolments = trpc.supabaseCore.enrolments.useQuery(undefined, { enabled: Boolean(user), retry: false });
   const requirements = trpc.supabaseCore.requirements.useQuery(undefined, { enabled: Boolean(user), retry: false });
-  const profiles = trpc.supabaseCore.profiles.useQuery(undefined, { enabled: Boolean(user), staleTime: 30_000, retry: false });
 
   const enrolmentState = resultState(enrolments as never, online);
   const requirementState = resultState(requirements as never, online);
@@ -100,17 +99,7 @@ export default function LearnerOverview() {
     ? rowsOf(requirements).filter((row) => row.status === "published").length
     : null;
 
-  const profileRows = profiles.data?.ok
-    ? (profiles.data.data as { profile?: unknown; learnerProfile?: unknown } | null)
-    : null;
-  const asRow = (value: unknown) => (value && typeof value === "object" ? (value as Row) : null);
-  const completion = profileRows
-    ? profileCompletionFor("learner", asRow(profileRows.profile), asRow(profileRows.learnerProfile)).percent
-    : null;
-
   useGsapReveal(root);
-
-  const name = user?.name || user?.email?.split("@")[0] || t("learnerHome.friend");
 
   const actions: Array<{ icon: typeof BookOpen; labelKey: TranslationKey; copyKey: TranslationKey; href: string }> = [
     { icon: UserRoundSearch, labelKey: "learnerHome.findTeacher", copyKey: "learnerHome.findTeacherCopy", href: "/dashboard/learner/teachers" },
@@ -123,20 +112,17 @@ export default function LearnerOverview() {
 
   return (
     <div ref={root} className="mx-auto max-w-6xl px-5 py-8 lg:px-6 lg:py-10">
-      <header data-anim="intro">
-        <p className="ni-label">{t("learnerHome.eyebrow")}</p>
-        <h1 className="mt-3 font-display text-[clamp(1.8rem,3.6vw,2.5rem)] leading-tight ni-t-ink text-balance">
-          {t("learnerHome.greeting", { name })}
-        </h1>
-        <p className="mt-3 max-w-[62ch] text-sm leading-7 ni-t-muted">{t("learnerHome.copy")}</p>
-      </header>
+      {/* The desk opens on the learner's own figures. The greeting and the note
+          explaining them are gone; the sidebar already says where you are, and a
+          heading stays for screen readers so the page is not headingless. */}
+      <h1 className="sr-only">{t("dashboard.overview")}</h1>
 
-      {/* Kept as-is: it already reads the same rows the profile page writes. */}
-      {completion !== null && completion < 100 && (
-        <div data-anim="intro" className="mt-6">
-          <ProfileCompletionBanner role="learner" />
-        </div>
-      )}
+      <div data-anim="intro"><ProfileCompletionBanner role="learner" /></div>
+
+      {/* The teachers desk comes first, as it does on the reference marketplace: who you learn
+          with, who is suggested, and what became of the invites you sent. The course figures and
+          the shortcuts that used to open this page follow underneath. */}
+      <LearnerTutorDesk />
 
       {/* ------------------------------------------------------- figures --- */}
       <section data-anim="section" className="mt-9">

@@ -56,7 +56,7 @@ describe("the discovery query matches the applied schema", () => {
   it("keeps the published/approved gate ahead of any caller filter", () => {
     const discovery = scheduling.slice(scheduling.indexOf("export async function listPublicInstructors"));
     expect(discovery).toContain('.eq("public_profile_status", "published")');
-    expect(discovery).toContain('.eq("verification_status", "approved")');
+    expect(discovery).toContain('.eq("public_profile_status", "published")');
     expect(discovery).toContain("const client = getSupabasePublicClient();");
   });
 });

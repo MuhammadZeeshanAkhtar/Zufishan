@@ -1,4 +1,4 @@
-# Noor Ilm — architecture map
+# Zufishan — architecture map
 
 One npm project, three source trees, one build. This document exists because the
 obvious tidy-up — moving `client/` to `frontend/` and `server/` to `backend/` — would

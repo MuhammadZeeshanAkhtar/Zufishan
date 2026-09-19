@@ -400,3 +400,34 @@ describe("the page adds a shell and nothing else", () => {
     }
   });
 });
+
+describe("the gate opens quietly when no provider is configured", () => {
+  /*
+   * The banner that used to sit here named `TURNSTILE_SECRET_KEY` and friends to a teacher who
+   * cannot set them, above a list that works. It is gone. What must NOT change with it is the
+   * part that actually protects anything, so both halves are pinned together.
+   */
+  it("renders the desk without a setup notice", () => {
+    expect(gate).toContain("if (!config || !config.configured) return <>{children(undefined)}</>;");
+    expect(gate).not.toContain('t("findStudents.verifyNotConfigured")');
+  });
+
+  it("still invents no token", () => {
+    // `undefined` is what the children receive; a string here would be a forged pass.
+    expect(gate).not.toMatch(/children\((["'`])[^"'`]+\)/);
+    expect(gate).not.toMatch(/humanToken\s*=\s*["'`][^"'`]+["'`]/);
+  });
+
+  it("still closes the desk once a provider IS configured", () => {
+    // The unverified branch is untouched: no token, no children.
+    expect(gate).toContain("if (!token) {");
+    expect(gate).toContain("setToken(");
+  });
+
+  it("leaves the server check exactly where it was", async () => {
+    // Configured and tokenless is still a refusal, decided on the server.
+    const env = { CAPTCHA_PROVIDER: "turnstile", CAPTCHA_SITE_KEY: "site", CAPTCHA_SECRET_KEY: "secret" } as unknown as NodeJS.ProcessEnv;
+    expect(describeHumanVerification(env).configured).toBe(true);
+    expect(await verifyHumanToken("   ", env)).toEqual({ outcome: "failed", reason: "missing_token" });
+  });
+});

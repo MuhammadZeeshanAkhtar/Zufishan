@@ -12,8 +12,10 @@ describe("instructor settings persistence boundary", () => {
   });
 
   it("keeps verification and notification providers setup-needed", () => {
+    // Each boundary is stated on the panel it governs. The page used to open with a paragraph that
+    // summarised both of these before the reader reached either; that intro is gone, and the two
+    // statements below are the ones that actually have to survive.
     expect(source).toContain('t("dashboard.notificationsSetup")');
     expect(source).toContain('t("dashboard.verificationBoundary")');
-    expect(source).toContain('t("dashboard.instructorSettingsCopy")');
   });
 });

@@ -56,7 +56,10 @@ function Shell({ eyebrow, title, copy, backHref, children }: { eyebrow: string; 
         </div>
       </header>
       <main className="mx-auto w-full min-w-0 max-w-4xl px-5 py-12 lg:px-8 lg:py-16">
-        <p className="max-w-[62ch] text-sm leading-7 ni-t-muted">{copy}</p>
+        {/* Modules open on their own content. `eyebrow` and `copy` are still accepted so no
+            caller had to change, but nothing prints them; the heading stays for screen
+            readers, since the sidebar names the module visually. */}
+        <h1 className="sr-only">{title}</h1>
         {children}
       </main>
     </div>

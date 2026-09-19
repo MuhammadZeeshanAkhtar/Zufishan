@@ -29,6 +29,7 @@ import {
   clampLimit, clampOffset, displayNameOf, invalid, likeTerm, logFailure,
   notFound, noteFor, recordAudit, requireAdmin, type AdminResult, type Page,
 } from "./admin-guard";
+import { missingRequired, scoreInstructorProfile } from "@shared/instructor-publication";
 
 export const INSTRUCTOR_FILTERS = ["all", "verification_pending", "approved", "rejected", "process_coming_soon"] as const;
 export type InstructorFilter = (typeof INSTRUCTOR_FILTERS)[number];
@@ -154,6 +155,8 @@ export async function listInstructors(
 }
 
 export type InstructorDetail = {
+  /** The twenty-one-field score a reviewer sees before approving, and the seven that block publication. */
+  completion: { percent: number; fields: Array<{ key: string; done: boolean }>; missingRequired: string[] };
   id: string;
   profile: {
     displayName: string | null; fullName: string | null; country: string | null; city: string | null;
@@ -191,6 +194,21 @@ export async function getInstructorDetail(
   }
   if (!instructor) return notFound("instructor profile");
 
+  /*
+   * What the reviewer is actually deciding about.
+   *
+   * Approving a teacher makes their profile live, so the desk should show how much of it exists
+   * before that button is pressed — the same twenty-one-field score the teacher sees, field by
+   * field, rather than a reviewer opening the public page and guessing. `avatar_url` and the three
+   * counts live outside the two rows already read, so they are fetched here.
+   */
+  const [{ data: avatarRow }, availabilityCount, mediaCount, qualificationCount] = await Promise.all([
+    admin.from("profiles").select("avatar_url").eq("id", input.instructorId).maybeSingle(),
+    admin.from("instructor_availability").select("id", { count: "exact", head: true }).eq("instructor_id", input.instructorId),
+    admin.from("instructor_media").select("id", { count: "exact", head: true }).eq("instructor_id", input.instructorId),
+    admin.from("instructor_qualifications").select("id", { count: "exact", head: true }).eq("instructor_id", input.instructorId),
+  ]);
+
   const [{ data: profile }, { data: credentials }, { data: responses }, { data: history }] = await Promise.all([
     admin.from("profiles")
       .select("display_name,full_name,country,city,timezone,preferred_language,supported_languages,bio,onboarding_completed,account_status,created_at")
@@ -210,10 +228,28 @@ export async function getInstructorDetail(
   const p = (profile ?? {}) as Record<string, unknown>;
   const i = instructor as Record<string, unknown>;
 
+  const completion = scoreInstructorProfile({
+    profile: { ...(p as Record<string, unknown>), avatar_url: (avatarRow as { avatar_url?: unknown } | null)?.avatar_url },
+    instructorProfile: i as Record<string, unknown>,
+    availabilityCount: availabilityCount.count ?? 0,
+    mediaCount: mediaCount.count ?? 0,
+    // The table arrives in 0034; an unapplied migration must not read as a missing answer.
+    qualificationCount: qualificationCount.error ? 1 : qualificationCount.count ?? 0,
+  });
+
   return {
     ok: true,
     data: {
       id: input.instructorId,
+      /* The score, and which of the seven a profile cannot be published without are still blank. */
+      completion: {
+        percent: completion.percent,
+        fields: completion.fields,
+        missingRequired: missingRequired({
+          profile: { ...(p as Record<string, unknown>) },
+          instructorProfile: i as Record<string, unknown>,
+        }),
+      },
       profile: {
         displayName: p.display_name ? String(p.display_name) : null,
         fullName: p.full_name ? String(p.full_name) : null,

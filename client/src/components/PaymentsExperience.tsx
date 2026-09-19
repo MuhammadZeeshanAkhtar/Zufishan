@@ -50,11 +50,22 @@ const primary = "inline-flex items-center justify-center gap-2 rounded-full bg-[
  * Exported because every money screen in this project must format the same way — a total that reads
  * "0" where it means "unknown" is the kind of error nobody notices until it is expensive.
  */
-export function formatMinor(amount: number | null | undefined, currency: string | null | undefined, unknown: string): string {
+/**
+ * A stored money amount, spelled the way every other price on the site is spelled.
+ *
+ * It used to format with the BROWSER's locale and a currency symbol, while the rest of the site
+ * uses the app's locale and the currency code — so the same seven dollars read "$7.00" here and
+ * "USD 7.00" on the teacher's profile. `locale` is passed in by the caller, which already holds it.
+ *
+ * What it does NOT do is convert. These are amounts that were quoted or charged, in the currency
+ * they were quoted or charged in; re-expressing one at today's rate would be a different number
+ * than the one on the record.
+ */
+export function formatMinor(amount: number | null | undefined, currency: string | null | undefined, unknown: string, locale?: string): string {
   if (amount === null || amount === undefined || !currency) return unknown;
   const major = amount / 100;
   try {
-    return new Intl.NumberFormat(undefined, { style: "currency", currency, minimumFractionDigits: 2 }).format(major);
+    return new Intl.NumberFormat(locale, { style: "currency", currency, currencyDisplay: "code", minimumFractionDigits: 2 }).format(major);
   } catch {
     // An unrecognised currency code still deserves a readable amount rather than a thrown page.
     return `${major.toFixed(2)} ${currency}`;
@@ -77,7 +88,10 @@ function Shell({ backHref, eyebrow, title, copy, children }: { backHref: string;
         </div>
       </header>
       <main className="mx-auto w-full min-w-0 max-w-4xl px-5 py-12 lg:px-8 lg:py-16">
-        {copy && <p className="max-w-[62ch] text-sm leading-7 ni-t-muted">{copy}</p>}
+        {/* Modules open on their own content. `eyebrow` and `copy` are still accepted so no
+            caller had to change, but nothing prints them; the heading stays for screen
+            readers, since the sidebar names the module visually. */}
+        <h1 className="sr-only">{title}</h1>
         {children}
       </main>
     </div>
@@ -118,7 +132,7 @@ export function PaymentStatusPill({ status }: { status: string }) {
 /* ------------------------------------------------------------------ checkout */
 
 export function CheckoutPage({ bookingId }: { bookingId: string }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { currentSession } = useAuth();
   const online = useOnlineStatus();
   const signedIn = Boolean(currentSession);
@@ -173,9 +187,9 @@ export function CheckoutPage({ bookingId }: { bookingId: string }) {
               <dl className="mt-4 divide-y divide-[var(--ni-sage)]">
                 {([
                   [t("pay.duration"), t("pay.minutes", { count: payload.quote.durationMinutes })],
-                  [t("pay.gross"), formatMinor(payload.quote.grossMinor, payload.quote.currency, unknown)],
-                  [t("pay.fee"), formatMinor(payload.quote.feeMinor, payload.quote.currency, unknown)],
-                  [t("pay.net"), formatMinor(payload.quote.netMinor, payload.quote.currency, unknown)],
+                  [t("pay.gross"), formatMinor(payload.quote.grossMinor, payload.quote.currency, unknown, locale)],
+                  [t("pay.fee"), formatMinor(payload.quote.feeMinor, payload.quote.currency, unknown, locale)],
+                  [t("pay.net"), formatMinor(payload.quote.netMinor, payload.quote.currency, unknown, locale)],
                 ] as Array<[string, string]>).map(([name, value]) => (
                   <div key={name} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
                     <dt className="text-sm ni-t-muted">{name}</dt>
@@ -199,7 +213,7 @@ export function CheckoutPage({ bookingId }: { bookingId: string }) {
                   <h2 className="font-display text-xl">{t("pay.existingCharge")}</h2>
                   <PaymentStatusPill status={payload.ledger.payment_status} />
                 </div>
-                <p className="mt-2 text-sm tabular ltr-embed">{formatMinor(payload.ledger.amount_minor, payload.ledger.currency, unknown)}</p>
+                <p className="mt-2 text-sm tabular ltr-embed">{formatMinor(payload.ledger.amount_minor, payload.ledger.currency, unknown, locale)}</p>
               </div>
             )}
 
@@ -234,7 +248,7 @@ export function CheckoutPage({ bookingId }: { bookingId: string }) {
 /* ------------------------------------------------------- transaction history */
 
 export function TransactionsPage({ role }: { role: "learner" | "instructor" }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { currentSession } = useAuth();
   const online = useOnlineStatus();
   const signedIn = Boolean(currentSession);
@@ -294,7 +308,7 @@ export function TransactionsPage({ role }: { role: "learner" | "instructor" }) {
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <Receipt size={16} className="ni-t-muted-soft" aria-hidden="true" />
-                  <h2 className="font-display text-lg tabular ltr-embed">{formatMinor(row.amount_minor, row.currency, unknown)}</h2>
+                  <h2 className="font-display text-lg tabular ltr-embed">{formatMinor(row.amount_minor, row.currency, unknown, locale)}</h2>
                 </div>
                 <p className="mt-1 text-xs ni-t-muted ltr-embed">{new Date(row.created_at).toLocaleString()}</p>
               </div>
@@ -302,9 +316,9 @@ export function TransactionsPage({ role }: { role: "learner" | "instructor" }) {
             </div>
             <dl className="mt-4 grid gap-2 sm:grid-cols-3">
               {([
-                [t("pay.gross"), formatMinor(row.gross_minor, row.currency, unknown)],
-                [t("pay.fee"), formatMinor(row.fee_minor, row.currency, unknown)],
-                [t("pay.net"), formatMinor(row.net_minor, row.currency, unknown)],
+                [t("pay.gross"), formatMinor(row.gross_minor, row.currency, unknown, locale)],
+                [t("pay.fee"), formatMinor(row.fee_minor, row.currency, unknown, locale)],
+                [t("pay.net"), formatMinor(row.net_minor, row.currency, unknown, locale)],
               ] as Array<[string, string]>).map(([name, value]) => (
                 <div key={name} className="rounded-xl bg-[var(--ni-sage-soft)] p-3">
                   <dt className="text-[10px] font-bold uppercase tracking-[.13em] ni-t-muted-soft">{name}</dt>

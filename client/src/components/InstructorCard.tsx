@@ -6,14 +6,14 @@
  * "I can teach" label, a truncated biography, a languages/gender row, and a divided
  * strip of facts along the bottom. Structure only: no name, photo, biography, rate,
  * rating, location or count from that reference appears here or anywhere in this
- * codebase. Every value comes from the Noor Ilm database, for an instructor who
+ * codebase. Every value comes from the Zufishan database, for an instructor who
  * published their own listing.
  *
  * The presentation itself lives in `InstructorPresentation`, shared with the public
  * profile page so a listing and its profile can never disagree about the same person.
  *
  * **What is deliberately missing.** The reference also shows an online/offline state.
- * Noor Ilm tracks no presence at all — no `last_seen_at`, no heartbeat, no realtime
+ * Zufishan tracks no presence at all — no `last_seen_at`, no heartbeat, no realtime
  * presence channel — so there is nothing truthful to render and no such badge appears.
  * "Last Active" is not presence: it is the last time the instructor actually joined a
  * class. The rating, session count and learner count ARE real, counted from `reviews`

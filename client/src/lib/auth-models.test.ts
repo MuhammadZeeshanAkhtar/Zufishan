@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { canAssignRole, demoAuthNotice, isPublicSignupRole, verificationLabel } from "./auth-models";
 
-describe("Noor Ilm auth model boundaries", () => {
+describe("Zufishan auth model boundaries", () => {
   it("allows only learner and instructor in public signup", () => {
     expect(isPublicSignupRole("learner")).toBe(true);
     expect(isPublicSignupRole("instructor")).toBe(true);

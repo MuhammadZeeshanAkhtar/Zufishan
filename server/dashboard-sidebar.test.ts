@@ -52,7 +52,7 @@ describe("dashboard sidebar", () => {
   });
 
   it("gives every module in every role a distinct icon, never a repeated default", () => {
-    const map = sidebar.slice(sidebar.indexOf("const MODULE_ICONS"), sidebar.indexOf("const FOOTER_MODULES"));
+    const map = sidebar.slice(sidebar.indexOf("const MODULE_ICONS"), sidebar.indexOf("const MODULE_LABEL_KEYS"));
     // Keys are bare when single-word and quoted when they contain a space.
     const keyed = (label: string) => {
       const k = label.toLowerCase();
@@ -87,8 +87,17 @@ describe("dashboard sidebar", () => {
   });
 
   it("trims the tutor desk without removing anything the learner needs", () => {
-    const removedFromTutor = ["Verification", "Invites", "Bookings", "Students", "Sessions", "Availability", "Reports", "Reviews", "Wallet"];
-    for (const item of removedFromTutor) expect(routeGroups.instructor).not.toContain(item);
+    // A module may leave the rail only when it has another way in. These three still do not appear
+    // because nothing behind them is the tutor's: "Invites" and "Students" are old labels for desks
+    // that now have their own entries, and a tutor has no wallet.
+    const notOnTheTutorRail = ["Invites", "Students", "Wallet"];
+    for (const item of notOnTheTutorRail) expect(routeGroups.instructor).not.toContain(item);
+    // The rest of the earlier trim is undone. Each of these has a route, a page, and no other entry
+    // point — Availability most of all, since the timetable on every public profile is drawn from it
+    // and no tutor could reach the screen that fills it.
+    for (const item of ["Verification", "Bookings", "Sessions", "Availability", "Reports", "Reviews"]) {
+      expect(routeGroups.instructor, `${item} must be reachable from the rail`).toContain(item);
+    }
     // Every one of those that the learner uses is still on the learner desk.
     for (const item of ["Bookings", "Sessions", "Reports", "Reviews", "Wallet"]) {
       expect(routeGroups.learner).toContain(item);
@@ -100,7 +109,7 @@ describe("dashboard sidebar", () => {
     // feature and is still one click away. See dashboard-navigation.test.ts.
     expect(routeGroups.learner).not.toContain("AI Tutor");
     expect(quickLinks).toContain('href: "/dashboard/learner/ai-tutor"');
-    // Noor Ilm's own modules survive the trim.
+    // Zufishan's own modules survive the trim.
     expect(routeGroups.instructor).toContain("Courses");
     // Find Students was promoted to the quick-links strip, so it leaves the sidebar but not the UI.
     expect(routeGroups.instructor).not.toContain("Find Students");
@@ -113,8 +122,10 @@ describe("dashboard sidebar", () => {
     expect(sidebar).toContain("window.localStorage.setItem(STORAGE_KEY");
     expect(sidebar).toContain('collapsed ? "w-[4.5rem] px-2.5" : "w-64 px-4"');
     // Labels hide, but the link and its accessible name remain.
-    expect(sidebar).toContain("{!collapsed && <span className=\"truncate\">{label}</span>}");
-    expect(sidebar).toContain("aria-label={collapsed ? label : undefined}");
+    // `label` is the English identifier that keys the icon and the href; `text` is the translated
+    // word on screen. The guarantee is unchanged: the word hides, the accessible name does not.
+    expect(sidebar).toContain("{!collapsed && <span className=\"truncate\">{text}</span>}");
+    expect(sidebar).toContain("aria-label={collapsed ? text : undefined}");
     expect(sidebar).toContain('role="tooltip"');
   });
 
@@ -122,7 +133,8 @@ describe("dashboard sidebar", () => {
     expect(sidebar).toContain('aria-modal="true"');
     expect(sidebar).toContain('document.body.style.overflow = "hidden"');
     expect(sidebar).toContain("onNavigate={onCloseMobile}".replace("onNavigate=", "")); // closes on selection
-    expect(sidebar).toContain("renderNav(primary, onCloseMobile)");
+    // The drawer renders the grouped rail at full width even when the desktop rail is icons-only.
+    expect(sidebar).toContain("renderGrouped(onCloseMobile, true)");
   });
 
   it("exposes one toggle with correct aria state, not a duplicate pair of controls", () => {
@@ -144,10 +156,13 @@ describe("dashboard sidebar", () => {
     expect(sidebar).toContain("motion-reduce:transition-none");
   });
 
-  it("uses Noor Ilm English and Urdu branding with a compact collapsed mark", () => {
-    expect(sidebar).toContain("Noor Ilm");
-    expect(sidebar).toContain("نورِ علم");
-    expect(sidebar).toContain('lang="ur"');
+  it("carries the Zufishan wordmark, with a compact mark when collapsed", () => {
+    expect(sidebar).toContain("Zufishan");
+    // The rail used to print the brand a second time in Urdu script beneath the wordmark. Zufishan
+    // has no agreed Arabic-script spelling, and guessing one would put an invented name on every
+    // dashboard, so the line is gone rather than transliterated. Restore it — and this assertion —
+    // when the spelling is decided.
+    expect(sidebar).not.toContain('lang="ur"');
     expect(sidebar).toContain("function BrandMark");
     // Collapsed shows the mark only.
     expect(sidebar).toContain("{!compact && (");

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Zufishan">
+  <title>Zufishan</title>
+  <!--
+    The Zufishan mark.
+
+    An eight-point khatim frame — two squares turned against each other — holding a Z drawn as a
+    single folded stroke, the way a reed pen lays a line down, turns, and comes back. The frame is
+    the geometry of Islamic ornament; the letter is the name. Nothing else, so it survives being
+    shrunk to a browser tab.
+
+    One colour throughout, and a gold chosen to sit between the light and dark palettes so the file
+    needs no theme-aware twin: it reads on cream and on espresso alike.
+  -->
+  <g fill="none" stroke="#C39A3E" stroke-linejoin="round">
+    <rect x="13" y="13" width="38" height="38" rx="4" stroke-width="2"/>
+    <rect x="13" y="13" width="38" height="38" rx="4" stroke-width="2" transform="rotate(45 32 32)" opacity=".55"/>
+  </g>
+  <!-- The Z: top bar, diagonal, bottom bar, mitred like a cut nib. -->
+  <path
+    d="M24.5 25.5h15l-15 13h15"
+    fill="none"
+    stroke="#C39A3E"
+    stroke-width="3.4"
+    stroke-linecap="square"
+    stroke-linejoin="miter"/>
+</svg>

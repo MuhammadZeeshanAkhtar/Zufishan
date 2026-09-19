@@ -2,6 +2,15 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const dashboard = readFileSync(new URL("../client/src/components/InstructorDashboard.tsx", import.meta.url), "utf8");
+
+/**
+ * Source with its comments removed.
+ *
+ * The dashboard explains which query it replaced and why. Naming `publishedRequirements` in a
+ * sentence is not reading from it, and without this the explanation would fail the assertion it
+ * exists to describe.
+ */
+const codeOnly = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/.*$/gm, " ");
 const overview = readFileSync(new URL("../client/src/components/DashboardOverview.tsx", import.meta.url), "utf8");
 const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const chrome = readFileSync(new URL("../client/src/components/DashboardChrome.tsx", import.meta.url), "utf8");
@@ -30,7 +39,15 @@ describe("tutor dashboard", () => {
   });
 
   it("builds every list from real server data, never from fixtures", () => {
-    expect(dashboard).toContain("trpc.supabaseCore.publishedRequirements.useQuery");
+    /*
+     * Recommended reads the learner desk, not the requirements desk.
+     *
+     * It used to read `publishedRequirements` — learner *requests* — so a teacher whose Find
+     * Students page was full of people saw an empty overview. Both tabs now read the one procedure,
+     * which is also what makes them agree.
+     */
+    expect(dashboard).toContain("trpc.supabaseCore.discoverableLearners.useQuery");
+    expect(codeOnly(dashboard)).not.toContain("publishedRequirements");
     expect(dashboard).toContain("trpc.scheduling.instructorTrials.useQuery");
     expect(dashboard).toContain("trpc.scheduling.instructorBookings.useQuery");
     expect(dashboard).not.toMatch(/getInstructorDashboardData|mock|fake|sample|dummy/i);
@@ -77,5 +94,35 @@ describe("tutor dashboard", () => {
   it("uses palette tokens and keeps currency and dates LTR-isolated", () => {
     expect(dashboard).not.toMatch(/#[0-9a-fA-F]{6}\b/);
     expect(dashboard).toContain("ltr-embed");
+  });
+});
+
+describe("a suggested student looks like themselves, and is only a preview", () => {
+  it("shows the picture they uploaded, or the mark for the gender they saved", () => {
+    // The same component Find Students uses, so one student does not look like two people.
+    expect(dashboard).toContain("<LearnerAvatar avatarUrl={learner.avatarUrl} gender={learner.gender} profilePublic={learner.profilePublic} />");
+    expect(dashboard).toContain('import LearnerAvatar from "./LearnerAvatar";');
+  });
+
+  it("carries the four facts the card states, and no more", () => {
+    for (const key of ["marketplace.country", "tutorDesk.wantsToLearn", "tutorDesk.spokenLanguages", "tutorDesk.timeZone"]) {
+      expect(dashboard, key).toContain(`t("${key}")`);
+    }
+  });
+
+  it("sends no message from the overview", () => {
+    /*
+     * Messaging belongs to Find Students, which is where eligibility is checked and where the
+     * human gate sits. A second entry point on the overview would be a second place to keep right.
+     */
+    const card = dashboard.slice(dashboard.indexOf("{suggested.map((learner) => ("), dashboard.indexOf("</ul>", dashboard.indexOf("{suggested.map((learner) => (")));
+    expect(card).not.toContain("MessageSquare");
+    expect(card).not.toContain("<Link");
+    expect(card).not.toContain("/dashboard/instructor/students/");
+  });
+
+  it("previews a handful rather than the whole desk", () => {
+    expect(dashboard).toContain("const SUGGESTION_LIMIT = 5;");
+    expect(dashboard).toContain("useQuery({ limit: SUGGESTION_LIMIT }");
   });
 });

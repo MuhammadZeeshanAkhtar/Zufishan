@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ar, catalogs, en, localeCodes, missingTranslationKeys, ur } from "../client/src/i18n/catalog";
 
-describe("Noor Ilm i18n contract", () => {
+describe("Zufishan i18n contract", () => {
   it("supports exactly the three launch locales", () => {
     expect(localeCodes).toEqual(["en", "ur", "ar"]);
     expect(Object.keys(catalogs).sort()).toEqual(["ar", "en", "ur"]);

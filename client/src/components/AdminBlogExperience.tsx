@@ -41,7 +41,7 @@ const COVERS = [
   "/brand/hero-geometry.svg",
   "/brand/course-geometry.svg",
   "/brand/tutor-geometry.svg",
-  "/brand/noor-ilm-mark.svg",
+  "/brand/zufishan-mark.svg",
 ] as const;
 
 type Article = {

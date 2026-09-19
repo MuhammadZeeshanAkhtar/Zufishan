@@ -36,9 +36,10 @@ const discovery = scheduling.slice(
 describe("an instructor is discoverable only with every consent and good standing", () => {
   it("applies approval and publication before any caller-supplied filter", () => {
     expect(discovery).toContain('.eq("public_profile_status", "published")');
-    expect(discovery).toContain('.eq("verification_status", "approved")');
+    // 0035 made verification a mark rather than a gate; publication is what remains.
+    expect(discovery).toContain('.eq("public_profile_status", "published")');
     // Both sit above the first optional filter, so no input can widen the set.
-    const gate = discovery.indexOf('.eq("verification_status", "approved")');
+    const gate = discovery.indexOf('.eq("public_profile_status", "published")');
     expect(gate).toBeLessThan(discovery.indexOf("if (filters.sect)"));
     expect(gate).toBeLessThan(discovery.indexOf("if (filters.subjects?.length)"));
   });
@@ -100,7 +101,7 @@ describe("the card shows only what exists", () => {
   });
 
   it("renders no presence anywhere, because nothing records it", () => {
-    // Noor Ilm has no last_seen_at column, no heartbeat and no realtime presence
+    // Zufishan has no last_seen_at column, no heartbeat and no realtime presence
     // channel, so an online/offline state could only be invented. Identifiers
     // rather than words, so a comment explaining the absence cannot satisfy this.
     for (const invented of ["isOnline", "onlineStatus", "last_seen", "presenceChannel", "OnlineBadge"]) {

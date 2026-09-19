@@ -26,7 +26,7 @@
  * all three rather than three near-identical ones.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ShieldCheck, ShieldAlert, Loader2 } from "lucide-react";
+import { ShieldCheck, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useLocale } from "../contexts/LocaleContextState";
 
@@ -115,24 +115,21 @@ export default function HumanVerificationGate({ children }: { children: (token: 
     );
   }
 
-  // No provider on this deployment. Say so; do not simulate a pass.
-  if (!config || !config.configured) {
-    return (
-      <>
-        <div className="ni-banner mb-6" role="status">
-          <ShieldAlert size={15} aria-hidden="true" className="me-2 inline align-[-2px]" />
-          <span>{t("findStudents.verifyNotConfigured")}</span>
-          {config && config.requiredEnv.length > 0 && (
-            <span className="ms-1 ni-t-muted-soft">
-              {t("findStudents.verifyNeeds")}{" "}
-              <span className="ltr-embed font-mono text-[.72rem]">{config.requiredEnv.join(", ")}</span>
-            </span>
-          )}
-        </div>
-        {children(undefined)}
-      </>
-    );
-  }
+  /*
+   * No provider on this deployment.
+   *
+   * This used to draw a banner naming the environment variables an operator must set. That is a
+   * true sentence addressed to the wrong reader: a teacher opening Find Students can do nothing
+   * about `TURNSTILE_SECRET_KEY`, and a setup note above a working list reads as a fault in the
+   * list. The desk simply opens.
+   *
+   * Nothing is faked and nothing is weakened by this. No token is invented — `children` still
+   * receives `undefined`, exactly as before — and the moment a provider IS configured the widget
+   * below runs and the desk stays shut until it issues one. The server checks that token against
+   * the provider's secret either way; this component has never been the thing that protects the
+   * data, and still is not.
+   */
+  if (!config || !config.configured) return <>{children(undefined)}</>;
 
   if (!token) {
     return (

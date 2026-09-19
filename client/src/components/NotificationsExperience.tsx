@@ -77,12 +77,11 @@ function Shell({ role, eyebrow, title, copy, action, children }: {
         </div>
       </header>
       <main className="mx-auto w-full min-w-0 max-w-4xl px-5 py-12 lg:px-8 lg:py-16">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-          </div>
-          {action}
-        </div>
-        <p className="max-w-[62ch] text-sm leading-7 ni-t-muted">{copy}</p>
+        <div className="flex flex-wrap items-start justify-end gap-4">{action}</div>
+        {/* Modules open on their own content. `eyebrow` and `copy` are still accepted so no
+            caller had to change, but nothing prints them; the heading stays for screen
+            readers, since the sidebar names the module visually. */}
+        <h1 className="sr-only">{title}</h1>
         {children}
       </main>
     </div>

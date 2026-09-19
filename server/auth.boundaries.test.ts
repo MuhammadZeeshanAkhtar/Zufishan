@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { canAssignRole, demoAuthNotice, isAdminRole, isPublicSignupRole, isSafeInternalReturn, isSessionExpired, normalizeEmail, verificationLabel } from "../client/src/lib/auth-models";
 import { getServiceStateCopy, isIndexablePublicPath, isPrivateSurface } from "../client/src/lib/quality-boundaries";
 
-describe("Noor Ilm auth boundaries", () => {
+describe("Zufishan auth boundaries", () => {
   it("allows only learner and instructor in public signup", () => {
     expect(isPublicSignupRole("learner")).toBe(true);
     expect(isPublicSignupRole("instructor")).toBe(true);

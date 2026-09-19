@@ -1,4 +1,4 @@
-# Noor Ilm LMS — Design Direction
+# Zufishan LMS — Design Direction
 
 ## Three possible directions
 
@@ -46,7 +46,7 @@ Use 180–260ms ease-out transitions for hover, focus, and drawers. Page section
 Display: Fraunces, with editorial optical sizing and strong 600 weight for page titles. Body and UI: DM Sans, with 400–700 weights for clarity. Use letter-spaced uppercase micro-labels for metadata and reserve italic Fraunces for occasional emphasis. Keep line lengths narrow for learning-oriented copy.
 
 ### Brand Essence
-Noor Ilm helps learners find thoughtful Islamic education and helps instructors teach with clarity, trust, and a human pace. Personality: **grounded, generous, discerning**.
+Zufishan helps learners find thoughtful Islamic education and helps instructors teach with clarity, trust, and a human pace. Personality: **grounded, generous, discerning**.
 
 ### Brand Voice
 Headlines should be assured and humane, never inflated. CTAs should describe the next real step. Microcopy should be transparent about demo data and future phases.

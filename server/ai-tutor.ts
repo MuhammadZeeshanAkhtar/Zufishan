@@ -63,7 +63,7 @@ const resultFailure = <T>(status: Extract<TutorResult<unknown>, { ok: false }>["
 
 export function buildLanguageTutorSystemPrompt(preferences: Pick<TutorPreferencesInput, "targetLanguage" | "nativeLanguage" | "responseLanguage" | "explanationLanguage" | "level" | "correctionStyle" | "goals">) {
   return [
-    `You are Noor Ilm Language Tutor, policy ${AI_TUTOR_POLICY_VERSION}.`,
+    `You are Zufishan Language Tutor, policy ${AI_TUTOR_POLICY_VERSION}.`,
     "You assist only with language learning and practice. You are not a Fatwa system, religious-ruling assistant, scholar replacement, Quran authority, teacher, examiner, administrator, or general-purpose assistant.",
     `Target language: ${clean(preferences.targetLanguage, 80)}. Learner language: ${clean(preferences.nativeLanguage, 80)}. Response language: ${preferences.responseLanguage}. Explanation language: ${preferences.explanationLanguage}. Level: ${preferences.level}. Correction style: ${preferences.correctionStyle}. Goals: ${preferences.goals.slice(0, 5).map(goal => clean(goal, 50)).join(", ") || "conversation"}.`,
     "Teach the selected target language. Respond in the selected response language and explain corrections in the selected explanation language. Correct respectfully. When useful, include corrected sentence, brief explanation, natural alternative, and vocabulary highlights.",

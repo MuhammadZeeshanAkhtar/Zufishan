@@ -61,4 +61,71 @@ export const getAvailability = () => [];
 export const getMessages = () => [];
 // Hifz was reachable only by typing its URL: the module had screens, routes and procedures but
 // no navigation entry for either role.
-export const routeGroups = { learner: ["Overview", "Courses", "Hifz", "Requirements", "Trial Lessons", "Bookings", "Schedule", "Classrooms", "Certificates", "Archives", "Transactions", "Reviews", "Wallet", "Sessions", "Progress", "Reports", "Edit Profile"], instructor: ["Overview", "Edit Profile", "Courses", "Classrooms", "Hifz", "Training", "Billing", "Withdrawals"], admin: ["LMS overview", "Users", "Instructors", "Courses", "Requirements", "Bookings", "Classrooms", "AI Tutor", "Reviews", "Billing", "Withdrawals", "Audit logs"] };
+/**
+ * The module rail for each role.
+ *
+ * Every entry has a route and a real page behind it, and a module is left OFF a rail only when it
+ * has another way in: Settings and the profile sit in the header account menu, Notifications is the
+ * header bell, and Find Students, Schedule and Messages are the instructor's quick links.
+ *
+ * An earlier pass trimmed the tutor rail to eight entries without checking that against the list
+ * above, and eleven working modules were left with no entry point anywhere. Availability was one of
+ * them — the module the public timetable is built from — so a teacher had no way to open the hours
+ * their profile advertises, and the grid on every profile stayed empty. Those eleven are back.
+ *
+ * `hrefForModule` maps each label to its path; `FOOTER_MODULES` in the sidebar drops the
+ * account-level few below a divider.
+ */
+export const routeGroups = { learner: ["Overview", "Courses", "Hifz", "Requirements", "Trial Lessons", "Bookings", "Schedule", "Classrooms", "Certificates", "Archives", "Parental Watch", "Quran Revision", "Transactions", "Reviews", "Wallet", "Sessions", "Progress", "Reports", "Edit Profile"], instructor: ["Overview", "Requirements", "Trial Requests", "Bookings", "Availability", "Classrooms", "Archives", "Courses", "Hifz", "Training", "Verification", "Credentials", "Edit Profile", "Billing", "Withdrawals", "Transactions", "Sessions", "Reports", "Reviews"], admin: ["LMS overview", "Users", "Instructors", "Courses", "Requirements", "Bookings", "Classrooms", "AI Tutor", "Reviews", "Billing", "Withdrawals", "Audit logs"] };
+
+/**
+ * How the rail is grouped.
+ *
+ * `routeGroups` above is the registry: every module a role has, and the only list that decides what
+ * exists. This decides how those same modules are *shown*, and nothing else — a label here is a
+ * label there, and a test holds the two in step so a module can never be grouped out of sight.
+ *
+ * The reason for it: the reference marketplace shows a teacher seven rail entries and a learner
+ * six. Zufishan has nineteen each, which is not a fault — they are real modules doing real work —
+ * but nineteen flat rows is a list to search rather than a place to navigate. Grouped, a reader
+ * sees Overview and five headings, opens the one they want, and everything is still one click from
+ * where it always was. Nothing is removed, renamed or re-routed.
+ *
+ * `solo` modules sit above the groups with no heading of their own, because a dashboard's front
+ * page should not be filed under anything.
+ */
+export type ModuleGroup = { key: string; modules: string[] };
+
+export const moduleGroups: Record<"learner" | "instructor" | "admin", { solo: string[]; groups: ModuleGroup[] }> = {
+  learner: {
+    solo: ["Overview"],
+    groups: [
+      { key: "learning", modules: ["Courses", "Hifz", "Quran Revision", "Progress", "Certificates"] },
+      { key: "lessons", modules: ["Requirements", "Trial Lessons", "Bookings", "Schedule"] },
+      { key: "classroom", modules: ["Classrooms", "Archives", "Parental Watch"] },
+      { key: "payments", modules: ["Wallet", "Transactions", "Sessions"] },
+      { key: "account", modules: ["Edit Profile", "Reviews", "Reports"] },
+    ],
+  },
+  instructor: {
+    solo: ["Overview"],
+    groups: [
+      { key: "students", modules: ["Requirements", "Trial Requests", "Bookings", "Availability"] },
+      { key: "teaching", modules: ["Courses", "Hifz", "Classrooms", "Archives"] },
+      { key: "approval", modules: ["Training", "Verification", "Credentials"] },
+      { key: "earnings", modules: ["Billing", "Withdrawals", "Transactions", "Sessions"] },
+      { key: "account", modules: ["Edit Profile", "Reviews", "Reports"] },
+    ],
+  },
+  admin: {
+    solo: ["LMS overview"],
+    groups: [
+      { key: "people", modules: ["Users", "Instructors"] },
+      { key: "content", modules: ["Courses", "Requirements", "AI Tutor"] },
+      { key: "operations", modules: ["Bookings", "Classrooms", "Reviews"] },
+      { key: "money", modules: ["Billing", "Withdrawals"] },
+      { key: "system", modules: ["Audit logs"] },
+    ],
+  },
+};
+

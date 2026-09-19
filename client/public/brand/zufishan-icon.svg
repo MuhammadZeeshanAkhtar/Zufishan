@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Zufishan">
+  <title>Zufishan</title>
+  <!--
+    The favicon.
+
+    The same Z, without the frame. At sixteen pixels the khatim closes into a smudge and the letter
+    is all that survives, so the letter is all this file carries — on a solid ink tile, which keeps
+    the mark legible against a pale browser chrome and a dark one both.
+  -->
+  <rect width="64" height="64" rx="14" fill="#241B10"/>
+  <path
+    d="M19 22h26l-26 20h26"
+    fill="none"
+    stroke="#D9A521"
+    stroke-width="6"
+    stroke-linecap="square"
+    stroke-linejoin="miter"/>
+</svg>

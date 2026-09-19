@@ -8,9 +8,19 @@ const core = readFileSync(new URL("./supabase-core.ts", import.meta.url), "utf8"
 /** Statements only, so an assertion cannot be satisfied by a comment. */
 const statements = migration.replace(/--.*$/gm, "");
 
-describe("a published course reaches learners only through an approved instructor", () => {
+describe("a published course reaches learners on its own publication", () => {
   it("narrows the public branch of the policy and leaves the other two alone", () => {
-    expect(statements).toContain("status = 'published' and public.is_approved_instructor(instructor_id)");
+    /*
+     * 0031 required the course's teacher to be approved. 0035 replaced that branch on the owner's
+     * decision: a published course is listed, and a reviewer's mark is recorded separately. The two
+     * branches this test has always protected — the owner sees their drafts, an administrator sees
+     * everything — are untouched, and are what the rest of this case checks.
+     */
+    const current = readFileSync(new URL("../supabase/migrations/0035_publish_first_verify_after.sql", import.meta.url), "utf8").replace(/--.*$/gm, "");
+    expect(current).toContain("status = 'published'");
+    expect(current).not.toContain("status = 'published' and public.is_approved_instructor(instructor_id)");
+    expect(current).toContain("or instructor_id = auth.uid()");
+    expect(current).toContain("or public.is_admin_user()");
     // The owner still sees their own drafts, and an administrator still sees everything.
     expect(statements).toContain("or instructor_id = auth.uid()");
     expect(statements).toContain("or public.is_admin_user()");
@@ -139,12 +149,21 @@ describe("a draft belongs to its author, not to the review desk", () => {
   });
 
   it("gives the instructor the Publish action, and says what it really does", () => {
+    /*
+     * Migration 0035 moved publication back to the author, so the button publishes rather than
+     * submitting. What the assertion is for is unchanged: the control must not overstate itself.
+     * It now has to say the opposite true thing — the course is live, and not yet verified.
+     */
     expect(builder).toContain("function CoursePublishAction(");
-    expect(builder).toContain("trpc.supabaseCore.submitCourseForReview.useMutation()");
-    // Offered only where submitting is possible.
-    expect(builder).toContain('course.status === "draft" || course.status === "rejected"');
-    expect(builder).toContain("Course submitted for admin review.");
-    expect(builder).toContain("Reviewed by admin before learners see it.");
+    expect(builder).toContain("trpc.supabaseCore.publishCourse.useMutation()");
+    expect(builder).toContain("trpc.supabaseCore.unpublishCourse.useMutation()");
+    // The notice is chosen by the action taken, so both keys are asserted where they are written.
+    expect(builder).toContain('"course.publishedNotice"');
+    expect(builder).toContain('"course.unpublishedNotice"');
+    expect(builder).toContain('t("course.liveNotVerified")');
+    // And the mark it cannot award itself is read, never written, here.
+    expect(builder).toContain('course.verification_status === "approved"');
+    expect(builder).not.toMatch(/verification_status:\s*["']/);
   });
 
   it("shows the instructor no technical database wording", () => {

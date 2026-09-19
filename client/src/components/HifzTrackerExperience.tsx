@@ -26,6 +26,7 @@ import { ArrowLeft, BookOpen, Loader2, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { trpc } from "@/lib/trpc";
 import { useLocale } from "@/contexts/LocaleContextState";
+import { useHasDashboardChrome } from "../lib/use-dashboard-chrome";
 import ResultState from "./ResultState";
 import { resultError, resultRows, resultState, type ResultState as State } from "../lib/result-state";
 import { useOnlineStatus } from "../lib/use-online-status";
@@ -56,13 +57,18 @@ const quiet = "ni-btn ni-btn--outline text-sm disabled:cursor-not-allowed disabl
 
 function Frame({ children, eyebrow, backHref = "/dashboard/learner" }: { children: React.ReactNode; eyebrow?: string; backHref?: string }) {
   const { t } = useLocale();
+  // The dashboard sidebar names the module and offers the way back, so inside it the strip is only
+  // a repeat. The name stays as a heading for screen readers.
+  const hasChrome = useHasDashboardChrome();
   return (
     <main className="hifz-shell min-h-screen bg-[var(--ni-bg)] px-5 py-12 ni-t-ink lg:px-8 lg:py-16">
       <div className="mx-auto max-w-6xl">
-        <Link href={backHref} className="inline-flex items-center gap-2 text-sm font-bold ni-t-moss">
-          <ArrowLeft size={15} className="rtl:rotate-180" aria-hidden="true" /> {t("dashboard.back")}
-        </Link>
-        {eyebrow && <p className="mt-8 ni-eyebrow">{eyebrow}</p>}
+        {!hasChrome && (
+          <Link href={backHref} className="inline-flex items-center gap-2 text-sm font-bold ni-t-moss">
+            <ArrowLeft size={15} className="rtl:rotate-180" aria-hidden="true" /> {t("dashboard.back")}
+          </Link>
+        )}
+        {eyebrow && <h1 className="sr-only">{eyebrow}</h1>}
         {children}
       </div>
     </main>
@@ -198,12 +204,6 @@ export function HifzTrackerPage({ planId }: { planId?: string } = {}) {
     <Protected>
       <Frame eyebrow={t("hifz.eyebrow")}>
         <div ref={reveal}>
-        <div data-anim="intro" className="mt-3 flex flex-wrap items-end justify-between gap-5">
-          <div className="min-w-0">
-            <p className="max-w-[62ch] leading-7 ni-t-muted">{t("hifz.copy")} {t("hifz.selfAssessment")}.</p>
-          </div>
-          <BookOpen className="h-12 w-12 shrink-0 ni-t-gold" aria-hidden="true" />
-        </div>
 
         {/* The Quran text boundary, stated once rather than on every panel. */}
         <div className="mt-6"><ResultState state="setup" message={t("hifz.setupNeeded")} /></div>
@@ -496,8 +496,6 @@ export function InstructorHifzPage({ learnerId }: { learnerId?: string } = {}) {
   return (
     <Protected>
       <Frame eyebrow={t("hifz.teacherDesk")} backHref="/dashboard/instructor">
-        <h1 className="mt-3 font-display text-[clamp(2.1rem,5vw,3.1rem)] leading-tight">{t("hifz.teacherDesk")}</h1>
-        <p className="mt-4 max-w-[62ch] leading-7 ni-t-muted">{t("hifz.learnerReferencePrivate")}</p>
 
         {notice && <p role="status" className="mt-4 rounded-xl border border-[var(--ni-sage-mid)] bg-[var(--ni-sage-soft)] px-4 py-3 text-sm font-bold ni-t-moss-deep">{notice}</p>}
         {failure && <p role="alert" className="mt-4 rounded-xl bg-[var(--ni-clay-soft)] px-4 py-3 text-sm ni-t-clay">{failure}</p>}

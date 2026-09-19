@@ -11,6 +11,7 @@ const dashboardData = readFileSync(new URL("../client/src/lib/dashboard-data.ts"
 const core = readFileSync(new URL("./supabase-core.ts", import.meta.url), "utf8");
 const routers = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const tutorForm = readFileSync(new URL("../client/src/components/InstructorManagement.tsx", import.meta.url), "utf8");
+const learnerHome = readFileSync(new URL("../client/src/components/LearnerOverview.tsx", import.meta.url), "utf8");
 
 const onboardingPage = app.slice(app.indexOf("function OnboardingPage"), app.indexOf("function ProtectedRoute"));
 const stepTwo = onboardingPage.slice(onboardingPage.indexOf('{t("onboarding.optionalStep")}'));
@@ -87,6 +88,29 @@ describe("the dashboards show the real number", () => {
   it("mounts the completion banner on both the learner and the tutor dashboard", () => {
     expect(overview).toContain("<ProfileCompletionBanner role={role} />");
     expect(tutorDash).toContain('<ProfileCompletionBanner role="instructor" />');
+    // LearnerOverview, not DashboardOverview, is what a learner actually opens.
+    expect(learnerHome).toContain('<ProfileCompletionBanner role="learner" />');
+  });
+
+  it("is a notice the reader can close, remembered per account", () => {
+    expect(banner).toContain('aria-label={t("common.close")}');
+    expect(banner).toContain("onClick={dismiss}");
+    expect(banner).toContain("if (dismissed) return null;");
+    // Keyed by account so a second person signing in on this browser is not silently opted out,
+    // and guarded because storage can be unavailable or throw.
+    expect(banner).toContain("DISMISS_PREFIX + user.id");
+    expect(banner).toMatch(/try \{[\s\S]*?window\.localStorage\.setItem[\s\S]*?\} catch/);
+    expect(banner).toMatch(/try \{[\s\S]*?window\.localStorage\.getItem[\s\S]*?\} catch/);
+  });
+
+  it("opens the learner desk on the learner's own figures, with no greeting above them", () => {
+    // A name in a headline and a paragraph explaining that zero means zero were the first two
+    // things on the page. Neither told the learner anything they had come to find out.
+    expect(learnerHome).not.toContain('t("learnerHome.greeting"');
+    expect(learnerHome).not.toContain('t("learnerHome.copy")');
+    expect(learnerHome).not.toContain('t("learnerHome.eyebrow")');
+    // The page still carries a heading, so it is not headingless for a screen reader.
+    expect(learnerHome).toContain('<h1 className="sr-only">');
   });
 
   it("hides the banner once nothing is missing, and never guesses before the rows load", () => {
@@ -183,8 +207,19 @@ describe("one source of truth for profile completion", () => {
   });
 
   it("wires the Profile page to the shared calculator", () => {
-    expect(tutorForm).toContain("instructorFormCompletion(profile, avatarUrl).percent");
+    /*
+     * The shared calculator moved. `instructorFormCompletion` counted fifteen fields, seven of
+     * which onboarding fills in, and could not see the hours, media or background that live in
+     * other tables — which is how a nearly-empty profile read 67%. The list is now
+     * `scoreInstructorProfile` in `shared`, read through `useInstructorCompletion`, and the point
+     * of this assertion is unchanged and stronger: the page computes nothing of its own, and what
+     * it shows is what the server enforces.
+     */
+    expect(tutorForm).toContain("useInstructorCompletion(completionRows)");
+    expect(tutorForm).toContain("const completion = scored.percent;");
     expect(tutorForm).not.toContain("calculateProfileCompletion");
+    // No second formula anywhere on the page.
+    expect(tutorForm).not.toMatch(/Math\.round\(\s*\(done/);
   });
 
   it("loads the tutor columns from the row that actually holds them", () => {

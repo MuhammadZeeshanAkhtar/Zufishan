@@ -3,7 +3,7 @@
  *
  * Structure follows the reference tutor dashboard: a wallet strip and a training strip across the
  * top, then a two-column body — tabbed Recommended / Received Invites / Bookings on the left, and a
- * "Current Students" panel on the right. Rendered in Noor Ilm's own tokens.
+ * "Current Students" panel on the right. Rendered in Zufishan's own tokens.
  *
  * Learner-side rendering is untouched: this component is only mounted for the instructor role, and
  * DashboardOverview still serves learner and admin exactly as before.
@@ -11,7 +11,6 @@
 import { useRef, useState } from "react";
 import { Link } from "wouter";
 import { Inbox, MessageSquare, UserSearch, Wallet } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
 import { trpc } from "@/lib/trpc";
 import ResultState from "./ResultState";
 import { resultError, resultState } from "../lib/result-state";
@@ -19,16 +18,8 @@ import { useOnlineStatus } from "../lib/use-online-status";
 import { useGsapReveal } from "../lib/use-gsap-reveal";
 import { useLocale } from "../contexts/LocaleContextState";
 import ProfileCompletionBanner from "./ProfileCompletionBanner";
+import LearnerAvatar from "./LearnerAvatar";
 
-type RequirementRow = {
-  id: string;
-  subject: string | null;
-  level: string | null;
-  goal: string | null;
-  preferred_language: string | null;
-  timezone: string | null;
-  availability: string | null;
-};
 
 type TabKey = "recommended" | "invites" | "bookings";
 
@@ -53,13 +44,32 @@ function EmptyPanel({ title, copy, action }: { title: string; copy: string; acti
   );
 }
 
+/** How many students the overview previews before sending the reader to Find Students. */
+const SUGGESTION_LIMIT = 5;
+
+/** One suggested student, exactly as `discoverableLearners` returns them to Find Students. */
+type SuggestedLearner = {
+  learnerId: string; displayName: string | null; avatarUrl: string | null; gender: string | null;
+  country: string | null; timezone: string | null;
+  subjects: string[]; preferredLanguage: string | null; supportedLanguages: string[];
+  profilePublic: boolean;
+};
+
 export default function InstructorDashboard() {
   const { t } = useLocale();
-  const { user } = useAuth();
   const [tab, setTab] = useState<TabKey>("recommended");
 
   // Real data only. Published learner requirements are the tutor's genuine "suggested students".
-  const requirementsQuery = trpc.supabaseCore.publishedRequirements.useQuery(undefined, { retry: false });
+  /*
+   * Recommended reads the same list Find Students reads.
+   *
+   * It used to read `publishedRequirements` — learner *requests*, a different thing entirely — so a
+   * teacher whose Find Students page was full of students saw "nothing posted yet" on their own
+   * overview. The reference marketplace suggests people here, not adverts, and so does this now.
+   * A handful, because this is a preview: the full desk, with its search and filters, is one link
+   * away under Find Students, and that is also the only place a message is sent from.
+   */
+  const suggestedQuery = trpc.supabaseCore.discoverableLearners.useQuery({ limit: SUGGESTION_LIMIT }, { retry: false });
   // Trial requests are what a learner actually sends a tutor, so they are the real "invites".
   const responsesQuery = trpc.scheduling.instructorTrials.useQuery(undefined, { retry: false });
   const bookingsQuery = trpc.scheduling.instructorBookings.useQuery(undefined, { retry: false });
@@ -71,15 +81,14 @@ export default function InstructorDashboard() {
   const reveal = useRef<HTMLDivElement | null>(null);
   useGsapReveal(reveal);
 
-  const suggestedState = resultState(requirementsQuery as never, online);
+  const suggestedState = resultState(suggestedQuery as never, online);
   const invitesState = resultState(responsesQuery as never, online);
   const bookingsState = resultState(bookingsQuery as never, online);
 
-  const suggested = rows<RequirementRow>(requirementsQuery);
+  const suggestedPayload = suggestedQuery.data?.ok ? (suggestedQuery.data.data as { learners: SuggestedLearner[] }) : null;
+  const suggested = suggestedPayload?.learners ?? [];
   const invites = rows<{ id: string }>(responsesQuery);
   const bookings = rows<{ id: string; scheduled_start_at?: string; status?: string }>(bookingsQuery);
-
-  const displayName = user?.name || user?.email?.split("@")[0] || "";
 
   const TABS: Array<{ key: TabKey; label: string; count?: number }> = [
     { key: "recommended", label: t("tutorDesk.recommended") },
@@ -128,36 +137,31 @@ export default function InstructorDashboard() {
 
           <div className="mt-5" role="tabpanel">
             {tab === "recommended" && <>
-              <p className="mb-4 text-sm leading-6 ni-t-muted">{t("tutorDesk.recommendedCopy")}</p>
               {suggestedState !== "ready" && (
                 <ResultState
                   state={suggestedState}
-                  message={suggestedState === "empty" ? t("tutorDesk.noSuggestionsCopy") : resultError(requirementsQuery as never)}
-                  onRetry={() => requirementsQuery.refetch()}
-                  retrying={requirementsQuery.isFetching}
+                  message={suggestedState === "empty" ? t("tutorDesk.noSuggestionsCopy") : resultError(suggestedQuery as never)}
+                  onRetry={() => suggestedQuery.refetch()}
+                  retrying={suggestedQuery.isFetching}
                 />
               )}
               {suggestedState === "ready" && (
                 suggested.length ? (
                   <ul className="stagger space-y-3">
-                    {suggested.slice(0, 10).map((row) => (
-                      <li key={row.id} className="ni-ed-card p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="font-display text-lg ni-t-moss">{row.subject || t("tutorDesk.learner")}</p>
-                            <dl className="mt-2 space-y-1 text-xs ni-t-muted">
-                              <div><dt className="inline font-semibold ni-t-ink">{t("tutorDesk.wantsToLearn")}: </dt><dd className="inline">{row.subject || "—"}{row.level ? ` · ${row.level}` : ""}</dd></div>
-                              <div><dt className="inline font-semibold ni-t-ink">{t("tutorDesk.spokenLanguages")}: </dt><dd className="inline">{row.preferred_language || "—"}</dd></div>
-                              <div><dt className="inline font-semibold ni-t-ink">{t("tutorDesk.timeZone")}: </dt><dd className="inline ltr-embed">{row.timezone || "—"}</dd></div>
-                            </dl>
-                          </div>
-                          <Link
-                            href={`/dashboard/instructor/requirements/${row.id}`}
-                            aria-label={t("tutorDesk.respond")}
-                            className="shrink-0 rounded-full bg-[var(--ni-sage-soft)] p-2.5 ni-t-moss outline-none hover:bg-[var(--ni-sage)] focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]"
-                          >
-                            <MessageSquare size={17} />
-                          </Link>
+                    {suggested.map((learner) => (
+                      <li key={learner.learnerId} className="ni-ed-card flex items-start gap-4 p-4">
+                        {/* The picture the learner uploaded, or the drawn mark for the gender they
+                            saved. Neither is invented here: `LearnerAvatar` is the same component
+                            Find Students uses, so one student looks like themselves on both. */}
+                        <LearnerAvatar avatarUrl={learner.avatarUrl} gender={learner.gender} profilePublic={learner.profilePublic} />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-display text-lg ni-t-moss">{learner.displayName || t("findStudents.anonymousLearner")}</p>
+                          <dl className="mt-1.5 space-y-1 text-xs ni-t-muted">
+                            <div><dt className="inline font-semibold ni-t-ink">{t("marketplace.country")}: </dt><dd className="inline">{learner.country || "—"}</dd></div>
+                            <div><dt className="inline font-semibold ni-t-ink">{t("tutorDesk.wantsToLearn")}: </dt><dd className="inline">{learner.subjects.length ? learner.subjects.join(", ") : "—"}</dd></div>
+                            <div><dt className="inline font-semibold ni-t-ink">{t("tutorDesk.spokenLanguages")}: </dt><dd className="inline">{[learner.preferredLanguage, ...learner.supportedLanguages].filter(Boolean).join(", ") || "—"}</dd></div>
+                            <div><dt className="inline font-semibold ni-t-ink">{t("tutorDesk.timeZone")}: </dt><dd className="inline ltr-embed">{learner.timezone || "—"}</dd></div>
+                          </dl>
                         </div>
                       </li>
                     ))}
@@ -211,7 +215,6 @@ export default function InstructorDashboard() {
             copy={t("tutorDesk.nobodyHiredCopy")}
             action={<Link href="/dashboard/instructor/students" className="inline-flex items-center gap-2 rounded-full bg-[var(--ni-moss)] px-5 py-2.5 text-sm font-semibold text-white"><UserSearch size={16}/>{t("tutorDesk.findStudents")}</Link>}
           />
-          {displayName && <p className="mt-4 text-center text-xs ni-t-muted-soft">{t("tutorDesk.signedInAs", { name: displayName })}</p>}
         </aside>
       </div>
     </div>

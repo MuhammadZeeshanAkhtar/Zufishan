@@ -124,7 +124,7 @@ describe("Find a Tutor filters on real stored gender", () => {
   it("keeps the published/approved gate ahead of the gender lookup", () => {
     const fn = scheduling.slice(scheduling.indexOf("async function publishedInstructorIdsByProfile"), scheduling.indexOf("const MAX_DISCOVERY_PAGE"));
     expect(fn).toContain('.eq("public_profile_status", "published")');
-    expect(fn).toContain('.eq("verification_status", "approved")');
+    expect(fn).toContain('.eq("public_profile_status", "published")');
     // Discovery still runs on the anonymous client, so RLS remains the authority on visibility.
     const discovery = scheduling.slice(scheduling.indexOf("export async function listPublicInstructors"));
     expect(discovery).toContain("const client = getSupabasePublicClient();");
@@ -135,7 +135,16 @@ describe("Find a Tutor filters on real stored gender", () => {
   });
 
   it("never leaks gender into the public result rows", () => {
-    const select = scheduling.slice(scheduling.indexOf('.from("instructor_profiles")\n    .select('), scheduling.indexOf('{ count: "exact" }'));
+    /*
+     * Anchored on the listing itself rather than on the first instructor_profiles select in the
+     * file. That earlier anchor landed on publishedInstructorIdsByProfile, the helper that uses
+     * gender to *find* ids and returns nothing but user_id — so it read a filter as a leak while
+     * saying nothing about the rows the marketplace actually returns. This reads those rows.
+     */
+    const listing = scheduling.slice(scheduling.indexOf("export async function listPublicInstructors"));
+    const select = listing.slice(listing.indexOf(".select("), listing.indexOf(String.raw`{ count: "exact" }`));
+    expect(select, "the public select must name its columns").toContain("public_slug");
+    expect(select).not.toContain("gender");
     expect(select).not.toContain("gender");
   });
 

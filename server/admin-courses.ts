@@ -61,6 +61,8 @@ const TRANSITIONS: Record<CourseAction, { from: string; to: string; action: stri
 };
 
 export type CourseRow = {
+  /** The reviewer's mark, added in 0035. Separate from `status`, which is the author's. */
+  verificationStatus: string;
   id: string;
   slug: string;
   title: string;
@@ -125,7 +127,7 @@ export async function listCourses(
 
   let query = admin
     .from("courses")
-    .select("id,slug,title,subject,level,language,status,instructor_id,updated_at,profiles:instructor_id(display_name,full_name)", { count: "exact" });
+    .select("id,slug,title,subject,level,language,status,verification_status,instructor_id,updated_at,profiles:instructor_id(display_name,full_name)", { count: "exact" });
 
   // Never a draft, on any filter: `all` means all of the reviewable statuses, not the
   // instructor's unsubmitted work.
@@ -150,6 +152,7 @@ export async function listCourses(
     level: String(row.level),
     language: String(row.language),
     status: String(row.status),
+    verificationStatus: String(row.verification_status ?? "verification_pending"),
     instructorId: String(row.instructor_id),
     instructorName: displayNameOf(row.profiles),
     moduleCount: modules.get(String(row.id)) ?? 0,
@@ -161,6 +164,8 @@ export async function listCourses(
 }
 
 export type CourseDetail = {
+  /** The reviewer's mark on the COURSE, added in 0035 - not the instructor's. */
+  verificationStatus: string;
   id: string;
   slug: string;
   title: string;
@@ -190,7 +195,7 @@ export async function getCourseDetail(
 
   const { data: course, error } = await admin
     .from("courses")
-    .select("id,slug,title,description,subject,level,language,status,pass_mark,created_at,updated_at,instructor_id,profiles:instructor_id(display_name,full_name)")
+    .select("id,slug,title,description,subject,level,language,status,verification_status,pass_mark,created_at,updated_at,instructor_id,profiles:instructor_id(display_name,full_name)")
     .eq("id", input.courseId).maybeSingle();
   if (error) {
     logFailure("admin-courses", error);
@@ -244,6 +249,7 @@ export async function getCourseDetail(
       level: String(row.level),
       language: String(row.language),
       status: String(row.status),
+      verificationStatus: String(row.verification_status ?? "verification_pending"),
       passMark: row.pass_mark === null || row.pass_mark === undefined ? null : Number(row.pass_mark),
       createdAt: String(row.created_at),
       updatedAt: String(row.updated_at),

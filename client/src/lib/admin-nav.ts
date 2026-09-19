@@ -11,7 +11,7 @@
  * that say so, and every link elsewhere in the desk checks the same flag before
  * it becomes a link.
  */
-import {
+import { Mail,
   BookOpen, FileClock, Gauge, LayoutList, MessagesSquare, ScrollText,
   Newspaper, ServerCog, Settings, ShieldCheck, Star, Users,
 } from "lucide-react";
@@ -35,6 +35,9 @@ export const adminNav: readonly AdminNavItem[] = [
   { key: "reviews",      href: "/admin/reviews",       labelKey: "adminDesk.nav.reviews",      icon: Star,           built: true },
   { key: "blog",         href: "/admin/blog",         labelKey: "adminDesk.nav.blog",         icon: Newspaper,      built: true },
   { key: "bookings",     href: "/admin/bookings",      labelKey: "adminDesk.nav.bookings",     icon: MessagesSquare, built: true },
+  /* The contact form writes rows; a reviewer needs a way to reach them, or the form is a more
+     elaborate way of discarding messages. */
+  { key: "support",      href: "/admin/support",       labelKey: "adminDesk.nav.support",      icon: Mail,           built: true },
   { key: "auditLogs",    href: "/admin/audit-logs",    labelKey: "adminDesk.nav.auditLogs",    icon: ScrollText,     built: true },
   { key: "systemStatus", href: "/admin/system-status", labelKey: "adminDesk.nav.systemStatus", icon: ServerCog,      built: true },
   { key: "settings",     href: "/admin/settings",      labelKey: "adminDesk.nav.settings",     icon: Settings,       built: true },

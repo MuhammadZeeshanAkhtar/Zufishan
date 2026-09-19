@@ -14,6 +14,12 @@ const verificationGuard = readFileSync(new URL("../supabase/migrations/0015_veri
  * gate that decides who appears at all is the thing that matters most.
  */
 describe("only a published AND approved instructor is discoverable", () => {
+  /*
+   * 0035 briefly listed a teacher on publication alone; 0036 reversed it once the reference
+   * marketplace's own policy was read — a tutor is evaluated before their profile becomes live.
+   * Both conditions are required again, and the mark stays impossible to award to yourself, which
+   * is what makes the gate mean anything.
+   */
   it("applies both conditions before any caller-supplied filter", () => {
     const discovery = scheduling.slice(scheduling.indexOf("export async function listPublicInstructors"), scheduling.indexOf("export async function listInstructorFilterFacets"));
     expect(discovery).toContain('.eq("public_profile_status", "published")');
@@ -28,8 +34,18 @@ describe("only a published AND approved instructor is discoverable", () => {
     expect(bySlug).toContain('.eq("verification_status", "approved")');
   });
 
+  it("keeps the mark a reviewer's to award, which is what makes it mean anything", () => {
+    const guard = readFileSync(new URL("../supabase/migrations/0014_instructor_sect_and_ijazah.sql", import.meta.url), "utf8")
+      + readFileSync(new URL("../supabase/migrations/0035_publish_first_verify_after.sql", import.meta.url), "utf8");
+    // A teacher may publish themselves; they may not verify themselves.
+    expect(guard).toContain("is_admin_user() or public.is_moderator_user()");
+    expect(guard).toContain("Course verification is a reviewer decision.");
+  });
+
   it("rests on a policy that says the same thing, so a direct read cannot bypass it", () => {
-    expect(rls).toContain("create policy instructor_profiles_public_or_own on public.instructor_profiles for select using ((public_profile_status = 'published' and verification_status = 'approved') or auth.uid() = user_id");
+    // The policy says what the procedures say, so a direct read with the anon key cannot bypass it.
+    const rule = readFileSync(new URL("../supabase/migrations/0036_verification_is_the_gate_again.sql", import.meta.url), "utf8");
+    expect(rule).toContain("(public_profile_status = 'published' and verification_status = 'approved')");
   });
 
   it("keeps approval out of the instructor's own hands", () => {
@@ -85,7 +101,9 @@ describe("the trial form names the instructor it is actually booking", () => {
 
   it("takes the name from the loaded profile, falling back to the slug", () => {
     expect(schedulingUi).toContain("const instructorDisplayName = instructorQuery.data?.ok ?");
-    expect(schedulingUi).toContain('<Field label="Instructor"><input value={instructorDisplayName} readOnly className="input" placeholder="No instructor selected"/></Field>');
+    // The label is translated now, so this pins the binding rather than the English around it: the
+    // box is fed by the loaded profile and is read-only, and the review step names the same value.
+    expect(schedulingUi).toContain("<input value={instructorDisplayName} readOnly className=\"input\"");
     expect(schedulingUi).toContain('<p><strong>Instructor:</strong> {instructorDisplayName || "—"}</p>');
   });
 
@@ -112,5 +130,47 @@ describe("the trial form names the instructor it is actually booking", () => {
     );
     expect(helper).toContain('String(row.profile_visibility ?? "") === "public"');
     expect(helper).not.toMatch(/email|phone|\bcity\b/);
+  });
+});
+
+describe("the rate scale is absolute money, not the rates that happen to exist", () => {
+  const panel = readFileSync(new URL("../client/src/components/MarketplaceFilters.tsx", import.meta.url), "utf8");
+
+  it("always starts at 1", () => {
+    // Derived bounds collapsed on a small catalogue: one instructor at 7-8 gave the
+    // slider two stops, so it could not filter and read as broken.
+    expect(panel).toContain("const min = 1;");
+    expect(panel).not.toContain("const min = Math.floor(bounds.min / 100);");
+  });
+
+  it("runs to a usable ceiling that still grows for a higher rate", () => {
+    expect(panel).toContain("const RATE_CEILING = 50;");
+    expect(panel).toContain("const max = Math.max(Math.ceil(bounds.max / 100), RATE_CEILING);");
+  });
+
+  it("steps in whole currency units", () => {
+    expect(panel).toContain("step={1}");
+  });
+});
+
+describe("the level filter offers every level a teacher can claim", () => {
+  const panel = readFileSync(new URL("../client/src/components/MarketplaceFilters.tsx", import.meta.url), "utf8");
+  const reference = readFileSync(new URL("../client/src/lib/reference-data.ts", import.meta.url), "utf8");
+
+  it("uses the same list the instructor profile form offers", () => {
+    expect(reference).toContain('export const levelOptions = ["Beginner", "Intermediate", "Advanced", "All Levels"] as const;');
+    expect(panel).toContain("function levelFilterOptions(");
+    expect(panel).toContain("const canonical = [...levelOptions] as string[];");
+    // Derived facets hid levels nobody taught yet, which made those teachers unfindable.
+    expect(panel).not.toContain("options={facets.levels ?? []}");
+  });
+
+  it("keeps a level a listing carries even if it is not on the curated list", () => {
+    expect(panel).toContain("(fromListings ?? []).filter((level) => !canonical.includes(level))");
+  });
+
+  it("renders the group unconditionally, like subject and language", () => {
+    expect(panel).toContain("options={levelFilterOptions(facets.levels)}");
+    expect(panel).not.toContain("{true && (");
   });
 });
