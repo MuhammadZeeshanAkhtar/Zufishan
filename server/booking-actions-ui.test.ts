@@ -5,6 +5,7 @@ const actions = readFileSync(new URL("../client/src/components/BookingActions.ts
 const scheduling = readFileSync(new URL("../client/src/components/SchedulingExperience.tsx", import.meta.url), "utf8");
 const lifecycle = readFileSync(new URL("./booking-lifecycle.ts", import.meta.url), "utf8");
 const catalog = readFileSync(new URL("../client/src/i18n/catalog.ts", import.meta.url), "utf8");
+const calendar = readFileSync(new URL("../client/src/components/ScheduleCalendar.tsx", import.meta.url), "utf8");
 
 describe("the controls reach the real procedures", () => {
   it("calls each lifecycle procedure, none of them faked", () => {
@@ -104,8 +105,9 @@ describe("accessibility and direction", () => {
     // This used to point at the booking card's classroom link. That link passed a *booking* id
     // into the classroom route, which is a different record, so it was replaced by
     // OpenClassroomAction. The schedule's link — which does carry a real session id — still
-    // carries the mirrored icon, and that is what this asserts.
-    expect(scheduling).toContain('Open waiting room <Video size={15} className="icon-directional"/>');
+    // carries the mirrored icon, and that is what this asserts. It moved with the Schedule
+    // module when that module became a calendar, so it is read from there now.
+    expect(calendar).toContain('<Video size={13} aria-hidden="true" className="icon-directional"/>');
     expect(scheduling).toContain('<OpenClassroomAction bookingId={booking.id} status={booking.status} />');
     expect(actions.match(/className="input ltr-embed"/g)?.length).toBe(2);
   });

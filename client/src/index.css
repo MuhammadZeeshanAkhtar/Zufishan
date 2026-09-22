@@ -1206,28 +1206,44 @@ main .group:hover img { transform: scale(1.035); filter: saturate(1.06) contrast
   transition: background-color .15s ease, color .15s ease;
 }
 
-[data-theme="light"] .ni-rail-tile--learn   { background: #E3EDE6; color: #0B4A41; }
-[data-theme="dark"]  .ni-rail-tile--learn   { background: #1B2A24; color: #6FD9B4; }
-[data-theme="light"] .ni-rail-tile--people  { background: #F6EDD6; color: #6E5411; }
-[data-theme="dark"]  .ni-rail-tile--people  { background: #2C2416; color: #E8CE8A; }
-[data-theme="light"] .ni-rail-tile--room    { background: #E2EAF2; color: #1F4E8C; }
-[data-theme="dark"]  .ni-rail-tile--room    { background: #1B2330; color: #9BC1EC; }
-[data-theme="light"] .ni-rail-tile--money   { background: #F7E7E0; color: #8A3A28; }
-[data-theme="dark"]  .ni-rail-tile--money   { background: #2E211C; color: #F3B29C; }
-[data-theme="light"] .ni-rail-tile--account { background: #E9EAE6; color: #3C534D; }
-[data-theme="dark"]  .ni-rail-tile--account { background: #26241F; color: #C0B7A4; }
+/*
+ * The five tones, declared once and read twice.
+ *
+ * The rail tints a module's icon by the group it belongs to; the Schedule calendar tints an entry
+ * by which of the three tables it came from. Those are the same five colours doing the same job —
+ * saying what kind of thing this is before you read a word — so they are declared as tokens here
+ * instead of being written out again beside every consumer.
+ *
+ * `-bg` and `-ink` are the quiet pairing; `-fill` and `-on` are the loud one, for the thing that
+ * is currently selected.
+ */
+[data-theme="light"] {
+  --ni-tone-learn-bg:   #E3EDE6; --ni-tone-learn-ink:   #0B4A41; --ni-tone-learn-fill:   #0B4A41; --ni-tone-learn-on:   #EAF4EE;
+  --ni-tone-people-bg:  #F6EDD6; --ni-tone-people-ink:  #6E5411; --ni-tone-people-fill:  #6E5411; --ni-tone-people-on:  #FBF3E0;
+  --ni-tone-room-bg:    #E2EAF2; --ni-tone-room-ink:    #1F4E8C; --ni-tone-room-fill:    #1F4E8C; --ni-tone-room-on:    #ECF2F9;
+  --ni-tone-money-bg:   #F7E7E0; --ni-tone-money-ink:   #8A3A28; --ni-tone-money-fill:   #8A3A28; --ni-tone-money-on:   #FBEDE7;
+  --ni-tone-account-bg: #E9EAE6; --ni-tone-account-ink: #3C534D; --ni-tone-account-fill: #3C534D; --ni-tone-account-on: #EDEFEC;
+}
+[data-theme="dark"] {
+  --ni-tone-learn-bg:   #1B2A24; --ni-tone-learn-ink:   #6FD9B4; --ni-tone-learn-fill:   #3FAE8C; --ni-tone-learn-on:   #0A1F18;
+  --ni-tone-people-bg:  #2C2416; --ni-tone-people-ink:  #E8CE8A; --ni-tone-people-fill:  #C8A84E; --ni-tone-people-on:  #16120A;
+  --ni-tone-room-bg:    #1B2330; --ni-tone-room-ink:    #9BC1EC; --ni-tone-room-fill:    #9BC1EC; --ni-tone-room-on:    #101722;
+  --ni-tone-money-bg:   #2E211C; --ni-tone-money-ink:   #F3B29C; --ni-tone-money-fill:   #E08A72; --ni-tone-money-on:   #241310;
+  --ni-tone-account-bg: #26241F; --ni-tone-account-ink: #C0B7A4; --ni-tone-account-fill: #C0B7A4; --ni-tone-account-on: #201D18;
+}
+
+.ni-rail-tile--learn   { background: var(--ni-tone-learn-bg);   color: var(--ni-tone-learn-ink); }
+.ni-rail-tile--people  { background: var(--ni-tone-people-bg);  color: var(--ni-tone-people-ink); }
+.ni-rail-tile--room    { background: var(--ni-tone-room-bg);    color: var(--ni-tone-room-ink); }
+.ni-rail-tile--money   { background: var(--ni-tone-money-bg);   color: var(--ni-tone-money-ink); }
+.ni-rail-tile--account { background: var(--ni-tone-account-bg); color: var(--ni-tone-account-ink); }
 
 /* The page you are on: the tile fills with its own colour and the icon reverses out of it. */
-[data-theme="light"] .ni-rail-item--active .ni-rail-tile--learn   { background: #0B4A41; color: #EAF4EE; }
-[data-theme="dark"]  .ni-rail-item--active .ni-rail-tile--learn   { background: #3FAE8C; color: #0A1F18; }
-[data-theme="light"] .ni-rail-item--active .ni-rail-tile--people  { background: #6E5411; color: #FBF3E0; }
-[data-theme="dark"]  .ni-rail-item--active .ni-rail-tile--people  { background: #C8A84E; color: #16120A; }
-[data-theme="light"] .ni-rail-item--active .ni-rail-tile--room    { background: #1F4E8C; color: #ECF2F9; }
-[data-theme="dark"]  .ni-rail-item--active .ni-rail-tile--room    { background: #9BC1EC; color: #101722; }
-[data-theme="light"] .ni-rail-item--active .ni-rail-tile--money   { background: #8A3A28; color: #FBEDE7; }
-[data-theme="dark"]  .ni-rail-item--active .ni-rail-tile--money   { background: #E08A72; color: #241310; }
-[data-theme="light"] .ni-rail-item--active .ni-rail-tile--account { background: #3C534D; color: #EDEFEC; }
-[data-theme="dark"]  .ni-rail-item--active .ni-rail-tile--account { background: #C0B7A4; color: #201D18; }
+.ni-rail-item--active .ni-rail-tile--learn   { background: var(--ni-tone-learn-fill);   color: var(--ni-tone-learn-on); }
+.ni-rail-item--active .ni-rail-tile--people  { background: var(--ni-tone-people-fill);  color: var(--ni-tone-people-on); }
+.ni-rail-item--active .ni-rail-tile--room    { background: var(--ni-tone-room-fill);    color: var(--ni-tone-room-on); }
+.ni-rail-item--active .ni-rail-tile--money   { background: var(--ni-tone-money-fill);   color: var(--ni-tone-money-on); }
+.ni-rail-item--active .ni-rail-tile--account { background: var(--ni-tone-account-fill); color: var(--ni-tone-account-on); }
 
 /* A group's heading: a quiet label, not a control. Nothing here opens or closes. */
 .ni-rail-heading {
@@ -1238,6 +1254,89 @@ main .group:hover img { transform: scale(1.035); filter: saturate(1.06) contrast
   letter-spacing: .16em;
   text-transform: uppercase;
   color: var(--ni-sage-ink);
+}
+
+/* ===========================================================================
+   The Schedule calendar.
+
+   A month grid where a day is a button, and an entry is a chip tinted by which
+   of the three scheduling tables it came from — a class, a confirmed booking, or
+   an invite still being arranged. The tones are the rail's, above, so one colour
+   means the same thing in both places.
+
+   Sized in rem and laid out with grid and gap, so the grid narrows to a phone
+   without a media query and without the cells losing their square-ish footing.
+   =========================================================================== */
+.ni-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.ni-cal-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 5.1rem;
+  padding: .35rem .3rem;
+  border: 1px solid var(--ni-sage-line);
+  border-radius: 10px;
+  background: var(--ni-field);
+  text-align: start;
+  transition: border-color .15s ease, background-color .15s ease;
+}
+.ni-cal-cell:hover { border-color: var(--ni-gold); }
+.ni-cal-cell:focus-visible { outline: 2px solid var(--ni-gold); outline-offset: 2px; }
+
+/* A day from the month either side: present, reachable, and plainly not this month. */
+.ni-cal-cell--outside { opacity: .48; }
+
+/* Today is stated by its ring; the day you have selected is stated by its fill. */
+.ni-cal-cell--today { border-color: var(--ni-gold); box-shadow: inset 0 0 0 1px var(--ni-gold); }
+.ni-cal-cell--selected { background: var(--ni-gold-soft); border-color: var(--ni-gold); }
+
+.ni-cal-daynum {
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--ni-sage-ink);
+}
+.ni-cal-cell--today .ni-cal-daynum,
+.ni-cal-cell--selected .ni-cal-daynum { color: var(--ni-gold); }
+
+/* One entry inside a day cell. Truncated rather than allowed to burst the grid. */
+.ni-cal-chip {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 1px 5px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.ni-cal-chip--session { background: var(--ni-tone-room-bg);   color: var(--ni-tone-room-ink); }
+.ni-cal-chip--booking { background: var(--ni-tone-learn-bg);  color: var(--ni-tone-learn-ink); }
+.ni-cal-chip--trial   { background: var(--ni-tone-people-bg); color: var(--ni-tone-people-ink); }
+
+/* The same three tones as a legend swatch, and as a card's left edge. */
+.ni-cal-swatch { width: .6rem; height: .6rem; border-radius: 3px; flex: none; }
+.ni-cal-swatch--session { background: var(--ni-tone-room-fill); }
+.ni-cal-swatch--booking { background: var(--ni-tone-learn-fill); }
+.ni-cal-swatch--trial   { background: var(--ni-tone-people-fill); }
+.ni-cal-edge--session { border-inline-start: 3px solid var(--ni-tone-room-fill); }
+.ni-cal-edge--booking { border-inline-start: 3px solid var(--ni-tone-learn-fill); }
+.ni-cal-edge--trial   { border-inline-start: 3px solid var(--ni-tone-people-fill); }
+
+/* A weekday the teacher has published hours on. A hint under the number, not a claim
+   that the day is free — a published hour and a booked hour are different facts. */
+.ni-cal-free {
+  height: 2px;
+  border-radius: 2px;
+  background: var(--ni-tone-learn-fill);
+  opacity: .55;
 }
 
 /* ---- Faint geometric line-art, as in the reference's upper right ---- */

@@ -82,7 +82,7 @@ export type DeskBooking = {
  * only the columns a learner already shows on the Find Students desk are read. A learner who has
  * kept their person private still has a name here — they chose to write to this teacher.
  */
-async function peopleByIds(ids: string[]): Promise<Map<string, InvitePerson>> {
+export async function peopleByIds(ids: string[]): Promise<Map<string, InvitePerson>> {
   const found = new Map<string, InvitePerson>();
   const unique = Array.from(new Set(ids.filter(Boolean)));
   if (unique.length === 0) return found;

@@ -8,6 +8,7 @@ import BookingActions from "./BookingActions";
 import MessageAction from "./MessageAction";
 import { OpenClassroomAction } from "./ClassroomSessionExperience";
 import ResultState from "./ResultState";
+import ScheduleCalendar from "./ScheduleCalendar";
 import { resultError, resultRows, resultState } from "../lib/result-state";
 import { useOnlineStatus } from "../lib/use-online-status";
 import { trpc } from "../lib/trpc";
@@ -154,20 +155,16 @@ export function TrialDetail({ id, instructor = false }: { id: string; instructor
     {feedback && <div className="mt-5 rounded-xl bg-[var(--ni-gold-soft)] p-4 text-sm ni-t-gold" role="status"><p>{feedback}</p>{/* The thread only exists once the invite is accepted, so the way into it is offered here rather than sitting on the page beforehand. */}{feedback.startsWith("Invite accepted") && <Link href="/dashboard/instructor/messages" className="mt-2 inline-flex font-bold underline">Open messages</Link>}</div>}
   </main></Shell>;
 }
+/**
+ * The Schedule module.
+ *
+ * This read `class_sessions` alone and rendered the rows as a flat list beside a pill reading
+ * "Calendar view · coming soon" — so a teacher with three accepted invites and no opened room saw
+ * an empty page under a promise. `ScheduleCalendar` draws a real month from all three scheduling
+ * tables; this route is now only the shell around it.
+ */
 export function SchedulePage({ instructor = false }: { instructor?: boolean }) {
-  const { t } = useLocale();
-  const { currentSession } = useAuth();
-  const realMode = Boolean(supabaseClient && currentSession);
-  const learnerQuery = trpc.scheduling.learnerSessions.useQuery(undefined, { enabled: realMode && !instructor });
-  const instructorQuery = trpc.scheduling.instructorSessions.useQuery(undefined, { enabled: realMode && instructor });
-  // `persisted ?? []` turned a handled ok:false into "no authorised sessions". Rows now come only
-  // from a successful envelope, and the panel state says which of the six things went wrong.
-  const query = instructor ? instructorQuery : learnerQuery;
-  const online = useOnlineStatus();
-  const state = resultState(query as never, online);
-  const sessions = resultRows<{ id: string; title: string; session_type: string; status: string; scheduled_start_at: string; scheduled_end_at: string; learner_timezone: string; instructor_timezone: string }>(query as never)
-    .map((session) => ({ id: session.id, title: session.title, subject: session.title.split(" · ")[0], sessionType: session.session_type, status: session.status, scheduledStartAt: session.scheduled_start_at, scheduledEndAt: session.scheduled_end_at, learnerTimezone: session.learner_timezone, instructorTimezone: session.instructor_timezone, learnerName: "Learner", instructorName: "Instructor" }));
-  return <Shell eyebrow={instructor ? "Instructor schedule" : "Learner schedule"}><main className="mx-auto max-w-6xl px-5 py-12 lg:px-8 lg:py-16"><h1 className="sr-only">{instructor ? "Instructor schedule" : "Learner schedule"}</h1><div className="flex flex-wrap items-end justify-end gap-4"><span className="rounded-full bg-[var(--ni-sage-soft)] px-3 py-2 text-xs font-bold ni-t-sage-ink">Calendar view · coming soon</span></div><div className="mt-10 space-y-4">{state !== "ready" && <ResultState state={state} message={state === "empty" ? t("dashboard.noAuthorized") : resultError(query as never)} onRetry={() => query.refetch()} retrying={query.isFetching}/>}{state === "ready" && sessions.map((session) => <Card key={session.id}><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.16em] ni-t-gold">{session.sessionType} · {session.status.replaceAll("_", " ")}</p><h2 className="mt-2 font-display text-2xl ni-t-ink">{session.title}</h2><p className="mt-2 text-sm ni-t-muted">{instructor ? session.learnerName : session.instructorName} · {session.subject}</p></div><div className="min-w-[250px]"><TimeBlock start={session.scheduledStartAt} end={session.scheduledEndAt} learnerTimezone={session.learnerTimezone} instructorTimezone={session.instructorTimezone}/></div></div><Link href={`/classroom/${session.id}/waiting-room`} className="mt-5 inline-flex items-center gap-2 text-sm font-bold ni-t-moss">Open waiting room <Video size={15} className="icon-directional"/></Link></Card>)}</div></main></Shell>;
+  return <Shell eyebrow={instructor ? "Instructor schedule" : "Learner schedule"}><ScheduleCalendar role={instructor ? "instructor" : "learner"}/></Shell>;
 }
 // NotificationsPage moved to NotificationsExperience.tsx. The version that stood here read
 // `scheduling.notifications` — the scheduling-only subset — and coalesced a failed load to [] via
