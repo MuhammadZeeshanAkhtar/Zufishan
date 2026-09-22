@@ -1186,6 +1186,60 @@ main .group:hover img { transform: scale(1.035); filter: saturate(1.06) contrast
 .ni-nudge-bar-fill { background: #0A2E2C; }
 [data-theme="dark"]  .ni-nudge-bar-fill { background: var(--ni-gold); }
 
+
+/* ---------------------------------------------- the dashboard rail's icons */
+/*
+ * Each module's icon sits in a small tinted tile, coloured by the group it belongs to. That is the
+ * whole of the grouping now: the rail shows every module at once, and colour does the work the
+ * expand/collapse used to do badly — a reader finds Billing by looking for the terracotta block,
+ * not by remembering which heading to click.
+ *
+ * Declared per theme rather than with one token pair, because a tint that reads as "quiet green
+ * surface" on cream has to become "quiet green surface" on espresso, which is a different value of
+ * the same idea. Every pair below clears 4.5:1 for the icon against its own tile.
+ */
+.ni-rail-tile {
+  display: grid; place-items: center;
+  width: 1.9rem; height: 1.9rem;
+  border-radius: 9px;
+  flex: none;
+  transition: background-color .15s ease, color .15s ease;
+}
+
+[data-theme="light"] .ni-rail-tile--learn   { background: #E3EDE6; color: #0B4A41; }
+[data-theme="dark"]  .ni-rail-tile--learn   { background: #1B2A24; color: #6FD9B4; }
+[data-theme="light"] .ni-rail-tile--people  { background: #F6EDD6; color: #6E5411; }
+[data-theme="dark"]  .ni-rail-tile--people  { background: #2C2416; color: #E8CE8A; }
+[data-theme="light"] .ni-rail-tile--room    { background: #E2EAF2; color: #1F4E8C; }
+[data-theme="dark"]  .ni-rail-tile--room    { background: #1B2330; color: #9BC1EC; }
+[data-theme="light"] .ni-rail-tile--money   { background: #F7E7E0; color: #8A3A28; }
+[data-theme="dark"]  .ni-rail-tile--money   { background: #2E211C; color: #F3B29C; }
+[data-theme="light"] .ni-rail-tile--account { background: #E9EAE6; color: #3C534D; }
+[data-theme="dark"]  .ni-rail-tile--account { background: #26241F; color: #C0B7A4; }
+
+/* The page you are on: the tile fills with its own colour and the icon reverses out of it. */
+[data-theme="light"] .ni-rail-item--active .ni-rail-tile--learn   { background: #0B4A41; color: #EAF4EE; }
+[data-theme="dark"]  .ni-rail-item--active .ni-rail-tile--learn   { background: #3FAE8C; color: #0A1F18; }
+[data-theme="light"] .ni-rail-item--active .ni-rail-tile--people  { background: #6E5411; color: #FBF3E0; }
+[data-theme="dark"]  .ni-rail-item--active .ni-rail-tile--people  { background: #C8A84E; color: #16120A; }
+[data-theme="light"] .ni-rail-item--active .ni-rail-tile--room    { background: #1F4E8C; color: #ECF2F9; }
+[data-theme="dark"]  .ni-rail-item--active .ni-rail-tile--room    { background: #9BC1EC; color: #101722; }
+[data-theme="light"] .ni-rail-item--active .ni-rail-tile--money   { background: #8A3A28; color: #FBEDE7; }
+[data-theme="dark"]  .ni-rail-item--active .ni-rail-tile--money   { background: #E08A72; color: #241310; }
+[data-theme="light"] .ni-rail-item--active .ni-rail-tile--account { background: #3C534D; color: #EDEFEC; }
+[data-theme="dark"]  .ni-rail-item--active .ni-rail-tile--account { background: #C0B7A4; color: #201D18; }
+
+/* A group's heading: a quiet label, not a control. Nothing here opens or closes. */
+.ni-rail-heading {
+  margin: 1.1rem 0 .4rem;
+  padding-inline: .75rem;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ni-sage-ink);
+}
+
 /* ---- Faint geometric line-art, as in the reference's upper right ---- */
 .ni-linework::after {
   content: "";

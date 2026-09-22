@@ -14,7 +14,7 @@ import {
   Archive, Award, BadgeCheck, Banknote, Bell, BookMarked, BookOpen, BookText, CalendarCheck, ShieldCheck, CalendarClock, CalendarDays, ClipboardCheck, CreditCard, FileBarChart, GraduationCap, LayoutDashboard, MessageSquare, MonitorPlay, PanelLeft, Receipt, ScrollText, Settings, Sparkles, Star, Timer, TrendingUp, User, UserPlus, UserSearch, Users, Video, Wallet, X
 } from "lucide-react";
 import { ChevronDown } from "lucide-react";
-import { moduleGroups, routeGroups } from "../lib/lms-data";
+import { moduleGroups, routeGroups, type ModuleTone } from "../lib/lms-data";
 import { useLocale } from "../contexts/LocaleContextState";
 import type { TranslationKey } from "@/i18n/catalog";
 
@@ -79,7 +79,6 @@ const GROUP_LABEL_KEYS: Record<string, TranslationKey> = {
 
 /** Account-level modules sit below a divider, away from the day-to-day learning modules. */
 /** Which rail groups this viewer left open. Per-browser only; nothing is sent anywhere. */
-const GROUPS_KEY = "ni.dashboard-rail-groups";
 
 const iconFor = (label: string) => MODULE_ICONS[label.toLowerCase()] ?? LayoutDashboard;
 
@@ -115,14 +114,15 @@ function BrandMark({ size = 34 }: { size?: number }) {
   );
 }
 
-type NavItemProps = { label: string; href: string; active: boolean; collapsed: boolean; onNavigate?: () => void };
+type NavItemProps = { label: string; href: string; active: boolean; collapsed: boolean; onNavigate?: () => void; tone: ModuleTone };
 
-function NavItem({ label, href, active, collapsed, onNavigate }: NavItemProps) {
+function NavItem({ label, href, active, collapsed, onNavigate, tone }: NavItemProps) {
   const { t } = useLocale();
   const Icon = iconFor(label);
   // `label` stays the English identifier — it keys the icon and the href; `text` is what is read.
   const key = MODULE_LABEL_KEYS[label.toLowerCase()];
   const text = key ? t(key) : label;
+
   return (
     <li className="relative group/nav">
       <Link
@@ -130,17 +130,21 @@ function NavItem({ label, href, active, collapsed, onNavigate }: NavItemProps) {
         onClick={onNavigate}
         aria-current={active ? "page" : undefined}
         aria-label={collapsed ? text : undefined}
-        title={collapsed ? label : undefined}
         className={[
-          "flex items-center rounded-xl text-sm font-semibold outline-none transition-colors duration-150",
-          collapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2.5",
+          "ni-rail-item flex items-center rounded-xl text-sm font-semibold outline-none transition",
+          active ? "ni-rail-item--active" : "",
+          collapsed ? "justify-center px-0 py-1.5" : "gap-3 px-3 py-1.5",
           active
-            ? "bg-[var(--ni-sage-soft)] ni-t-moss-deep shadow-[inset_2px_0_0_0_var(--ni-gold)]"
-            : "ni-t-muted hover:bg-[var(--ni-sage-soft)] hover:text-[var(--ni-moss-deep)]",
+            ? "bg-[var(--ni-sage-soft)] ni-t-ink shadow-[inset_2px_0_0_0_var(--ni-gold)]"
+            : "ni-t-muted hover:bg-[var(--ni-sage-soft)] hover:text-[var(--ni-ink)]",
           "focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ni-field)]",
         ].join(" ")}
       >
-        <Icon size={18} strokeWidth={active ? 2.2 : 1.8} className={active ? "ni-t-moss" : ""} />
+        {/* The colour is the grouping. A reader finds Billing by looking for the terracotta tile,
+            not by remembering which heading to open. */}
+        <span aria-hidden="true" className={`ni-rail-tile ni-rail-tile--${tone}`}>
+          <Icon size={16} strokeWidth={active ? 2.3 : 1.9} />
+        </span>
         {!collapsed && <span className="truncate">{text}</span>}
       </Link>
       {/* Collapsed rail needs the module name on hover; hidden from AT since the link is already labelled. */}
@@ -148,7 +152,7 @@ function NavItem({ label, href, active, collapsed, onNavigate }: NavItemProps) {
         <span
           role="tooltip"
           aria-hidden="true"
-          className="pointer-events-none absolute start-full top-1/2 z-50 ms-2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-[var(--ni-teal)] px-2.5 py-1.5 text-xs font-semibold text-[var(--ni-bg)] opacity-0 shadow-lg transition-opacity duration-150 group-hover/nav:opacity-100"
+          className="pointer-events-none absolute start-full top-1/2 z-50 ms-2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-[var(--ni-teal)] px-2.5 py-1.5 text-xs font-semibold text-[var(--ni-on-dark)] opacity-0 shadow-lg transition group-hover/nav:opacity-100"
         >
           {text}
         </span>
@@ -193,26 +197,6 @@ export default function DashboardSidebar({ role, hrefFor, collapsed, mobileOpen,
   const { t } = useLocale();
   const layout = moduleGroups[role];
 
-  /*
-   * Which groups are open.
-   *
-   * The group holding the current page is always open — a reader must be able to see where they
-   * are — and the rest remember what this viewer last did, in this browser only. Storage can be
-   * unavailable or throw, so every access is guarded and an unreadable store simply means the
-   * defaults apply.
-   */
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
-    try { return JSON.parse(window.localStorage.getItem(GROUPS_KEY) || "{}") as Record<string, boolean>; }
-    catch { return {}; }
-  });
-  const toggleGroup = useCallback((key: string) => {
-    setOpenGroups((current) => {
-      const next = { ...current, [key]: !current[key] };
-      try { window.localStorage.setItem(GROUPS_KEY, JSON.stringify(next)); } catch { /* storage unavailable */ }
-      return next;
-    });
-  }, []);
-
   // Longest matching href wins, so /courses does not stay active on /courses/new.
   const activeHref = useMemo(() => {
     const matches = items
@@ -221,7 +205,7 @@ export default function DashboardSidebar({ role, hrefFor, collapsed, mobileOpen,
     return matches.sort((a, b) => b.length - a.length)[0] ?? "";
   }, [items, hrefFor, location, role]);
 
-  const renderNav = (list: string[], onNavigate?: () => void, forceExpanded = false) =>
+  const renderNav = (list: string[], tone: ModuleTone, onNavigate?: () => void, forceExpanded = false) =>
     list.map((item) => (
       <NavItem
         key={item}
@@ -230,43 +214,34 @@ export default function DashboardSidebar({ role, hrefFor, collapsed, mobileOpen,
         active={hrefFor(item) === activeHref}
         collapsed={collapsed && !forceExpanded}
         onNavigate={onNavigate}
+        tone={tone}
       />
     ));
 
   /**
-   * The rail, grouped.
+   * The rail.
    *
-   * Solo modules first with no heading, then one collapsible section per group. A group whose
-   * member is the current page is open whatever the stored preference says, so the rail can never
-   * hide the page you are on.
+   * Every module is visible at once. It used to be a set of collapsible sections, which meant a
+   * reader had to remember which heading hid the page they wanted and click to find out — the rail
+   * answered a question by asking one. The grouping is still there and still comes from
+   * `moduleGroups`; it is now carried by colour and a quiet heading rather than by hiding things.
    *
-   * `expanded` is passed by the mobile drawer, which is always full width even when the desktop
-   * rail is collapsed to icons.
+   * `expanded` is passed by the mobile drawer, which is full width even when the desktop rail is
+   * collapsed to icons.
    */
   const renderGrouped = (onNavigate?: () => void, expanded = false) => (
     <>
-      <ul className="space-y-1">{renderNav(layout.solo, onNavigate, expanded)}</ul>
+      <ul className="space-y-0.5">{renderNav(layout.solo, "account", onNavigate, expanded)}</ul>
       {layout.groups.map((group) => {
-        const holdsActive = group.modules.some((item) => hrefFor(item) === activeHref);
-        const open = holdsActive || Boolean(openGroups[group.key]);
         const labelKey = GROUP_LABEL_KEYS[group.key];
-        const heading = labelKey ? t(labelKey) : group.key;
         return (
-          <div key={group.key} className="mt-2">
-            <button
-              type="button"
-              onClick={() => toggleGroup(group.key)}
-              aria-expanded={open}
-              className="flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-[11px] font-bold uppercase tracking-[.14em] ni-t-muted outline-none transition hover:bg-[var(--ni-sage-soft)] hover:text-[var(--ni-moss-deep)] focus-visible:ring-2 focus-visible:ring-[var(--ni-moss)]"
-            >
-              <span className="truncate">{heading}</span>
-              <ChevronDown
-                size={14}
-                aria-hidden="true"
-                className={`shrink-0 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
-              />
-            </button>
-            {open && <ul className="mt-1 space-y-1">{renderNav(group.modules, onNavigate, expanded)}</ul>}
+          <div key={group.key}>
+            {/* A label, not a control: nothing here opens or closes. Hidden on the icon rail,
+                where there is no room for it and the colours carry the grouping alone. */}
+            {(!collapsed || expanded) && (
+              <p className="ni-rail-heading">{labelKey ? t(labelKey) : group.key}</p>
+            )}
+            <ul className="space-y-0.5">{renderNav(group.modules, group.tone, onNavigate, expanded)}</ul>
           </div>
         );
       })}
@@ -307,7 +282,8 @@ export default function DashboardSidebar({ role, hrefFor, collapsed, mobileOpen,
         <nav aria-label={`${deskLabel} navigation`} className="min-h-0 flex-1 overflow-y-auto">
           {/* Collapsed to icons there is no room for a heading, so the rail falls back to one flat
               list — every module, in registry order, exactly as it was before grouping. */}
-          {collapsed ? <ul className="space-y-1">{renderNav(items)}</ul> : renderGrouped()}
+          {/* Collapsed, the headings have no room — the coloured tiles are the grouping. */}
+          {renderGrouped()}
         </nav>
       </aside>
 

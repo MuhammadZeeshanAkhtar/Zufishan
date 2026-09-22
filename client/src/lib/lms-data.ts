@@ -94,37 +94,46 @@ export const routeGroups = { learner: ["Overview", "Courses", "Hifz", "Requireme
  * `solo` modules sit above the groups with no heading of their own, because a dashboard's front
  * page should not be filed under anything.
  */
-export type ModuleGroup = { key: string; modules: string[] };
+/**
+ * `tone` is the colour a group's icons carry in the rail.
+ *
+ * Presentation only, and named by role rather than by hue: `learn`, `people`, `room`, `money`,
+ * `account`. The actual colours are defined per theme in `index.css`, because gold on cream and
+ * gold on espresso are different values of the same idea — a hex here would be right in one theme
+ * and wrong in the other.
+ */
+export type ModuleTone = "learn" | "people" | "room" | "money" | "account";
+export type ModuleGroup = { key: string; tone: ModuleTone; modules: string[] };
 
 export const moduleGroups: Record<"learner" | "instructor" | "admin", { solo: string[]; groups: ModuleGroup[] }> = {
   learner: {
     solo: ["Overview"],
     groups: [
-      { key: "learning", modules: ["Courses", "Hifz", "Quran Revision", "Progress", "Certificates"] },
-      { key: "lessons", modules: ["Requirements", "Trial Lessons", "Bookings", "Schedule"] },
-      { key: "classroom", modules: ["Classrooms", "Archives", "Parental Watch"] },
-      { key: "payments", modules: ["Wallet", "Transactions", "Sessions"] },
-      { key: "account", modules: ["Edit Profile", "Reviews", "Reports"] },
+      { key: "learning", tone: "learn", modules: ["Courses", "Hifz", "Quran Revision", "Progress", "Certificates"] },
+      { key: "lessons", tone: "people", modules: ["Requirements", "Trial Lessons", "Bookings", "Schedule"] },
+      { key: "classroom", tone: "room", modules: ["Classrooms", "Archives", "Parental Watch"] },
+      { key: "payments", tone: "money", modules: ["Wallet", "Transactions", "Sessions"] },
+      { key: "account", tone: "account", modules: ["Edit Profile", "Reviews", "Reports"] },
     ],
   },
   instructor: {
     solo: ["Overview"],
     groups: [
-      { key: "students", modules: ["Requirements", "Trial Requests", "Bookings", "Availability"] },
-      { key: "teaching", modules: ["Courses", "Hifz", "Classrooms", "Archives"] },
-      { key: "approval", modules: ["Training", "Verification", "Credentials"] },
-      { key: "earnings", modules: ["Billing", "Withdrawals", "Transactions", "Sessions"] },
-      { key: "account", modules: ["Edit Profile", "Reviews", "Reports"] },
+      { key: "students", tone: "people", modules: ["Requirements", "Trial Requests", "Bookings", "Availability"] },
+      { key: "teaching", tone: "learn", modules: ["Courses", "Hifz", "Classrooms", "Archives"] },
+      { key: "approval", tone: "room", modules: ["Training", "Verification", "Credentials"] },
+      { key: "earnings", tone: "money", modules: ["Billing", "Withdrawals", "Transactions", "Sessions"] },
+      { key: "account", tone: "account", modules: ["Edit Profile", "Reviews", "Reports"] },
     ],
   },
   admin: {
     solo: ["LMS overview"],
     groups: [
-      { key: "people", modules: ["Users", "Instructors"] },
-      { key: "content", modules: ["Courses", "Requirements", "AI Tutor"] },
-      { key: "operations", modules: ["Bookings", "Classrooms", "Reviews"] },
-      { key: "money", modules: ["Billing", "Withdrawals"] },
-      { key: "system", modules: ["Audit logs"] },
+      { key: "people", tone: "people", modules: ["Users", "Instructors"] },
+      { key: "content", tone: "learn", modules: ["Courses", "Requirements", "AI Tutor"] },
+      { key: "operations", tone: "room", modules: ["Bookings", "Classrooms", "Reviews"] },
+      { key: "money", tone: "money", modules: ["Billing", "Withdrawals"] },
+      { key: "system", tone: "account", modules: ["Audit logs"] },
     ],
   },
 };
