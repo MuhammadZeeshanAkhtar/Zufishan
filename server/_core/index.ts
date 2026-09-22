@@ -51,16 +51,49 @@ async function startServer() {
     serveStatic(app);
   }
 
-  const preferredPort = parseInt(process.env.PORT || "3000");
-  const port = await findAvailablePort(preferredPort);
+  /*
+   * The port, and why production does not get to choose one.
+   *
+   * In development the scan below is a convenience: port 3000 is often still held by a previous
+   * run, and stepping to 3001 is friendlier than refusing to start.
+   *
+   * On a host it is a trap. A platform assigns $PORT, routes its traffic there, and health-checks
+   * that address. If the probe reports the assigned port busy — a slow release, a sidecar, a race
+   * against the probe's own listener — the old code stepped quietly to the next number, logged a
+   * line nobody reads, and left a container that had "started successfully" and could not be
+   * reached. So production binds exactly what it was given and fails loudly if it cannot.
+   */
+  const assignedPort = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : NaN;
+  const production = process.env.NODE_ENV === "production";
 
-  if (port !== preferredPort) {
-    console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
+  if (production && !Number.isInteger(assignedPort)) {
+    throw new Error("PORT must be set to the port this host expects the server to listen on.");
   }
 
-  server.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}/`);
+  const port = production ? assignedPort : await findAvailablePort(Number.isInteger(assignedPort) ? assignedPort : 3000);
+  if (!production && Number.isInteger(assignedPort) && port !== assignedPort) {
+    console.log(`Port ${assignedPort} is busy, using port ${port} instead`);
+  }
+
+  // `0.0.0.0` rather than the default, so a container is reachable from outside itself.
+  server.listen(port, "0.0.0.0", () => {
+    console.log(`Server listening on port ${port}`);
+  });
+  server.on("error", (error) => {
+    console.error(`Server could not bind port ${port}:`, error);
+    process.exit(1);
   });
 }
 
-startServer().catch(console.error);
+/*
+ * A startup failure has to be a failure.
+ *
+ * `catch(console.error)` printed the reason and then let the process end at exit code 0 — which a
+ * host reads as "the program finished successfully", so it neither restarts the container nor
+ * reports the deploy as broken. The message scrolls past in a log nobody opens, and the service is
+ * simply down with a green tick beside it.
+ */
+startServer().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

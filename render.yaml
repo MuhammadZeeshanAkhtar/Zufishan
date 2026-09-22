@@ -1,0 +1,65 @@
+# Zufishan on Render: one web service running the whole app.
+#
+# The client and the API are one process — `vite build` writes the browser bundle to dist/public
+# and esbuild writes the Express + tRPC server to dist/index.js, which serves that directory. So
+# this is a Node web service, not a static site, and a static host cannot run it.
+#
+# Three things below are load-bearing and easy to get wrong:
+#
+#  1. NODE_ENV IS NOT SET HERE, ON PURPOSE. `vite`, `esbuild` and `typescript` are devDependencies,
+#     and `pnpm install` with NODE_ENV=production skips devDependencies — the build would then fail
+#     on "vite: not found". The server gets its production flag from the `start` script itself,
+#     which sets NODE_ENV inline, so nothing is lost by leaving it out of the environment.
+#
+#  2. EVERY SECRET IS `sync: false`. Render prompts for these once, in its own dashboard, and
+#     stores them there. No value belongs in this file or anywhere else in the repository.
+#
+#  3. THE TWO `VITE_` VALUES ARE NEEDED AT BUILD TIME, not only at runtime. Vite inlines them into
+#     the browser bundle, so a deploy that sets them afterwards ships a client that cannot reach
+#     Supabase. Render exposes service environment variables to the build step, which is why they
+#     are declared here rather than added later.
+services:
+  - type: web
+    name: zufishan
+    runtime: node
+    plan: free
+    # Closer to Pakistan, the Gulf and the UK than Render's Oregon default. Worth changing to
+    # whichever region the Supabase project lives in — that hop is the one on every request.
+    region: frankfurt
+    branch: main
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
+    startCommand: pnpm start
+    # The server answers `/` with the client's index.html, so this confirms both halves are up.
+    healthCheckPath: /
+    autoDeployTrigger: commit
+    envVars:
+      # Vite 7 needs 20.19+ or 22.12+; 22 is the current LTS.
+      - key: NODE_VERSION
+        value: "22"
+
+      # ---- Supabase, server side ----
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      # Bypasses RLS. Server only, never sent to a browser, never logged.
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_DB_URL
+        sync: false
+
+      # ---- Supabase, inlined into the browser bundle at build time ----
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_PUBLISHABLE_KEY
+        sync: false
+
+      # ---- The AI Tutor's provider. Without the key the tutor says so rather than inventing. ----
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        sync: false
+
+      # ---- Which account the first administrator role is granted to. A bootstrap, not a mailbox. ----
+      - key: ADMIN_EMAIL
+        sync: false
