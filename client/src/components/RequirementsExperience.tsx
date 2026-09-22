@@ -45,7 +45,6 @@ import { trpc } from "../lib/trpc";
 import ResultState from "./ResultState";
 import { resultError, resultRows, resultState, type ResultState as State } from "../lib/result-state";
 import { useOnlineStatus } from "../lib/use-online-status";
-import DiscoverableLearners from "./DiscoverableLearners";
 
 type RequirementRow = {
   id: string; subject: string; level: string; goal: string;
@@ -678,7 +677,19 @@ export function InstructorRequirementsDesk() {
             </article>
           ))}
         </div>
-        <DiscoverableLearners />
+        {/*
+         * `<DiscoverableLearners />` stood here and is gone.
+         *
+         * It was added when Find Students had no page of its own, so this desk carried both lists
+         * at once. Find Students has had its own route since, and the copy left behind turned this
+         * module into a duplicate of it — and worse than a duplicate: with no published
+         * requirements in the project, the grid above renders empty and the only thing left on the
+         * page was the other module's list. Opening Requirements showed you Find Students.
+         *
+         * The two answer different questions. This desk is the learning requests people have
+         * posted — what somebody wants taught. Find Students is the learners who have made their
+         * profile discoverable. A teacher choosing between them needs them to look different.
+         */}
       </main>
     </Layout>
   );

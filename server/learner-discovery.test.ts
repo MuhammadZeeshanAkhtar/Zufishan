@@ -180,12 +180,25 @@ describe("the procedures are registered and authenticated", () => {
   });
 });
 
-describe("the desk shows both sources and lies about neither", () => {
-  it("keeps published requirements and adds published profiles beside them", () => {
+describe("the two desks answer different questions", () => {
+  it("keeps the requirements desk to requirements", () => {
+    /*
+     * This desk carried `<DiscoverableLearners />` underneath its own grid, from when Find
+     * Students had no page of its own. Find Students has had its own route since, and the copy
+     * left here made this module a duplicate of it — then worse: with no published requirements
+     * in the project the grid renders empty, so the only thing on the page was the other module's
+     * list. Opening Requirements showed you Find Students.
+     */
     expect(desk).toContain('data-testid="published-requirements"');
-    expect(desk).toContain("<DiscoverableLearners />");
-    // The existing requirements query is untouched.
+    // Comments stripped: the note left in its place names what was removed.
+    expect(withoutComments(desk)).not.toContain("<DiscoverableLearners />");
+    // The requirements query itself is untouched; only the borrowed list is gone.
     expect(desk).toContain("trpc.supabaseCore.publishedRequirements.useQuery(undefined, { retry: false })");
+  });
+
+  it("leaves the learner list to the page built for it", () => {
+    const page = codeOf("../client/src/components/FindStudentsPage.tsx");
+    expect(page).toContain("<DiscoverableLearners humanToken={token} />");
   });
 
   it("renders a distinct state for loading, offline, forbidden, error and empty", () => {
