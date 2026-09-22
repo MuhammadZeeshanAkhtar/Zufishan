@@ -34,7 +34,9 @@ describe("the desk answers the three questions the old one did not", () => {
 
   it("counts sent invites on the tab, as the reference does", () => {
     expect(desk).toContain('{ key: "invites", label: t("learnerHome.tabInvites"), count: invites.length }');
-    expect(desk).toContain("trpc.scheduling.learnerTrials.useQuery");
+    // Moved to `sentInvites`, which resolves the teacher the invite went to; the raw rows name
+    // them only by an id a learner's own client may not read.
+    expect(desk).toContain("trpc.scheduling.sentInvites.useQuery");
     expect(desk).toContain('t("learnerHome.noInvitesYet")');
   });
 

@@ -144,13 +144,23 @@ export async function countOwnUnread(identity: SupabaseIdentity): Promise<Result
  */
 export async function markNotificationsRead(
   identity: SupabaseIdentity,
-  input: { notificationId?: string },
+  input: { notificationId?: string; relatedEntityType?: string; relatedEntityId?: string },
 ): Promise<Result<{ marked: number }>> {
   const db = getSupabaseUserClient(identity.accessToken);
   if (!db) return { ok: false, error: "Supabase persistence unavailable.", code: "SETUP_NEEDED" };
 
   let query = db.from("notifications").update({ read_at: new Date().toISOString() }).is("read_at", null);
   if (input.notificationId) query = query.eq("id", input.notificationId);
+  /*
+   * Marking read by the thing, not by the notice.
+   *
+   * A teacher opens an invite, not a notification — they have no idea one exists. Without this the
+   * bell would keep counting an invite the teacher has already read, which is how a count stops
+   * meaning anything. `notifications_own_update` still scopes the write to the caller's own rows,
+   * so this can only ever clear a notice addressed to the person clearing it.
+   */
+  if (input.relatedEntityType) query = query.eq("related_entity_type", input.relatedEntityType);
+  if (input.relatedEntityId) query = query.eq("related_entity_id", input.relatedEntityId);
 
   const { data, error } = await query.select("id");
   if (error) {

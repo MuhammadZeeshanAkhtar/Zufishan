@@ -19,6 +19,7 @@ import { useGsapReveal } from "../lib/use-gsap-reveal";
 import { useLocale } from "../contexts/LocaleContextState";
 import ProfileCompletionBanner from "./ProfileCompletionBanner";
 import LearnerAvatar from "./LearnerAvatar";
+import { BookingCard, ReceivedInviteCard, type DeskBooking, type ReceivedInvite } from "./InviteCards";
 
 
 type TabKey = "recommended" | "invites" | "bookings";
@@ -71,8 +72,18 @@ export default function InstructorDashboard() {
    */
   const suggestedQuery = trpc.supabaseCore.discoverableLearners.useQuery({ limit: SUGGESTION_LIMIT }, { retry: false });
   // Trial requests are what a learner actually sends a tutor, so they are the real "invites".
-  const responsesQuery = trpc.scheduling.instructorTrials.useQuery(undefined, { retry: false });
-  const bookingsQuery = trpc.scheduling.instructorBookings.useQuery(undefined, { retry: false });
+  /*
+   * Both desks now read the enriched procedures rather than the raw rows.
+   *
+   * `trial_requests` and `bookings` carry the other person as an id and nothing else, and a
+   * teacher's own client cannot resolve a name from it — `profiles_select_own_or_admin` gives them
+   * only their own. `receivedInvites` and `deskBookings` do that resolution server-side, and the
+   * invite list also says which ones have not been opened.
+   */
+  const responsesQuery = trpc.scheduling.receivedInvites.useQuery(undefined, { retry: false });
+  const bookingsQuery = trpc.scheduling.deskBookings.useQuery({ role: "instructor" }, { retry: false });
+  const markRead = trpc.scheduling.markNotificationsRead.useMutation();
+  const unread = trpc.scheduling.unreadNotifications.useQuery(undefined, { retry: false });
 
   const rows = <T,>(q: { data?: { ok: boolean; data?: unknown } }) =>
     q.data?.ok && Array.isArray(q.data.data) ? (q.data.data as T[]) : [];
@@ -87,12 +98,21 @@ export default function InstructorDashboard() {
 
   const suggestedPayload = suggestedQuery.data?.ok ? (suggestedQuery.data.data as { learners: SuggestedLearner[] }) : null;
   const suggested = suggestedPayload?.learners ?? [];
-  const invites = rows<{ id: string }>(responsesQuery);
-  const bookings = rows<{ id: string; scheduled_start_at?: string; status?: string }>(bookingsQuery);
+  const invites = (responsesQuery.data?.ok ? responsesQuery.data.data : []) as ReceivedInvite[];
+  const bookings = (bookingsQuery.data?.ok ? bookingsQuery.data.data : []) as DeskBooking[];
+  // The tab counts what is new, not what exists: a teacher who has read everything sees no number.
+  const newInvites = invites.filter((invite) => invite.unseen).length;
+
+  /* Opening an invite clears exactly its notice, and nothing else the teacher has not seen. */
+  const openInvite = (inviteId: string) => {
+    markRead.mutate({ relatedEntityType: "trial_request", relatedEntityId: inviteId }, {
+      onSuccess: () => { responsesQuery.refetch(); unread.refetch(); },
+    });
+  };
 
   const TABS: Array<{ key: TabKey; label: string; count?: number }> = [
     { key: "recommended", label: t("tutorDesk.recommended") },
-    { key: "invites", label: t("tutorDesk.receivedInvites"), count: invites.length },
+    { key: "invites", label: t("tutorDesk.receivedInvites"), count: newInvites },
     { key: "bookings", label: t("tutorDesk.bookings"), count: bookings.length },
   ];
 
@@ -180,10 +200,16 @@ export default function InstructorDashboard() {
               invitesState !== "ready" && invitesState !== "empty"
                 ? <ResultState state={invitesState} message={resultError(responsesQuery as never)} onRetry={() => responsesQuery.refetch()} retrying={responsesQuery.isFetching} />
                 : invites.length
-                ? <p className="ni-ed-card p-5 text-sm ni-t-muted">
-                    <Inbox size={15} className="me-2 inline"/>{t("tutorDesk.invitesCount", { count: String(invites.length) })}{" "}
-                    <Link href="/dashboard/instructor/requirements" className="font-bold ni-t-moss underline">{t("tutorDesk.openRequirements")}</Link>
-                  </p>
+                ? <ul className="stagger space-y-3">
+                    {invites.slice(0, 10).map((invite) => (
+                      <ReceivedInviteCard
+                        key={invite.id}
+                        invite={invite}
+                        href={`/dashboard/instructor/trial-requests/${invite.id}`}
+                        onOpen={() => openInvite(invite.id)}
+                      />
+                    ))}
+                  </ul>
                 : <EmptyPanel title={t("tutorDesk.noInvites")} copy={t("tutorDesk.noInvitesCopy")}/>
             )}
 
@@ -191,12 +217,14 @@ export default function InstructorDashboard() {
               bookingsState !== "ready" && bookingsState !== "empty"
                 ? <ResultState state={bookingsState} message={resultError(bookingsQuery as never)} onRetry={() => bookingsQuery.refetch()} retrying={bookingsQuery.isFetching} />
                 : bookings.length
-                ? <ul className="space-y-3">
-                    {bookings.slice(0, 10).map((row) => (
-                      <li key={row.id} className="ni-ed-card p-4 text-sm">
-                        <span className="font-semibold ni-t-ink">{row.status || "—"}</span>
-                        {row.scheduled_start_at && <span className="ms-2 ni-t-muted ltr-embed">{new Date(row.scheduled_start_at).toLocaleString()}</span>}
-                      </li>
+                ? <ul className="stagger space-y-3">
+                    {bookings.slice(0, 10).map((booking) => (
+                      <BookingCard
+                        key={booking.id}
+                        booking={booking}
+                        role="instructor"
+                        href={`/dashboard/instructor/bookings`}
+                      />
                     ))}
                   </ul>
                 : <EmptyPanel title={t("tutorDesk.noBookings")} copy={t("tutorDesk.noBookingsCopy")}/>

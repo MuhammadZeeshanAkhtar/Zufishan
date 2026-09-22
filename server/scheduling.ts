@@ -250,6 +250,23 @@ export async function getAvailableSlots(identity: SupabaseIdentity, input: { ins
 }
 
 /**
+ * One learner's public name, for a notice addressed to somebody else.
+ *
+ * Elevated because `profiles_select_own_or_admin` lets an account read only its own profile, so the
+ * teacher this notice is for could never resolve it themselves. One id, one column pair, and a
+ * failure returns null so the caller falls back to general wording rather than failing the write
+ * that prompted it.
+ */
+async function learnerDisplayName(learnerId: string): Promise<string | null> {
+  const admin = getSupabaseAdminClient();
+  if (!admin) return null;
+  const { data, error } = await admin.from("profiles").select("display_name,full_name").eq("id", learnerId).maybeSingle();
+  if (error || !data) return null;
+  const row = data as { display_name?: string | null; full_name?: string | null };
+  return (row.display_name ?? row.full_name ?? "").trim() || null;
+}
+
+/**
  * The same open slots, for a visitor who is reading a public profile.
  *
  * Free/busy is only truthful if the bookings that fill the calendar can be counted, and a visitor
@@ -285,7 +302,27 @@ export async function createTrialRequest(identity: SupabaseIdentity, input: { in
   if (!slotCheck.ok) return slotCheck;
   const { data, error } = await client.from("trial_requests").insert({ learner_id: identity.id, instructor_id: input.instructorId, course_id: input.courseId ?? null, requirement_id: input.requirementId ?? null, subject: input.subject.trim(), learner_timezone: input.learnerTimezone, instructor_timezone: resolvedInstructorTimezone, requested_start_at: input.requestedStartAt, requested_end_at: input.requestedEndAt, learner_message: input.learnerMessage.trim(), status: "requested", idempotency_key: input.idempotencyKey, expires_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString() }).select("*").single();
   if (error) return fail(error.code === "23505" ? "This trial request was already submitted." : "Trial request could not be submitted.", error.code === "23505" ? "CONFLICT" : "VALIDATION");
-  await notify(input.instructorId, "trial_requested", "New trial request", "A learner has requested a trial time.", "trial_request", data.id, `trial-request:${data.id}:instructor`, input.learnerLocale ?? "en");
+  /*
+   * The notice names the learner and what they asked for.
+   *
+   * It read "A learner has requested a trial time" whoever wrote and whatever they wanted, which
+   * told a teacher nothing they could act on without opening the desk to find out. The name is
+   * read on the admin client because `profiles_select_own_or_admin` gives a teacher no way to
+   * resolve it, and a lookup that fails leaves the wording general rather than failing the request.
+   */
+  const inviteFrom = await learnerDisplayName(identity.id);
+  await notify(
+    input.instructorId,
+    "trial_requested",
+    inviteFrom ? `${inviteFrom} invited you to teach` : "New trial request",
+    inviteFrom
+      ? `${inviteFrom} asked for ${input.subject.trim()}. Open Received invites to read what they are looking for.`
+      : `A learner asked for ${input.subject.trim()}. Open Received invites to read what they are looking for.`,
+    "trial_request",
+    data.id,
+    `trial-request:${data.id}:instructor`,
+    input.learnerLocale ?? "en",
+  );
   await audit(identity.id, "trial_request.created", "trial_request", data.id, { instructorId: input.instructorId });
   return { ok: true as const, data };
 }

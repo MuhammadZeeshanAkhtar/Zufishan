@@ -48,8 +48,13 @@ describe("tutor dashboard", () => {
      */
     expect(dashboard).toContain("trpc.supabaseCore.discoverableLearners.useQuery");
     expect(codeOnly(dashboard)).not.toContain("publishedRequirements");
-    expect(dashboard).toContain("trpc.scheduling.instructorTrials.useQuery");
-    expect(dashboard).toContain("trpc.scheduling.instructorBookings.useQuery");
+    /*
+     * Both moved to the enriched procedures. `trial_requests` and `bookings` carry the other person
+     * as an id, and a teacher's own client cannot resolve a name from it — so a desk built on the
+     * raw rows could only ever print a status and a timestamp, which is what it did.
+     */
+    expect(dashboard).toContain("trpc.scheduling.receivedInvites.useQuery");
+    expect(dashboard).toContain('trpc.scheduling.deskBookings.useQuery({ role: "instructor" }');
     expect(dashboard).not.toMatch(/getInstructorDashboardData|mock|fake|sample|dummy/i);
   });
 

@@ -43,7 +43,13 @@ describe("the desk exists and only an instructor reaches it", () => {
     const desk = read("../client/src/components/InstructorDashboard.tsx");
     expect(desk.split('href="/dashboard/instructor/students"').length - 1).toBe(2);
     expect(desk).toContain('{t("tutorDesk.findStudents")}');
-    expect(desk).toMatch(/href="\/dashboard\/instructor\/requirements"[^>]*>\{t\("tutorDesk\.openRequirements"\)\}/);
+    /*
+     * The "Open requirements" link is gone, and its absence is the point rather than a regression.
+     * It sat inside the Received invites tab back when that tab had nothing in it but a count, and
+     * pointed somewhere else for want of anything to show. The tab now holds the invites
+     * themselves; Requirements keeps its own entry in the rail, which is where a module belongs.
+     */
+    expect(desk).not.toContain('t("tutorDesk.openRequirements")');
   });
 
   it("refuses a caller who does not hold the instructor role, on the server", () => {

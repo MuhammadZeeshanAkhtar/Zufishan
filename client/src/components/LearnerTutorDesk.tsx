@@ -26,12 +26,12 @@ import ResultState from "./ResultState";
 import { resultState } from "../lib/result-state";
 import { useOnlineStatus } from "../lib/use-online-status";
 import { displayableImageSrc } from "../lib/safe-url";
+import { SentInviteCard, type SentInvite } from "./InviteCards";
 import {
   Chip, InstructorAvatar, Rating, useHourlyRate, type DiscoveryInstructor,
 } from "./InstructorPresentation";
 
 type Tutor = DiscoveryInstructor & { user_id: string; lastLessonAt?: string | null };
-type Trial = { id: string; status: string; subject: string | null; requested_start_at: string | null };
 type TabKey = "recommended" | "invites" | "past";
 
 /** How many suggestions the desk shows before sending the reader to the full marketplace. */
@@ -44,7 +44,10 @@ export default function LearnerTutorDesk() {
 
   const suggestions = trpc.schedulingPublic.instructors.useQuery({ limit: SUGGESTION_LIMIT }, { retry: false, staleTime: 60_000 });
   const tutors = trpc.scheduling.learnerTutors.useQuery(undefined, { retry: false });
-  const trials = trpc.scheduling.learnerTrials.useQuery(undefined, { retry: false });
+  /* `learnerTrials` returns the raw rows, which name the teacher only by id — and a learner's own
+     client cannot resolve that name (`profiles_select_own_or_admin`). `sentInvites` does it
+     server-side, so the card can show who the invite actually went to. */
+  const trials = trpc.scheduling.sentInvites.useQuery(undefined, { retry: false });
 
   const suggestionState = resultState(suggestions as never, online);
   const tutorState = resultState(tutors as never, online);
@@ -58,7 +61,7 @@ export default function LearnerTutorDesk() {
   }, [suggestions.data]);
 
   const mine = tutors.data?.ok ? (tutors.data.data as { current: Tutor[]; past: Tutor[] }) : { current: [], past: [] };
-  const invites = (trials.data?.ok && Array.isArray(trials.data.data) ? trials.data.data : []) as Trial[];
+  const invites = (trials.data?.ok && Array.isArray(trials.data.data) ? trials.data.data : []) as SentInvite[];
 
   const TABS: Array<{ key: TabKey; label: string; count?: number }> = [
     { key: "recommended", label: t("learnerHome.tabRecommended") },
@@ -154,22 +157,11 @@ export default function LearnerTutorDesk() {
             ) : (
               <ul className="space-y-3">
                 {invites.map((invite) => (
-                  <li key={invite.id} className="ni-ed-card flex flex-wrap items-center justify-between gap-3 p-4">
-                    <div className="min-w-0">
-                      <p className="font-display text-base ni-t-ink">{invite.subject || t("learnerHome.tabInvites")}</p>
-                      {invite.requested_start_at && (
-                        <p className="mt-1 text-xs ni-t-muted ltr-embed">
-                          {formatDate(invite.requested_start_at, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-3">
-                      <span className="ni-verify">{String(invite.status).replaceAll("_", " ")}</span>
-                      <Link href={`/dashboard/learner/trial-lessons/${invite.id}`} className="text-xs font-bold ni-link">
-                        {t("learnerHome.openInvite")}
-                      </Link>
-                    </div>
-                  </li>
+                  <SentInviteCard
+                    key={invite.id}
+                    invite={invite}
+                    href={`/dashboard/learner/trial-lessons/${invite.id}`}
+                  />
                 ))}
               </ul>
             )

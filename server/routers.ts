@@ -41,6 +41,7 @@ import { listWeeklyEarnings, listWithdrawalRequests } from "./tutor-earnings";
 import { listOwnQualifications, listPublicQualifications, replaceQualifications } from "./instructor-qualifications";
 import { COURSE_VERIFICATION_STATUSES, setCourseVerification } from "./review-queue";
 import { CONTACT_ROLES, listContactMessages, submitContactMessage } from "./contact-messages";
+import { listDeskBookings, listReceivedInvites, listSentInvites } from "./invite-desk";
 import { AI_TUTOR_CORRECTION_STYLES, AI_TUTOR_GOALS, AI_TUTOR_LEVELS, AI_TUTOR_MODES, deleteTutorHistory, getTutorConversation, getTutorPreferences, listTutorConversations, listTutorMessages, listTutorProgress, listTutorSavedItems, reportTutorConversation, saveTutorItem, sendTutorMessage, createTutorConversation, upsertTutorPreferences } from "./ai-tutor";
 
 export const appRouter = router({
@@ -296,6 +297,11 @@ export const appRouter = router({
     // Read-only, learner-only: the teacher list their own dashboard shows. Not called by the
     // instructor or admin desks.
     learnerTutors: supabaseOnlyProcedure.query(({ ctx }) => listLearnerTutors(ctx.supabaseIdentity)),
+    /* The two invite desks, and the bookings beside them. Reads only: each resolves the other
+       person's name, which `trial_requests` and `bookings` carry only as an id. */
+    receivedInvites: supabaseOnlyProcedure.query(({ ctx }) => listReceivedInvites(ctx.supabaseIdentity)),
+    sentInvites: supabaseOnlyProcedure.query(({ ctx }) => listSentInvites(ctx.supabaseIdentity)),
+    deskBookings: supabaseOnlyProcedure.input(z.object({ role: z.enum(["learner", "instructor"]) })).query(({ ctx, input }) => listDeskBookings(ctx.supabaseIdentity, input.role)),
     /* The teacher's own Billing and Withdrawal Requests, replacing two fixture-backed screens.
        Both are reads, both scoped by the caller's own token. */
     weeklyEarnings: supabaseOnlyProcedure.input(z.object({ weekStartIso: z.string().optional() })).query(({ ctx, input }) => listWeeklyEarnings(ctx.supabaseIdentity, input.weekStartIso)),
@@ -353,7 +359,12 @@ export const appRouter = router({
     inbox: supabaseOnlyProcedure.query(({ ctx }) => listOwnNotifications(ctx.supabaseIdentity)),
     unreadNotifications: supabaseOnlyProcedure.query(({ ctx }) => countOwnUnread(ctx.supabaseIdentity)),
     markNotificationsRead: supabaseOnlyProcedure
-      .input(z.object({ notificationId: z.string().uuid().optional() }))
+      .input(z.object({
+        notificationId: z.string().uuid().optional(),
+        /* Clearing by the thing opened, because that is what a person actually opens. */
+        relatedEntityType: z.string().max(60).optional(),
+        relatedEntityId: z.string().uuid().optional(),
+      }))
       .mutation(({ ctx, input }) => markNotificationsRead(ctx.supabaseIdentity, input)),
     notificationPreferences: supabaseOnlyProcedure.query(({ ctx }) => getOwnPreferences(ctx.supabaseIdentity)),
     updateNotificationPreferences: supabaseOnlyProcedure
