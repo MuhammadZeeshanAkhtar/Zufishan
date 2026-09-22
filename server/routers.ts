@@ -42,6 +42,9 @@ import { listOwnQualifications, listPublicQualifications, replaceQualifications 
 import { COURSE_VERIFICATION_STATUSES, setCourseVerification } from "./review-queue";
 import { CONTACT_ROLES, listContactMessages, submitContactMessage } from "./contact-messages";
 import { listDeskBookings, listReceivedInvites, listSentInvites } from "./invite-desk";
+import { listScheduleEntries } from "./schedule-calendar";
+import { listSessionRecord } from "./session-record";
+import { fileReport, listOwnReports, REPORT_REASONS, REPORT_TARGETS } from "./reports";
 import { AI_TUTOR_CORRECTION_STYLES, AI_TUTOR_GOALS, AI_TUTOR_LEVELS, AI_TUTOR_MODES, deleteTutorHistory, getTutorConversation, getTutorPreferences, listTutorConversations, listTutorMessages, listTutorProgress, listTutorSavedItems, reportTutorConversation, saveTutorItem, sendTutorMessage, createTutorConversation, upsertTutorPreferences } from "./ai-tutor";
 
 export const appRouter = router({
@@ -302,6 +305,28 @@ export const appRouter = router({
     receivedInvites: supabaseOnlyProcedure.query(({ ctx }) => listReceivedInvites(ctx.supabaseIdentity)),
     sentInvites: supabaseOnlyProcedure.query(({ ctx }) => listSentInvites(ctx.supabaseIdentity)),
     deskBookings: supabaseOnlyProcedure.input(z.object({ role: z.enum(["learner", "instructor"]) })).query(({ ctx, input }) => listDeskBookings(ctx.supabaseIdentity, input.role)),
+    /* The Schedule module's one read. Three tables merged into the weeks being drawn — the page
+       used to read `class_sessions` alone, which is why an actively booked teacher saw nothing. */
+    scheduleCalendar: supabaseOnlyProcedure
+      .input(z.object({ role: z.enum(["learner", "instructor"]), fromIso: z.string().min(1).max(40), toIso: z.string().min(1).max(40) }))
+      .query(({ ctx, input }) => listScheduleEntries(ctx.supabaseIdentity, input.role, input)),
+    /* The Sessions module's one read: the caller's own class sessions and who turned up. The page
+       it serves was built from a single hardcoded fixture id, the same one for every account. */
+    sessionRecord: supabaseOnlyProcedure
+      .input(z.object({ role: z.enum(["learner", "instructor"]) }))
+      .query(({ ctx, input }) => listSessionRecord(ctx.supabaseIdentity, input.role)),
+    /* Reports. The form that reaches these used to call an in-memory helper and store nothing, so
+       a person describing a safety problem was thanked and their words discarded. Both run on the
+       caller's own client: `reports_own_insert` decides whose report this is, not the server. */
+    fileReport: supabaseOnlyProcedure
+      .input(z.object({
+        targetType: z.enum(REPORT_TARGETS),
+        targetId: z.string().uuid(),
+        reason: z.enum(REPORT_REASONS),
+        description: z.string().max(8000).optional(),
+      }))
+      .mutation(({ ctx, input }) => fileReport(ctx.supabaseIdentity, input)),
+    myReports: supabaseOnlyProcedure.query(({ ctx }) => listOwnReports(ctx.supabaseIdentity)),
     /* The teacher's own Billing and Withdrawal Requests, replacing two fixture-backed screens.
        Both are reads, both scoped by the caller's own token. */
     weeklyEarnings: supabaseOnlyProcedure.input(z.object({ weekStartIso: z.string().optional() })).query(({ ctx, input }) => listWeeklyEarnings(ctx.supabaseIdentity, input.weekStartIso)),

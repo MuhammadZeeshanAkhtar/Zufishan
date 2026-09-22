@@ -259,3 +259,53 @@ describe("direct routes stay role-guarded", () => {
     expect(app).toContain('path="/dashboard/instructor/classroom-demo"');
   });
 });
+
+describe("no module in the rail leads nowhere", () => {
+  /*
+   * The rail is a promise: every module in it is a place you can go. Two ways of breaking that
+   * promise had both already happened, and neither showed up as an error.
+   *
+   * `Progress` was listed for a learner and had no `<Route>` at all, so it fell through to the
+   * dashboard catch-all and rendered a hardcoded "Lesson completion will be tracked here" under a
+   * "Setup needed" banner — a module that looked built and was not. And every one of the board's
+   * eleven modules pointed at `/dashboard/admin/…`, which has never existed, because that desk is
+   * mounted at `/admin`.
+   *
+   * The catch-alls are excluded on purpose: landing on one IS the failure being looked for, so a
+   * check that accepted them would pass for exactly the pages it exists to catch.
+   */
+  const routes = [...app.matchAll(/<Route path="([^"]+)"/g)]
+    .map((match) => match[1])
+    .filter((path) => !path.includes(":rest*"))
+    .map((path) => new RegExp(`^${path.replace(/:[^/]+/g, "[^/]+")}$`));
+
+  const routed = (href: string) => {
+    const trimmed = href.replace(/\/$/, "") || "/";
+    return routes.some((pattern) => pattern.test(trimmed) || pattern.test(href));
+  };
+
+  for (const role of ["learner", "instructor", "admin"] as const) {
+    it(`${role}: every module the sidebar lists has a page behind it`, () => {
+      const layout = moduleGroups[role];
+      const modules = [...layout.solo, ...layout.groups.flatMap((group) => group.modules)];
+      expect(modules.length).toBeGreaterThan(0);
+      const dead = modules.filter((module) => !routed(hrefForModule(role, module)));
+      expect(dead, `no route for: ${dead.map((m) => `${m} -> ${hrefForModule(role, m)}`).join(", ")}`).toEqual([]);
+    });
+  }
+
+  it("sends the board to its own desk rather than under /dashboard", () => {
+    expect(hrefForModule("admin", "Users")).toBe("/admin/users");
+    expect(hrefForModule("admin", "LMS overview")).toBe("/admin");
+    expect(hrefForModule("admin", "Audit logs")).toBe("/admin/audit-logs");
+    // Not renames: content moderation is where requirements are reviewed, and a classroom is the
+    // same record as the booking behind it, which is why /admin/sessions already redirects there.
+    expect(hrefForModule("admin", "Requirements")).toBe("/admin/content");
+    expect(hrefForModule("admin", "Classrooms")).toBe("/admin/bookings");
+  });
+
+  it("gives Progress a page of its own instead of the catch-all", () => {
+    expect(hrefForModule("learner", "Progress")).toBe("/dashboard/learner/progress");
+    expect(app).toContain('<Route path="/dashboard/learner/progress">{() => <ProtectedRoute role="learner"><LearnerProgress/></ProtectedRoute>}</Route>');
+  });
+});

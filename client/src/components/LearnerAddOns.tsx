@@ -23,7 +23,7 @@ import { Archive, BookOpen, ShieldCheck, Video } from "lucide-react";
 import { useLocale } from "../contexts/LocaleContextState";
 import type { TranslationKey } from "@/i18n/catalog";
 
-function HeldModule({ icon: Icon, titleKey, copyKey, soonKey, action }: {
+export function HeldModule({ icon: Icon, titleKey, copyKey, soonKey, action }: {
   icon: typeof Video;
   titleKey: TranslationKey;
   copyKey: TranslationKey;

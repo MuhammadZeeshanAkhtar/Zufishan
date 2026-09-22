@@ -1,12 +1,43 @@
+/**
+ * The dashboard's catch-all: what you get for a path inside a dashboard that has no page.
+ *
+ * What stood here was worse than a not-found page. It held a map of about twenty hardcoded English
+ * titles and sentences — "Availability: weekly intervals will be connected later", "Billing: no
+ * earnings are shown without a payment provider", "A protected requirement form will connect in
+ * Prompt 6" — and printed one under a gold "Setup needed" banner.
+ *
+ * Every one of those modules has since been built. The map was never updated, so the page's job
+ * had quietly inverted: it existed to tell somebody that a working module was not connected yet.
+ * `Progress` was the clearest case — it had no route, fell through to here, and read as a feature
+ * that was coming, when in fact nothing had been written to read the rows it already had.
+ *
+ * So the map is gone. A path with no page is a path with no page, said once, in the reader's own
+ * language, with the way back. `dashboard-navigation.test.ts` now asserts that no module in the
+ * rail can reach this page at all — which is the only way to keep it honest, because a catch-all
+ * cannot know what it was reached by.
+ */
 import { Link, useLocation } from "wouter";
-import { ArrowRight, Check, Clock3, MessageCircle, ShieldCheck } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { Compass } from "lucide-react";
 import { useLocale } from "../contexts/LocaleContextState";
-function EmptyState({ title, copy }: { title: string; copy: string }) { return <div className="rounded-2xl border border-dashed border-[var(--ni-sage-mid)] bg-[var(--ni-sage-soft)] px-5 py-10 text-center"><h3 className="font-display text-2xl ni-t-ink">{title}</h3><p className="mx-auto mt-2 max-w-md text-sm leading-6 ni-t-muted">{copy}</p></div>; }
-import { getInstructorDashboardData, getLearnerDashboardData } from "../lib/dashboard-data";
 
-const titles: Record<string, [string, string]> = {
-  profile: ["Edit profile", "Keep the public context accurate and intentional."], courses: ["My courses", "Your enrolled learning will appear here after a protected enrolment flow."], tutors: ["Find a Quran teacher", "Saved and recommended instructors will appear after matching is connected."], requirements: ["My requirements", "Create and review your private learning requirements safely."], bookings: ["Bookings and trials", "Trial requests and class sessions are not connected yet."], schedule: ["Schedule", "Upcoming sessions and timezone-aware plans will appear here."], messages: ["Messages", "Private conversations will appear only for authorised participants."], notifications: ["Notifications", "Booking, course, and training updates will appear here."], progress: ["Progress", "Lesson completion and learning activity will be tracked here."], reviews: ["Reviews", "Reviews are unavailable until completed relationships exist."], training: ["Training and test status", "Required training and assessment steps remain placeholders."], verification: ["Verification", "Verification is a protected process and cannot be self-approved."], students: ["Current students", "Only permissioned instructor-student relationships will appear here."], availability: ["Availability", "Weekly intervals and timezone-aware availability will be connected later."], billing: ["Billing and session ledger", "No earnings, fees, or payouts are shown without a payment provider."], withdrawals: ["Withdrawals", "Withdrawals are unavailable until billing is connected."], "classroom-demo": ["Classroom demo", "The waiting-room and classroom experience is planned, not live."], settings: ["Settings", "Manage preferences and privacy boundaries."], invites: ["Received invites", "Instructor invites will appear after matching is connected."], "requirements-new": ["New requirement", "A protected requirement form will connect in Prompt 6."], ledger: ["Session ledger", "Ledger entries are unavailable until completed sessions exist."],
-};
+export function DashboardSubpage({ role }: { role: "learner" | "instructor" }) {
+  const { t } = useLocale();
+  const [location] = useLocation();
 
-export function DashboardSubpage({ role }: { role: "learner" | "instructor" }) { const [location] = useLocation(); const { user } = useAuth(); const { t } = useLocale(); const key = location.split("/").filter(Boolean).pop() || "profile"; const [title, copy] = titles[key] || ["Workspace", "This dashboard area is ready for a protected workflow."]; const back = `/dashboard/${role}`; const data = role === "learner" ? getLearnerDashboardData(user?.name || user?.email?.split("@")[0]) : getInstructorDashboardData(user?.name || user?.email?.split("@")[0]); return <div><div className="border-b border-[var(--ni-sage)] bg-[var(--ni-field)] px-5 py-4 lg:px-10"><div className="mx-auto max-w-6xl"><h1 className="font-display text-3xl ni-t-ink">{title}</h1></div></div><main className="mx-auto max-w-6xl px-5 py-8 lg:px-10 lg:py-10"><div className="mb-6 rounded-2xl border border-[var(--ni-gold-mid)] bg-[var(--ni-gold-soft)] px-5 py-4 text-sm leading-6 ni-t-gold"><strong>{t("common.setupNeeded")}</strong> {t("dashboard.privateCopy")}</div><div className="grid gap-5 lg:grid-cols-[1.3fr_.7fr]"><section className="rounded-[1.5rem] border border-[var(--ni-sage)] bg-[var(--ni-paper)] p-7"><div className="mt-8"><EmptyState title={role === "learner" ? t("dashboard.nothingConnected") : t("dashboard.noAuthorized")} copy={role === "learner" ? "Explore public courses and tutors, then return when a safe account workflow is connected." : "Complete your profile and wait for protected matching, training, or booking records."}/></div><div className="mt-6 flex flex-wrap gap-3"><Link href={role === "learner" ? "/courses" : "/dashboard/instructor/profile"} className="inline-flex items-center gap-2 rounded-full bg-[var(--ni-moss)] px-5 py-3 text-sm font-semibold text-white">{role === "learner" ? t("dashboard.exploreCourses") : t("dashboard.completeProfile")}<ArrowRight size={15}/></Link><Link href={back} className="inline-flex items-center gap-2 rounded-full border border-[var(--ni-sage-mid)] px-5 py-3 text-sm font-semibold ni-t-moss">{t("dashboard.overview")}</Link></div></section><aside className="space-y-5"><div className="rounded-2xl bg-[var(--ni-sage-soft)] p-6"><Clock3 className="ni-t-gold"/><h3 className="mt-4 font-display text-2xl ni-t-ink">{t("dashboard.timezoneReady")}</h3><p className="mt-2 text-sm leading-6 ni-t-muted">{t("dashboard.timezoneCopy")}</p></div><div className="rounded-2xl bg-[var(--ni-teal)] p-6 text-white"><MessageCircle className="ni-t-gold-mid"/><h3 className="mt-4 font-display text-2xl">{t("dashboard.privateByDesign")}</h3><p className="mt-2 text-sm leading-6 ni-t-muted">{t("dashboard.privateCopy")}</p></div></aside></div></main></div>; }
+  return (
+    <main className="mx-auto max-w-3xl px-5 py-16 lg:px-8 lg:py-24">
+      <div className="ni-ed-card p-8 text-center">
+        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full border border-[var(--ni-sage-line)] bg-[var(--ni-field)] ni-t-muted">
+          <Compass size={20} aria-hidden="true" />
+        </span>
+        <h1 className="mt-4 font-display text-3xl ni-t-ink">{t("common.notFound")}</h1>
+        <p className="mx-auto mt-3 max-w-[52ch] text-sm leading-7 ni-t-muted">{t("subpage.copy")}</p>
+        {/* The address itself, so a mistyped or out-of-date link is obvious rather than mysterious. */}
+        <p className="mt-3 text-xs ni-t-muted-soft"><span className="ltr-embed">{location}</span></p>
+        <Link href={`/dashboard/${role}`} className="ni-btn ni-btn--primary mt-6 text-sm">
+          {t("dashboard.overview")}
+        </Link>
+      </div>
+    </main>
+  );
+}

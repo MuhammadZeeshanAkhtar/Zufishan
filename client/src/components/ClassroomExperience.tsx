@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, BookOpen, Check, ChevronLeft, ChevronRight, CircleAlert, Clock3, Download, FileText, Flag, Maximize2, MessageCircle, Mic, MicOff, MonitorUp, Move, Paperclip, PenLine, PlayCircle, RotateCcw, Save, Send, ShieldCheck, Square, Trash2, Undo2, Users, Video, VideoOff, Volume2, Wifi, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Check, ChevronLeft, ChevronRight, CircleAlert, Clock3, Download, FileText, Flag, ListChecks, Maximize2, MessageCircle, Mic, MicOff, MonitorUp, Move, Paperclip, PenLine, PlayCircle, RotateCcw, Save, Send, ShieldCheck, Square, Trash2, Undo2, Users, Video, VideoOff, Volume2, Wifi, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useLocale } from "../contexts/LocaleContextState";
 import { useHasDashboardChrome } from "../lib/use-dashboard-chrome";
+import { HeldModule } from "./LearnerAddOns";
+import ResultState from "./ResultState";
+import { resultError, resultState } from "../lib/result-state";
+import { useOnlineStatus } from "../lib/use-online-status";
+import { trpc } from "../lib/trpc";
+import { supabaseClient } from "../lib/supabase-client";
 import RoleNotice from "./RoleNotice";
 import { formatScheduleTime } from "../lib/scheduling-data";
 import { canAccessClassroom, canEndClassroom, classroomStatusCopy, calculateSessionDuration, ClassroomRole, ClassroomSession, createBoard, endClassroomSession, getArchiveItem, getClassroomMessages, getClassroomParticipants, getClassroomResources, getClassroomSession, getClassroomWindowState, getConnectionStatus, getMediaPermissionState, getProviderBoundary, getQaidaContentState, getQuranContentState, getRecordingPolicyState, joinClassroomSession, leaveClassroomSession, loadBoardState, markParticipantJoined, prepareClassroomUpload, recordAttendance, reportClassroomIssue, resolveDemoActorId, saveBoardState, sendClassroomMessage, startSession, type AttendanceStatus, type QuranSelection, type WhiteboardState, type WhiteboardStroke, type WhiteboardTool } from "../lib/classroom-data";
@@ -179,37 +185,105 @@ function SessionEnded({ session, role }: { session: ClassroomSession; role: Clas
   return <ClassroomShell eyebrow="Session ended" backHref={`/dashboard/${role}/classrooms`} backLabel="Back to classrooms"><main className="mx-auto max-w-5xl px-5 py-14 lg:px-8 lg:py-20"><div className="rounded-[1.5rem] bg-[var(--ni-teal)] p-8 text-white"><Check className="ni-t-gold-mid" size={35}/><p className="mt-5 text-xs font-bold uppercase tracking-[.18em] ni-t-gold-mid">Session completion boundary</p><h1 className="mt-3 font-display text-5xl">This class has ended.</h1><p className="mt-4 max-w-2xl leading-7 text-[var(--ni-sage-line)]">Completion, attendance, and duration must come from a valid protected session record. No completion or duration is fabricated in demo mode.</p></div><div className="mt-7 grid gap-5 sm:grid-cols-2"><div className={panel}><Clock3 className="ni-t-moss" size={22}/><h2 className="mt-4 font-display text-2xl">Attendance summary</h2><p className="mt-3 text-sm leading-6 ni-t-muted">Learner and instructor attendance will be shown once the attendance service confirms joined and left timestamps.</p><StatusPill label="Awaiting server record" tone="gold"/></div><div className={panel}><PlayCircle className="ni-t-moss" size={22}/><h2 className="mt-4 font-display text-2xl">Recording archive</h2><p className="mt-3 text-sm leading-6 ni-t-muted">{recordingPolicy.message}</p><StatusPill label={archive.recordingStatus.replaceAll("_", " ")} tone="gold"/></div></div><div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Link href={role === "learner" ? "/dashboard/learner/courses" : "/dashboard/instructor/courses"} className={buttonPrimary}>View course / progress</Link><Link href={`/dashboard/${role}/schedule`} className={buttonQuiet}>View schedule</Link><button onClick={() => undefined} className={buttonQuiet}>Feedback placeholder</button><button onClick={() => undefined} className={buttonQuiet}>Report issue</button></div></main></ClassroomShell>;
 }
 
+/**
+ * Classrooms — the rooms this account can actually walk into.
+ *
+ * This ran on `getClassroomSession("session-101")` and `resolveDemoActorId(email, role)`. The
+ * second is the part that mattered: it maps exactly two seeded demo addresses to an actor and
+ * returns null for everything else, so for every real account the access check failed and the
+ * module rendered "This classroom desk is restricted" — a module nobody could open, describing a
+ * class nobody was in.
+ *
+ * It now lists the caller's own sessions that have not finished, through the same read Sessions
+ * uses. The live room behind the door still needs the classroom provider, and `OpenClassroomAction`
+ * is what says so; what this page owes the reader is an honest list of which rooms are theirs.
+ *
+ * `ClassroomDemoPage` stood here too, on the same two fixtures. It was lazily imported and routed
+ * nowhere — `/dashboard/instructor/classroom-demo` renders `TutorClassroomDemo` — so it is gone
+ * rather than rewritten.
+ */
 export function ClassroomDashboard({ role }: { role: ClassroomRole }) {
+  const { t, locale } = useLocale();
   const { currentSession } = useAuth();
-  const session = getClassroomSession("session-101");
-  const actorId = currentSession ? resolveDemoActorId(currentSession.email, role) : null;
+  const online = useOnlineStatus();
+  const realMode = Boolean(supabaseClient && currentSession);
   const backHref = `/dashboard/${role}`;
-  if (!session) return <ClassroomShell backHref={backHref}><main className="mx-auto max-w-3xl px-5 py-20"><SetupNotice>No assigned classroom sessions are connected.</SetupNotice></main></ClassroomShell>;
-  if (!actorId || !canAccessClassroom(session, actorId, role)) return <ClassroomShell backHref={backHref}><main className="mx-auto max-w-3xl px-5 py-20"><SetupNotice>This classroom desk is restricted to assigned session participants.</SetupNotice></main></ClassroomShell>;
-  return <ClassroomShell eyebrow={role === "learner" ? "My classrooms" : "Teaching classrooms"} backHref={backHref} backLabel="Back to dashboard"><main className="mx-auto max-w-6xl px-5 py-12 lg:px-8 lg:py-16"><div className="flex flex-wrap items-end justify-end gap-4"><Link href={`/dashboard/${role}/archives`} className={buttonQuiet}><PlayCircle size={15}/> Archives</Link></div><div className="mt-7"><SetupNotice>Live classroom integration is required before video, audio, attendance, chat, White Board sync, or recordings can be claimed.</SetupNotice></div><article className="mt-7 grid gap-6 rounded-[1.5rem] border border-[var(--ni-sage)] bg-[var(--ni-paper)] p-6 lg:grid-cols-[1fr_auto] lg:p-8"><div><div className="flex flex-wrap items-center gap-3"><StatusPill label={classroomStatusCopy[session.status].label} tone="gold"/><span className="text-xs font-bold uppercase tracking-[.14em] ni-t-gold">{session.subject}</span></div><h2 className="mt-4 font-display text-3xl">{session.title}</h2><p className="mt-2 text-sm ni-t-muted">{session.learnerName} · {session.instructorName}</p><p className="mt-5 text-sm leading-6 ni-t-muted">{formatScheduleTime(session.scheduledStartAt, session.learnerTimezone)} · {formatDuration(session.sessionDurationSeconds)}</p></div><div className="flex flex-wrap items-center gap-2 lg:flex-col lg:items-stretch lg:justify-center"><Link href={`/classroom/${session.id}/waiting-room`} className={buttonPrimary}>Open waiting room <ArrowLeft className="rotate-180" size={15}/></Link><Link href={`/classroom/${session.id}/ended`} className={buttonQuiet}>View end-state</Link></div></article></main></ClassroomShell>;
+
+  const query = trpc.scheduling.sessionRecord.useQuery({ role }, { enabled: realMode });
+  const state = resultState(query as never, online);
+  const rows = (query.data?.ok ? query.data.data : []) as {
+    id: string; title: string; subject: string; status: string; scheduledStartAt: string;
+    person: { displayName: string | null } | null;
+  }[];
+  /* A room you can still enter. A completed or cancelled class belongs in Sessions, which is the
+     record of what happened; this page is only the ones still ahead of you. */
+  const open = rows.filter((row) => ["scheduled", "waiting_room", "live"].includes(row.status));
+
+  const when = (value: string) => {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(date);
+  };
+
+  return (
+    <ClassroomShell eyebrow={role === "learner" ? "My classrooms" : "Teaching classrooms"} backHref={backHref} backLabel="Back to dashboard">
+      <main className="mx-auto max-w-6xl px-5 py-10 lg:px-8 lg:py-14">
+        <h1 className="sr-only">{t("classroomDesk.title")}</h1>
+
+        {state !== "ready" || open.length === 0 ? (
+          <ResultState
+            state={state === "ready" ? "empty" : state}
+            message={state === "ready" || state === "empty" ? t("classroomDesk.none") : resultError(query as never)}
+            onRetry={() => query.refetch()}
+            retrying={query.isFetching}
+          />
+        ) : (
+          <ul className="grid gap-3 md:grid-cols-2">
+            {open.map((row) => (
+              <li key={row.id} className="ni-ed-card p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-display text-lg ni-t-moss">{row.subject || row.title}</p>
+                    <p className="truncate text-sm ni-t-muted">{row.person?.displayName || t("findStudents.anonymousLearner")}</p>
+                  </div>
+                  <span className="ni-verify shrink-0">{row.status.replaceAll("_", " ")}</span>
+                </div>
+                <p className="mt-3 border-t border-[var(--ni-sage-line)] pt-3 text-xs ni-t-muted">
+                  <Clock3 size={11} aria-hidden="true" className="me-1 inline" />
+                  <span className="ltr-embed">{when(row.scheduledStartAt)}</span>
+                </p>
+                {/* The door. Whether it opens is the provider's answer, not this page's. */}
+                <Link href={`/classroom/${row.id}/waiting-room`} className="ni-btn ni-btn--outline mt-3.5 text-sm">
+                  <Video size={13} aria-hidden="true" className="icon-directional"/> {t("classroomDesk.enter")}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </main>
+    </ClassroomShell>
+  );
 }
 
-export function ClassroomDemoPage() {
-  const { t } = useLocale();
-  const { currentSession } = useAuth();
-  const session = getClassroomSession("session-101");
-  const actorId = currentSession ? resolveDemoActorId(currentSession.email, "instructor") : null;
-  if (!session) return <ClassroomShell backHref="/dashboard/instructor"><main className="mx-auto max-w-3xl px-5 py-20"><SetupNotice>Demo classroom session is not available.</SetupNotice></main></ClassroomShell>;
-  if (!actorId || !canAccessClassroom(session, actorId, "instructor")) return <ClassroomShell backHref="/dashboard/instructor"><main className="mx-auto max-w-3xl px-5 py-20"><SetupNotice>This instructor demo is restricted to the assigned instructor.</SetupNotice></main></ClassroomShell>;
-  const provider = getProviderBoundary();
-  const join = joinClassroomSession(session.id, session.instructorId, "instructor");
-  const start = startSession(session.id, session.instructorId, "instructor");
-  const attendance = recordAttendance(session.id, session.instructorId, "present");
-  const participant = markParticipantJoined(session.id, session.instructorId);
-  return <ClassroomShell eyebrow="Instructor demo" backHref="/dashboard/instructor/classrooms" backLabel="Back to classrooms"><main className="mx-auto max-w-6xl px-5 py-12 lg:px-8 lg:py-16"><div className="mt-7"><SetupNotice>{provider.message}</SetupNotice></div><div className="mt-7 grid gap-5 md:grid-cols-2"><div className={panel}><p className="text-xs font-bold uppercase tracking-[.16em] ni-t-gold">{t("classroom.sessionControls")}</p><h2 className="mt-3 font-display text-3xl">{session.title}</h2><div className="mt-5 space-y-3 text-sm"><p className="rounded-xl bg-[var(--ni-sage-soft)] p-4">Join: {join.error}</p><p className="rounded-xl bg-[var(--ni-sage-soft)] p-4">Start: {start.error}</p><p className="rounded-xl bg-[var(--ni-sage-soft)] p-4">Attendance: {attendance.error}</p><p className="rounded-xl bg-[var(--ni-sage-soft)] p-4">Participant: {participant.error}</p></div></div><div className={panel}><p className="text-xs font-bold uppercase tracking-[.16em] ni-t-gold">{t("classroom.routes")}</p><div className="mt-5 flex flex-wrap gap-2"><Link href={`/classroom/${session.id}/waiting-room`} className={buttonPrimary}>{t("classroom.waitingRoom")}</Link><Link href={`/classroom/${session.id}`} className={buttonQuiet}>{t("classroom.classroomShell")}</Link><Link href={`/classroom/${session.id}/ended`} className={buttonQuiet}>{t("classroom.endedState")}</Link></div><div className="mt-7 rounded-xl bg-[var(--ni-gold-soft)] p-4 text-sm leading-6 ni-t-gold">{t("classroom.assignedOnly")}</div></div></div></main></ClassroomShell>;
-}
 
+/**
+ * Archives.
+ *
+ * This read `getClassroomSession("session-101")` — one hardcoded fixture id — and then asked
+ * whether the signed-in account could access *that* session. For a real learner the answer was
+ * always no, so the module showed an access notice about somebody else's demonstration class.
+ *
+ * What belongs here is recordings, and recordings arrive with the classroom provider, which is not
+ * connected. So it says that, the same way Parental Watch does, and points at Sessions — which is
+ * the record of what actually happened and does not need a provider to be true.
+ */
 export function ClassroomArchives({ role }: { role: ClassroomRole }) {
-  const { t } = useLocale();
-  const { currentSession } = useAuth();
-  const session = getClassroomSession("session-101");
-  const actorId = currentSession ? resolveDemoActorId(currentSession.email, role) : null;
-  const archive = session ? getArchiveItem(session) : null;
-  if (session && (!actorId || !canAccessClassroom(session, actorId, role))) return <ClassroomShell eyebrow="Private archive" backHref={`/dashboard/${role}/classrooms`} backLabel="Back to classrooms"><main className="mx-auto max-w-3xl px-5 py-20"><SetupNotice>This archive is restricted to assigned session participants.</SetupNotice></main></ClassroomShell>;
-  return <ClassroomShell eyebrow={role === "learner" ? "Learning archives" : "Teaching archives"} backHref={`/dashboard/${role}/classrooms`} backLabel="Back to classrooms"><main className="mx-auto max-w-5xl px-5 py-12 lg:px-8 lg:py-16"><div className="mt-7"><SetupNotice>{getRecordingPolicyState().message}</SetupNotice></div><div className="mt-7 rounded-[1.35rem] border border-dashed border-[var(--ni-sage-mid)] bg-[var(--ni-sage-soft)] p-10 text-center"><PlayCircle className="mx-auto ni-t-gold" size={30}/><h2 className="mt-4 font-display text-3xl">{archive ? archive.title : t("classroom.archiveNone")}</h2><p className="mt-3 text-sm ni-t-muted">{archive ? `Status: ${archive.recordingStatus.replaceAll("_", " ")}.` : t("classroom.archiveUnavailable")}</p><StatusPill label="Private · not available" tone="gold"/></div></main></ClassroomShell>;
+  return (
+    <HeldModule
+      icon={PlayCircle}
+      titleKey="archives.title"
+      copyKey="archives.copy"
+      soonKey="archives.soon"
+      action={{ href: `/dashboard/${role}/sessions`, labelKey: "archives.openSessions", icon: ListChecks }}
+    />
+  );
 }

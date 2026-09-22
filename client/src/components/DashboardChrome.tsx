@@ -51,6 +51,34 @@ export function hrefForModule(role: DashboardRole, item: string) {
     "edit-profile": `/dashboard/${role}/profile`,
     "ai-tutor": role === "admin" ? "/admin/ai-tutor" : `/dashboard/${role}/ai-tutor`,
   };
+  /*
+   * The board's desk does not live under /dashboard.
+   *
+   * Every other role's module becomes `/dashboard/<role>/<slug>`, and for a long time the board's
+   * did too — except that no such route has ever existed. The admin desk is mounted at `/admin`,
+   * so each of those eleven links resolved to nothing: a sidebar of modules that all led to the
+   * not-found page. They are pointed at the desk they actually belong to.
+   *
+   * Two are not a rename. "Requirements" is the desk's content-moderation queue, and "Classrooms"
+   * is the same record a booking is, which is why `/admin/sessions` already redirects to
+   * `/admin/bookings`; both are named here rather than guessed from the slug.
+   */
+  if (role === "admin") {
+    const board: Record<string, string> = {
+      "lms-overview": "/admin",
+      users: "/admin/users",
+      instructors: "/admin/instructors",
+      courses: "/admin/courses",
+      requirements: "/admin/content",
+      bookings: "/admin/bookings",
+      classrooms: "/admin/bookings",
+      reviews: "/admin/reviews",
+      billing: "/admin/billing",
+      withdrawals: "/admin/withdrawals",
+      "audit-logs": "/admin/audit-logs",
+    };
+    if (board[slug]) return board[slug];
+  }
   return mapped[slug] || `/dashboard/${role}/${slug === "overview" ? "" : slug}`;
 }
 
