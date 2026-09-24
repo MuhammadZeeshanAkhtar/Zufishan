@@ -22,6 +22,7 @@
  * attempt cannot steer a later one.
  */
 import type { PublicRole, LoginContext } from "./auth-models";
+import { supabasePublishableKeyFrom, supabaseUrlFrom } from "./supabase-browser-env";
 
 export type OAuthIntent = {
   mode: "login" | "signup";
@@ -136,8 +137,8 @@ export function classifyOAuthReturn(params: URLSearchParams): OAuthReturnFailure
  * failure on its own. This only ever prevents the one case it can prove.
  */
 export async function isGoogleEnabled(): Promise<boolean> {
-  const url = import.meta.env.VITE_SUPABASE_URL?.trim();
-  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
+  const url = supabaseUrlFrom();
+  const key = supabasePublishableKeyFrom();
   if (!url || !key) return false;
   try {
     const response = await fetch(`${url.replace(/\/+$/, "")}/auth/v1/settings`, { headers: { apikey: key } });
