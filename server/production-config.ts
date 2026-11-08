@@ -24,7 +24,8 @@ export type ProductionConfigReport = {
 };
 
 const present = (env: ProductionConfigEnv, keys: string[]) => keys.every((key) => Boolean(env[key]?.trim()));
-const hasAny = (env: ProductionConfigEnv, keys: string[]) => keys.some((key) => Boolean(env[key]?.trim()));
+const aiTutorEnv = (env: ProductionConfigEnv) => env.AI_PROVIDER?.trim().toLowerCase() === "deepseek" ? ["DEEPSEEK_API_KEY", "DEEPSEEK_MODEL"] : ["GEMINI_API_KEY", "GEMINI_MODEL"];
+const hasAny =(env: ProductionConfigEnv, keys: string[]) => keys.some((key) => Boolean(env[key]?.trim()));
 
 export function getProductionConfigReport(env: ProductionConfigEnv = process.env): ProductionConfigReport {
   const supabaseServer = present(env, ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]);
@@ -38,7 +39,7 @@ export function getProductionConfigReport(env: ProductionConfigEnv = process.env
     realtime: { configured: supabase, requiredEnv: ["SUPABASE_URL", "VITE_SUPABASE_URL", "VITE_SUPABASE_PUBLISHABLE_KEY"], note: "Realtime is unavailable until channel authorization and subscriptions are verified." },
     // Reports the variables the Gemini adapter in ai-tutor-provider.ts actually reads, so a
     // configured provider is not reported as a blocker (and vice versa). Names only, never values.
-    aiTutor: { configured: present(env, ["GEMINI_API_KEY", "GEMINI_MODEL"]), requiredEnv: ["GEMINI_API_KEY", "GEMINI_MODEL"], note: "Language-only AI Tutor requests require an approved server-side provider. Both variables are server-only and must never be exposed to the browser." },
+    aiTutor: { configured: present(env, aiTutorEnv(env)), requiredEnv: aiTutorEnv(env), note: "Language-only AI Tutor requests require an approved server-side provider. Both variables are server-only and must never be exposed to the browser." },
     classroom: { configured: Boolean(env.CLASSROOM_PROVIDER?.trim()) && hasAny(env, ["CLASSROOM_PROVIDER_API_KEY", "CLASSROOM_PROVIDER_TOKEN"]), requiredEnv: ["CLASSROOM_PROVIDER", "CLASSROOM_PROVIDER_API_KEY"], note: "Video sessions remain blocked until a provider is configured and verified." },
     notifications: { configured: Boolean(env.NOTIFICATION_PROVIDER?.trim()) && hasAny(env, ["NOTIFICATION_PROVIDER_API_KEY", "RESEND_API_KEY", "SENDGRID_API_KEY"]), requiredEnv: ["NOTIFICATION_PROVIDER", "NOTIFICATION_PROVIDER_API_KEY"], note: "Email/push delivery must be idempotent and provider-backed." },
     payments: { configured: Boolean(env.PAYMENT_PROVIDER?.trim()) && Boolean(env.PAYMENT_PROVIDER_SECRET?.trim()), requiredEnv: ["PAYMENT_PROVIDER", "PAYMENT_PROVIDER_SECRET"], note: "USD display is allowed; payment success is blocked until an approved provider is connected." },

@@ -22,22 +22,39 @@ const REQUEST_TIMEOUT_MS = 55_000;
 const MAX_ATTEMPTS = 2;
 
 /**
+ * AI_PROVIDER selects the backend: "gemini" (default) or "deepseek". Each provider reads its own
+ * pair of variables, so switching providers never sends one provider's key to the other.
+ */
+export type TutorProviderName = "gemini" | "deepseek";
+
+export function activeTutorProvider(env: NodeJS.ProcessEnv = process.env): TutorProviderName {
+  return env.AI_PROVIDER?.trim().toLowerCase() === "deepseek" ? "deepseek" : "gemini";
+}
+
+function providerEnvNames(env: NodeJS.ProcessEnv) {
+  return activeTutorProvider(env) === "deepseek"
+    ? { key: "DEEPSEEK_API_KEY", model: "DEEPSEEK_MODEL" } as const
+    : { key: "GEMINI_API_KEY", model: "GEMINI_MODEL" } as const;
+}
+
+/**
  * Both variables are required. The model is deliberately NOT defaulted: silently falling back to
  * some built-in model name would send traffic to a model the operator never chose, and would hide
  * a missing configuration behind an answer that looks real.
  */
 export function geminiProviderStatus(env: NodeJS.ProcessEnv = process.env): TutorProviderStatus {
-  return env.GEMINI_API_KEY?.trim() && env.GEMINI_MODEL?.trim() ? "configured" : "setup-needed";
+  return missingGeminiEnv(env).length === 0 ? "configured" : "setup-needed";
 }
 
 /** Names the variables that still need a value. Never returns or logs any value. */
 export function missingGeminiEnv(env: NodeJS.ProcessEnv = process.env): string[] {
-  return (["GEMINI_API_KEY", "GEMINI_MODEL"] as const).filter((name) => !env[name]?.trim());
+  const names = providerEnvNames(env);
+  return [names.key, names.model].filter((name) => !env[name]?.trim());
 }
 
 /** The operator-chosen model, or empty when unset. Callers must treat empty as setup-needed. */
 export function configuredGeminiModel(env: NodeJS.ProcessEnv = process.env): string {
-  return env.GEMINI_MODEL?.trim() || "";
+  return env[providerEnvNames(env).model]?.trim() || "";
 }
 
 function boundedText(value: unknown, max: number): string {
@@ -77,6 +94,7 @@ function isDailyQuota(body: string): boolean {
 }
 
 export async function generateGeminiTutorReply(request: TutorProviderRequest, env: NodeJS.ProcessEnv = process.env): Promise<TutorProviderResult> {
+  if (activeTutorProvider(env) === "deepseek") return generateDeepSeekTutorReply(request, env);
   const key = env.GEMINI_API_KEY?.trim();
   const model = request.model?.trim() || configuredGeminiModel(env);
   // Report which variable is missing by NAME only — never a value, never a partial value.
@@ -150,6 +168,62 @@ export async function generateGeminiTutorReply(request: TutorProviderRequest, en
       }
       console.error(`[ai-tutor] provider transport error (attempt ${attempt}/${MAX_ATTEMPTS}) model=${model}:`,
         cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause));
+      if (attempt < MAX_ATTEMPTS) continue;
+      return { ok: false, status: "unavailable", message: "The AI Tutor provider is temporarily unavailable." };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  return { ok: false, status: "unavailable", message: "The AI Tutor provider is temporarily unavailable." };
+}
+
+/** DeepSeek speaks the OpenAI chat-completions protocol. Same limits and failure wording as Gemini. */
+async function generateDeepSeekTutorReply(request: TutorProviderRequest, env: NodeJS.ProcessEnv): Promise<TutorProviderResult> {
+  const key = env.DEEPSEEK_API_KEY?.trim();
+  const model = request.model?.trim() || configuredGeminiModel(env);
+  const missing = missingGeminiEnv(env);
+  if (!key || !model) {
+    return { ok: false, status: "unavailable", message: `AI Tutor provider setup is required. Set ${missing.join(" and ") || "DEEPSEEK_API_KEY and DEEPSEEK_MODEL"} in the server environment before real answers can be generated.` };
+  }
+  const baseUrl = (env.DEEPSEEK_BASE_URL?.trim() || "https://api.deepseek.com").replace(/\/+$/, "");
+  const messages = [
+    { role: "system", content: boundedText(request.systemPrompt, 8000) },
+    ...request.history.slice(-12).map(message => ({ role: message.role === "model" ? "assistant" : "user", content: boundedText(message.text, 4000) })),
+    { role: "user", content: boundedText(request.userText, 4000) },
+  ];
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const response = await fetch(`${baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
+        body: JSON.stringify({ model, messages, max_tokens: MAX_OUTPUT_TOKENS, temperature: 0.35, stream: false }),
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        const body = await response.text().catch(() => "");
+        console.error(`[ai-tutor] provider HTTP ${response.status} ${response.statusText} model=${model}`, redactKey(body, key).slice(0, 1500));
+        if (attempt < MAX_ATTEMPTS && isRetryable(response.status)) continue;
+        if (response.status === 429) return { ok: false, status: "unavailable", message: "The AI Tutor is busy right now. Please try again shortly." };
+        if (response.status === 402) return { ok: false, status: "unavailable", message: "The AI Tutor provider account has no remaining balance." };
+        return { ok: false, status: response.status >= 500 ? "unavailable" : "failed", message: `The AI Tutor provider rejected the request (HTTP ${response.status}). The server log has the details.` };
+      }
+      const payload = await response.json() as { choices?: Array<{ message?: { content?: string }; finish_reason?: string }>; usage?: Record<string, unknown> };
+      const choice = payload.choices?.[0];
+      const text = boundedText(choice?.message?.content, 12_000);
+      if (!text) {
+        const reason = choice?.finish_reason ?? "unknown";
+        console.error(`[ai-tutor] provider returned 200 with no text. finishReason=${reason} model=${model}`, payload.usage ?? {});
+        return { ok: false, status: "unavailable", message: `The AI Tutor provider returned no answer (${reason}).` };
+      }
+      return { ok: true, text, model };
+    } catch (cause) {
+      if (cause instanceof Error && cause.name === "AbortError") {
+        console.error(`[ai-tutor] provider timed out after ${REQUEST_TIMEOUT_MS}ms model=${model}`);
+        return { ok: false, status: "unavailable", message: `The AI Tutor provider did not answer within ${Math.round(REQUEST_TIMEOUT_MS / 1000)}s.` };
+      }
+      console.error(`[ai-tutor] provider transport error (attempt ${attempt}/${MAX_ATTEMPTS}) model=${model}:`, cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause));
       if (attempt < MAX_ATTEMPTS) continue;
       return { ok: false, status: "unavailable", message: "The AI Tutor provider is temporarily unavailable." };
     } finally {
