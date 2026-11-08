@@ -1,4 +1,4 @@
-import { generateGeminiTutorReply } from "./ai-tutor-provider";
+import { activeTutorProvider, configuredGeminiModel, generateGeminiTutorReply } from "./ai-tutor-provider";
 import { getSupabaseAdminClient } from "./supabase-admin-client";
 import { type SupabaseIdentity } from "./supabase-auth";
 import { getSupabaseUserClient } from "./supabase-user-client";
@@ -203,7 +203,7 @@ export async function sendTutorMessage(identity: SupabaseIdentity, input: { conv
     const generated = await generateGeminiTutorReply({
       // No fallback: the provider resolves the model from the environment and reports a missing
       // GEMINI_MODEL as missing setup, instead of guessing an identifier that may be retired.
-      model: process.env.GEMINI_MODEL?.trim(),
+      model: configuredGeminiModel(),
       systemPrompt: `${buildLanguageTutorSystemPrompt({ targetLanguage: preferences.data.target_language, nativeLanguage: preferences.data.native_language, responseLanguage: preferences.data.response_language, explanationLanguage: preferences.data.explanation_language, level: preferences.data.level, correctionStyle: preferences.data.correction_style, goals: preferences.data.goals })}\n${contextLine}`,
       history: (history.data || []).reverse().map(message => ({ role: message.sender_type === "learner" ? "user" as const : "model" as const, text: message.content })),
       userText: content,
@@ -211,7 +211,7 @@ export async function sendTutorMessage(identity: SupabaseIdentity, input: { conv
     if (!generated.ok) return resultFailure<never>(generated.status, generated.message);
     const admin = adminClient();
     if (!admin) return resultFailure<never>("unavailable", "AI Tutor persistence is not configured.");
-    const saved = await admin.from("ai_tutor_messages").insert({ conversation_id: input.conversationId, sender_type: "ai", content: clean(generated.text, 12000), metadata_json: { policyVersion: AI_TUTOR_POLICY_VERSION, provider: "gemini" }, model_version: generated.model });
+    const saved = await admin.from("ai_tutor_messages").insert({ conversation_id: input.conversationId, sender_type: "ai", content: clean(generated.text, 12000), metadata_json: { policyVersion: AI_TUTOR_POLICY_VERSION, provider: activeTutorProvider() }, model_version: generated.model });
     if (saved.error) return resultFailure<never>("failed", "The AI reply was generated but could not be saved. Please retry.");
     await admin.from("ai_tutor_conversations").update({ updated_at: new Date().toISOString() }).eq("id", input.conversationId).eq("learner_id", identity.id);
     return { ok: true, data: { content: clean(generated.text, 12000), modelVersion: generated.model, generated: true as const } };
